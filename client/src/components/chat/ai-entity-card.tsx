@@ -18,6 +18,11 @@ function formatCurrency(amount: number | string, currency = 'USD'): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(num);
 }
 
+const MONTH_NAMES = [
+  '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+
 function detectEntityType(toolName: string, item: any): string {
   if (toolName.includes('activity_log')) return 'activity_log';
   if (toolName.includes('email_log')) return 'email_log';
@@ -32,6 +37,9 @@ function detectEntityType(toolName: string, item: any): string {
   if (toolName.includes('jofotara_submissions')) return 'jofotara_submission';
   if (toolName.includes('validate_for_jofotara')) return 'jofotara_validation';
   if (toolName.includes('submit_to_jofotara') || toolName.includes('submit_credit_note')) return 'jofotara_submission';
+  if (toolName.includes('payroll_summary')) return 'payroll_summary';
+  if (toolName.includes('employee')) return 'employee';
+  if (toolName.includes('payroll')) return 'payroll_run';
   if (toolName.includes('invoice') && !toolName.includes('recurring')) return 'invoice';
   if (toolName.includes('quote')) return 'quote';
   if (toolName.includes('client')) return 'client';
@@ -47,6 +55,8 @@ function detectEntityType(toolName: string, item: any): string {
   if (item.bankName !== undefined || item.currentBalance !== undefined) return 'bank_account';
   if (item.paymentDate && item.invoiceId) return 'payment';
   if (item.bankAccountId && item.category) return 'transaction';
+  if (item.baseSalary !== undefined && item.hireDate) return 'employee';
+  if (item.standardWorkingDays && item.totalGross !== undefined) return 'payroll_run';
   if (item.name && !item.invoiceNumber) return 'client';
   return 'unknown';
 }
@@ -306,6 +316,43 @@ export const AiEntityCard = memo(function AiEntityCard({ data, toolName, onActio
     return <JofotaraSubmissionCard item={data as any} />;
   }
 
+  // Payroll Summary (yearly overview)
+  if (!Array.isArray(data) && toolName.includes('payroll_summary')) {
+    const d = data as any;
+    return (
+      <div className="rounded-xl border bg-background p-3.5 space-y-2.5">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-medium">{t('payrollSummary')}</p>
+          <span className="text-[10px] text-muted-foreground/60">{d.year}</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Stat label={t('totalGross')} value={formatCurrency(d.totals?.totalGross ?? 0, 'JOD')} />
+          <Stat label={t('totalNetSalary')} value={formatCurrency(d.totals?.totalNet ?? 0, 'JOD')} />
+          <Stat label={t('sskEmployer')} value={formatCurrency(d.totals?.totalSskEmployer ?? 0, 'JOD')} />
+          <Stat
+            label={t('companyCost')}
+            value={formatCurrency(d.totals?.totalCompanyCost ?? 0, 'JOD')}
+            className="text-primary"
+          />
+        </div>
+        {d.months?.length > 0 && (
+          <div className="space-y-0.5">
+            <p className="text-[10px] text-muted-foreground/60">{t('monthlyBreakdown')}</p>
+            {d.months.map((m: any) => (
+              <div key={m.month} className="flex justify-between text-[10px]">
+                <span className="text-muted-foreground flex items-center gap-1">
+                  {MONTH_NAMES[m.month]}
+                  <StatusBadge status={m.status} />
+                </span>
+                <span>{formatCurrency(m.totalNet, 'JOD')}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   // List of entities
   if (Array.isArray(data)) {
     if (data.length === 0) return <EmptyCard text={t('noResultsFound')} />;
@@ -389,6 +436,37 @@ function getQuickActions(
     actions.push({ label: t('newInvoice'), prompt: `Create invoice for ${item.name}` });
   }
 
+  if (type === 'employee') {
+    actions.push({
+      label: t('payrollHistory'),
+      prompt: `Show payroll history for ${item.name}`,
+    });
+    actions.push({
+      label: t('updateSalary'),
+      prompt: `Update salary for employee ${item.name}`,
+    });
+  }
+
+  if (type === 'payroll_run') {
+    const monthLabel = MONTH_NAMES[item.month] || item.month;
+    if (item.status === 'draft') {
+      actions.push({
+        label: t('finalize'),
+        prompt: `Finalize ${monthLabel} ${item.year} payroll`,
+      });
+    }
+    if (item.status === 'finalized') {
+      actions.push({
+        label: t('markAllPaid'),
+        prompt: `Mark all entries in ${monthLabel} ${item.year} payroll as paid`,
+      });
+    }
+    actions.push({
+      label: t('viewDetails'),
+      prompt: `Show me ${monthLabel} ${item.year} payroll details`,
+    });
+  }
+
   return actions;
 }
 
@@ -419,6 +497,8 @@ function SingleEntityCard({
       case 'recurring': return '/recurring';
       case 'payment': return '/payments';
       case 'transaction': return '/transactions';
+      case 'employee': return item.id ? `/payroll/employees/${item.id}` : null;
+      case 'payroll_run': return item.id ? `/payroll/${item.id}` : null;
       default: return null;
     }
   };
@@ -492,8 +572,13 @@ function SingleEntityCard({
   }
 
   // Generic entity
-  const amount = item.total ?? item.amount ?? item.currentBalance;
+  const amountByType: Record<string, any> = {
+    employee: item.baseSalary,
+    payroll_run: item.totalCompanyCost ?? item.totalNet,
+  };
+  const amount = amountByType[type] ?? item.total ?? item.amount ?? item.currentBalance;
   const hasAmount = amount != null && amount !== '' && !isNaN(parseFloat(String(amount)));
+  const currencyByType = type === 'employee' || type === 'payroll_run' ? 'JOD' : item.currency;
 
   const titleMap: Record<string, string> = {
     invoice: item.invoiceNumber || t('entityWithId', { entity: t('invoice'), id: item.id }),
@@ -503,6 +588,10 @@ function SingleEntityCard({
     bank_account: item.name || t('entityWithId', { entity: t('account'), id: item.id }),
     transaction: item.description || t('entityWithId', { entity: t('transaction'), id: item.id }),
     recurring: `${t('recurring')} ${item.frequency || ''} #${item.id}`,
+    employee: item.name || t('entityWithId', { entity: t('employee'), id: item.id }),
+    payroll_run: item.month
+      ? `${MONTH_NAMES[item.month]} ${item.year} ${t('payroll')}`
+      : t('entityWithId', { entity: t('payroll'), id: item.id }),
     unknown: `#${item.id}`,
   };
 
@@ -514,6 +603,11 @@ function SingleEntityCard({
     bank_account: item.bankName || null,
     transaction: item.bankAccount?.name || item.category || null,
     recurring: [item.frequency, item.client?.name || t('entityWithId', { entity: t('client'), id: item.clientId })].filter(Boolean).join(' - '),
+    employee: [item.role, item.baseSalary ? `${formatCurrency(item.baseSalary, 'JOD')}` : null].filter(Boolean).join(' · ') || null,
+    payroll_run: [
+      item.totalNet ? `${t('net')}: ${formatCurrency(item.totalNet, 'JOD')}` : null,
+      item.entries?.length ? `${item.entries.length} ${t('employees')}` : null,
+    ].filter(Boolean).join(' · ') || null,
     unknown: null,
   };
 
@@ -549,7 +643,7 @@ function SingleEntityCard({
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {hasAmount && (
-            <span className="text-xs font-semibold">{formatCurrency(amount, item.currency)}</span>
+            <span className="text-xs font-semibold">{formatCurrency(amount, currencyByType)}</span>
           )}
           {link && <ExternalLink className="h-3 w-3 text-muted-foreground/40" />}
         </div>

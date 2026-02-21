@@ -14,6 +14,7 @@ import {
   EMAIL_TEMPLATE_TYPES,
   PAYROLL_RUN_STATUSES,
   PAYROLL_PAYMENT_STATUSES,
+  PARTNER_EXPENSE_PAYMENT_METHODS,
 } from './constants';
 
 // Helper: transform empty strings to null for optional fields
@@ -333,4 +334,69 @@ export const bankSyncSchema = z.object({
   bankAccountId: z.number().int().positive(),
   fromDate: z.string().min(1, 'Start date is required'),
   toDate: z.string().min(1, 'End date is required'),
+});
+
+// ---- Partner Expense Category ----
+export const createPartnerExpenseCategorySchema = z.object({
+  name: z.string().min(1, 'Name is required').max(255),
+  nameEn: optionalString(255),
+  defaultSplitPercent: z.number().min(0).max(100),
+  isActive: z.boolean().default(true),
+  sortOrder: z.number().int().min(0).default(0),
+});
+
+export const updatePartnerExpenseCategorySchema =
+  createPartnerExpenseCategorySchema.partial();
+
+// ---- Partner Expense ----
+export const createPartnerExpenseSchema = z.object({
+  categoryId: z.number().int().positive().nullable().optional(),
+  date: z.string().min(1, 'Date is required'),
+  description: z.string().min(1, 'Description is required').max(500),
+  totalAmount: z.number().min(0, 'Amount must be non-negative'),
+  splitPercent: z.number().min(0).max(100),
+  partnerShare: z.number().min(0, 'Partner share must be non-negative'),
+  notes: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
+});
+
+export const updatePartnerExpenseSchema =
+  createPartnerExpenseSchema.partial();
+
+// ---- Partner Payment ----
+export const createPartnerPaymentSchema = z.object({
+  date: z.string().min(1, 'Date is required'),
+  amount: z.number().positive('Amount must be positive'),
+  description: optionalString(500),
+  paymentMethod: z.enum(PARTNER_EXPENSE_PAYMENT_METHODS)
+    .nullable().optional(),
+  reference: optionalString(255),
+  notes: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
+});
+
+export const updatePartnerPaymentSchema =
+  createPartnerPaymentSchema.partial();
+
+// ---- Partner Employee ----
+export const createPartnerEmployeeSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(255),
+  sskMonthlyAmount: z.number().min(0, 'Amount must be non-negative'),
+  startDate: z.string().min(1, 'Start date is required'),
+  endDate: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
+  isActive: z.boolean().default(true),
+  notes: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
+});
+
+export const updatePartnerEmployeeSchema =
+  createPartnerEmployeeSchema.partial();
+
+// ---- Partner SSK Generation ----
+export const generatePartnerSskSchema = z.object({
+  year: z.number().int().min(2020).max(2100),
+  month: z.number().int().min(1).max(12),
+});
+
+export const updatePartnerSskSchema = z.object({
+  isPaid: z.boolean().optional(),
+  notes: z.string().nullable().optional(),
+  totalAmount: z.number().positive().optional(),
 });

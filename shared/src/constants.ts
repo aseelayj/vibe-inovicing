@@ -1,3 +1,21 @@
+// ---- Partner Expenses ----
+export const PARTNER_EXPENSE_PAYMENT_METHODS = [
+  'cash', 'bank_transfer', 'check', 'other',
+] as const;
+export type PartnerExpensePaymentMethod =
+  typeof PARTNER_EXPENSE_PAYMENT_METHODS[number];
+
+export const DEFAULT_PARTNER_CATEGORIES = [
+  { name: 'إيجار', nameEn: 'Rent', defaultSplitPercent: 50 },
+  { name: 'كهرباء', nameEn: 'Electricity', defaultSplitPercent: 15 },
+  { name: 'مياه', nameEn: 'Water', defaultSplitPercent: 15 },
+  { name: 'إنترنت', nameEn: 'Internet', defaultSplitPercent: 50 },
+  { name: 'لوازم مكتبية', nameEn: 'Office Supplies', defaultSplitPercent: 75 },
+  { name: 'تنظيف', nameEn: 'Cleaning', defaultSplitPercent: 50 },
+  { name: 'صيانة', nameEn: 'Maintenance', defaultSplitPercent: 50 },
+  { name: 'أخرى', nameEn: 'Other', defaultSplitPercent: 50 },
+] as const;
+
 export const EMAIL_PROVIDERS = ['resend', 'smtp'] as const;
 export type EmailProvider = typeof EMAIL_PROVIDERS[number];
 
@@ -19,6 +37,7 @@ export type PayrollPaymentStatus = typeof PAYROLL_PAYMENT_STATUSES[number];
 
 export const SSK_EMPLOYEE_RATE = 7.5;
 export const SSK_EMPLOYER_RATE = 14.25;
+export const SSK_SALARY_CAP = 3000; // Jordanian SSK max insurable salary (JOD/month)
 export const STANDARD_WORKING_DAYS = 26;
 export const WEEKDAY_OT_MULTIPLIER = 1.25;
 export const WEEKEND_OT_MULTIPLIER = 1.5;

@@ -149,5 +149,20 @@
   "emailHistory": "سجل البريد الإلكتروني",
   "opened": "تم الفتح",
   "clicked": "تم النقر",
-  "noOpens": "لم يتم تسجيل أي فتح"
+  "noOpens": "لم يتم تسجيل أي فتح",
+  "employee": "موظف",
+  "employees": "الموظفون",
+  "payroll": "الرواتب",
+  "payrollSummary": "ملخص الرواتب",
+  "totalGross": "إجمالي الراتب",
+  "totalNetSalary": "إجمالي الصافي",
+  "sskEmployer": "ضمان صاحب العمل",
+  "companyCost": "تكلفة الشركة",
+  "monthlyBreakdown": "التفصيل الشهري",
+  "net": "صافي",
+  "payrollHistory": "سجل الرواتب",
+  "updateSalary": "تحديث الراتب",
+  "finalize": "اعتماد",
+  "markAllPaid": "تحديد الكل كمدفوع",
+  "viewDetails": "عرض التفاصيل"
 }

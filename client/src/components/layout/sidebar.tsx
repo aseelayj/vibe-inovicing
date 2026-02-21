@@ -17,6 +17,7 @@ import {
   LogOut,
   Zap,
   Wallet,
+  Handshake,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -43,6 +44,7 @@ const iconMap: Record<string, LucideIcon> = {
   Landmark,
   ArrowLeftRight,
   Wallet,
+  Handshake,
   Settings,
 };
 

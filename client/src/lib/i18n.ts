@@ -18,6 +18,7 @@ import taxReportsEn from '@/locales/en/tax-reports.json';
 import teamEn from '@/locales/en/team.json';
 import teamActivityEn from '@/locales/en/team-activity.json';
 import payrollEn from '@/locales/en/payroll.json';
+import partnerExpensesEn from '@/locales/en/partner-expenses.json';
 
 import commonAr from '@/locales/ar/common.json';
 import navAr from '@/locales/ar/nav.json';
@@ -35,6 +36,7 @@ import taxReportsAr from '@/locales/ar/tax-reports.json';
 import teamAr from '@/locales/ar/team.json';
 import teamActivityAr from '@/locales/ar/team-activity.json';
 import payrollAr from '@/locales/ar/payroll.json';
+import partnerExpensesAr from '@/locales/ar/partner-expenses.json';
 
 i18n
   .use(LanguageDetector)
@@ -58,6 +60,7 @@ i18n
         team: teamEn,
         'team-activity': teamActivityEn,
         payroll: payrollEn,
+        'partner-expenses': partnerExpensesEn,
       },
       ar: {
         common: commonAr,
@@ -76,6 +79,7 @@ i18n
         team: teamAr,
         'team-activity': teamActivityAr,
         payroll: payrollAr,
+        'partner-expenses': partnerExpensesAr,
       },
     },
     fallbackLng: 'en',

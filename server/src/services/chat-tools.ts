@@ -1,5 +1,5 @@
 import type { FunctionDeclaration, Type } from '@google/genai';
-import { eq, ne, desc, and, or, ilike, sql, count, sum } from 'drizzle-orm';
+import { eq, ne, desc, asc, and, or, ilike, sql, count, sum, gte, lte, isNull } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
   clients,
@@ -20,6 +20,11 @@ import {
   employees,
   payrollRuns,
   payrollEntries,
+  partnerExpenseCategories,
+  partnerExpenses,
+  partnerPayments,
+  partnerEmployees,
+  partnerSskEntries,
 } from '../db/schema.js';
 import { generateInvoicePdf } from './pdf.service.js';
 import { sendInvoiceEmail, sendPaymentReminder } from './email.service.js';
@@ -88,6 +93,12 @@ export const READ_ONLY_TOOLS = new Set([
   'list_payroll_runs',
   'get_payroll_run',
   'get_payroll_summary',
+  'list_partner_expenses',
+  'list_partner_payments',
+  'get_partner_balance',
+  'list_partner_ssk_entries',
+  'list_partner_categories',
+  'list_partner_employees',
 ]);
 
 // ---- Gemini function declarations ----
@@ -1284,6 +1295,126 @@ export const chatToolDeclarations: FunctionDeclaration[] = [
         bankAccountId: { type: 'INTEGER' as Type, description: 'Optional bank account ID to create expense transactions' },
       },
       required: ['id'],
+    },
+  },
+  {
+    name: 'add_employee_to_run',
+    description: 'Add a missing employee to an existing draft payroll run.',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        runId: { type: 'INTEGER' as Type, description: 'Payroll run ID' },
+        employeeId: { type: 'INTEGER' as Type, description: 'Employee ID to add' },
+      },
+      required: ['runId', 'employeeId'],
+    },
+  },
+  {
+    name: 'remove_entry_from_run',
+    description: 'Remove an employee entry from a draft payroll run.',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        runId: { type: 'INTEGER' as Type, description: 'Payroll run ID' },
+        entryId: { type: 'INTEGER' as Type, description: 'Payroll entry ID to remove' },
+      },
+      required: ['runId', 'entryId'],
+    },
+  },
+  // -- Partner Expenses --
+  {
+    name: 'list_partner_categories',
+    description: 'List partner expense categories',
+    parameters: { type: 'OBJECT' as Type, properties: {} },
+  },
+  {
+    name: 'list_partner_expenses',
+    description: 'List partner shared expenses with optional filters',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        year: { type: 'INTEGER' as Type, description: 'Filter by year' },
+        categoryId: { type: 'INTEGER' as Type, description: 'Filter by category ID' },
+        search: { type: 'STRING' as Type, description: 'Search description' },
+      },
+    },
+  },
+  {
+    name: 'list_partner_payments',
+    description: 'List payments received from partner (Qais)',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        year: { type: 'INTEGER' as Type, description: 'Filter by year' },
+      },
+    },
+  },
+  {
+    name: 'get_partner_balance',
+    description: 'Get partner expense balance summary: total expenses + SSK - payments. Positive = partner owes money.',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        year: { type: 'INTEGER' as Type, description: 'Filter by year (optional)' },
+      },
+    },
+  },
+  {
+    name: 'list_partner_ssk_entries',
+    description: 'List partner SSK contribution entries',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        year: { type: 'INTEGER' as Type, description: 'Filter by year' },
+      },
+    },
+  },
+  {
+    name: 'list_partner_employees',
+    description: 'List partner employees (for SSK tracking)',
+    parameters: { type: 'OBJECT' as Type, properties: {} },
+  },
+  {
+    name: 'create_partner_expense',
+    description: 'Record a shared expense with the partner. Provide totalAmount and splitPercent OR just partnerShare directly.',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        categoryId: { type: 'INTEGER' as Type, description: 'Category ID' },
+        date: { type: 'STRING' as Type, description: 'Expense date YYYY-MM-DD' },
+        description: { type: 'STRING' as Type, description: 'Description' },
+        totalAmount: { type: 'NUMBER' as Type, description: 'Full amount paid' },
+        splitPercent: { type: 'NUMBER' as Type, description: 'Partner share percentage' },
+        partnerShare: { type: 'NUMBER' as Type, description: 'Calculated partner share amount' },
+        notes: { type: 'STRING' as Type, description: 'Optional notes' },
+      },
+      required: ['date', 'description', 'totalAmount', 'splitPercent', 'partnerShare'],
+    },
+  },
+  {
+    name: 'create_partner_payment',
+    description: 'Record a payment received from the partner',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        date: { type: 'STRING' as Type, description: 'Payment date YYYY-MM-DD' },
+        amount: { type: 'NUMBER' as Type, description: 'Payment amount' },
+        description: { type: 'STRING' as Type, description: 'Description' },
+        paymentMethod: { type: 'STRING' as Type, description: 'cash, bank_transfer, check, other' },
+      },
+      required: ['date', 'amount'],
+    },
+  },
+  {
+    name: 'generate_partner_ssk',
+    description: 'Generate partner SSK entry for a month from active partner employees',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        year: { type: 'INTEGER' as Type, description: 'Year' },
+        month: { type: 'INTEGER' as Type, description: 'Month (1-12)' },
+      },
+      required: ['year', 'month'],
     },
   },
 ];
@@ -3357,9 +3488,13 @@ export const toolExecutors: Record<
         throw new Error(`Payroll run for ${year}-${String(month).padStart(2, '0')} already exists`);
       }
 
-      const { isNull: isNullFn } = await import('drizzle-orm');
+      const { isNull: isNullFn, lte: lteFn } = await import('drizzle-orm');
+      const lastDayOfMonth = new Date(year, month, 0).toISOString().split('T')[0];
       const activeEmps = await tx.select().from(employees)
-        .where(isNullFn(employees.endDate));
+        .where(and(
+          isNullFn(employees.endDate),
+          lteFn(employees.hireDate, lastDayOfMonth),
+        ));
 
       // If duplicating, fetch source entries
       let sourceEntries: typeof payrollEntries.$inferSelect[] = [];
@@ -3379,19 +3514,17 @@ export const toolExecutors: Record<
           const src = sourceMap.get(emp.id);
           const baseSalary = parseFloat(emp.baseSalary || '0');
           const transportAllowance = parseFloat(emp.transportAllowance || '0');
+          // Only copy recurring items from source; one-time items (bonus, advance, otherDed) reset to 0
           const wdOT = src ? parseFloat(src.weekdayOvertimeHours || '0') : 0;
           const weOT = src ? parseFloat(src.weekendOvertimeHours || '0') : 0;
-          const bonus = src ? parseFloat(src.bonus || '0') : 0;
           const salDiff = src ? parseFloat(src.salaryDifference || '0') : 0;
-          const advance = src ? parseFloat(src.salaryAdvance || '0') : 0;
-          const otherDed = src ? parseFloat(src.otherDeductions || '0') : 0;
           const workDays = src ? src.workingDays : stdDays;
 
           const calc = calculatePayrollEntry({
             baseSalary, workingDays: workDays, standardWorkingDays: stdDays,
             weekdayOvertimeHours: wdOT, weekendOvertimeHours: weOT,
-            transportAllowance, bonus, salaryDifference: salDiff,
-            salaryAdvance: advance, otherDeductions: otherDed,
+            transportAllowance, bonus: 0, salaryDifference: salDiff,
+            salaryAdvance: 0, otherDeductions: 0,
             sskEnrolled: emp.sskEnrolled,
           });
           return {
@@ -3405,10 +3538,9 @@ export const toolExecutors: Record<
             weekendOvertimeHours: String(weOT),
             weekendOvertimeAmount: String(calc.weekendOvertimeAmount),
             transportAllowance: String(transportAllowance),
-            bonus: String(bonus), salaryDifference: String(salDiff),
+            bonus: '0', salaryDifference: String(salDiff),
             grossSalary: String(calc.grossSalary),
-            salaryAdvance: String(advance), otherDeductions: String(otherDed),
-            otherDeductionsNote: src?.otherDeductionsNote ?? null,
+            salaryAdvance: '0', otherDeductions: '0',
             sskEmployee: String(calc.sskEmployee),
             totalDeductions: String(calc.totalDeductions),
             netSalary: String(calc.netSalary), sskEmployer: String(calc.sskEmployer),
@@ -3417,8 +3549,8 @@ export const toolExecutors: Record<
         await tx.insert(payrollEntries).values(values);
       }
 
-      await recalculatePayrollRunTotals(db, run.id);
-      return await db.query.payrollRuns.findFirst({
+      await recalculatePayrollRunTotals(tx, run.id);
+      return await tx.query.payrollRuns.findFirst({
         where: eq(payrollRuns.id, run.id), with: { entries: true },
       });
     });
@@ -3493,6 +3625,13 @@ export const toolExecutors: Record<
 
   async update_payroll_payment(args, ctx) {
     const { runId, entryId, paymentStatus, paymentDate, bankTrxReference, bankAccountId } = args;
+    const run = await db.query.payrollRuns.findFirst({
+      where: eq(payrollRuns.id, runId),
+    });
+    if (!run) throw new Error(`Payroll run #${runId} not found`);
+    if (run.status === 'draft') {
+      throw new Error('Finalize the payroll run before updating payments');
+    }
     const entry = await db.query.payrollEntries.findFirst({
       where: and(eq(payrollEntries.id, entryId), eq(payrollEntries.payrollRunId, runId)),
     });
@@ -3518,6 +3657,24 @@ export const toolExecutors: Record<
             bankReference: bankTrxReference || null,
           });
           await recalculateBalance(tx, bankAccountId);
+        });
+      }
+    }
+
+    // Reversal: if changing FROM 'paid' to something else, reverse the bank transaction
+    if (entry.paymentStatus === 'paid' && paymentStatus !== 'paid' && entry.bankAccountId) {
+      const netSalary = parseFloat(entry.netSalary || '0');
+      if (netSalary > 0) {
+        await db.transaction(async (tx) => {
+          await tx.insert(transactions).values({
+            bankAccountId: entry.bankAccountId!,
+            type: 'income',
+            category: 'salary',
+            amount: String(netSalary),
+            date: new Date().toISOString().split('T')[0],
+            description: `Salary reversal: ${entry.employeeName}`,
+          });
+          await recalculateBalance(tx, entry.bankAccountId!);
         });
       }
     }
@@ -3636,6 +3793,100 @@ export const toolExecutors: Record<
     return { marked: pendingEntries.length, runId: args.id };
   },
 
+  async add_employee_to_run(args, ctx) {
+    const { runId, employeeId } = args;
+    const result = await db.transaction(async (tx) => {
+      const run = await tx.query.payrollRuns.findFirst({
+        where: eq(payrollRuns.id, runId),
+      });
+      if (!run) throw new Error(`Payroll run #${runId} not found`);
+      if (run.status !== 'draft') throw new Error('Can only add entries to draft runs');
+
+      const existing = await tx.select({ id: payrollEntries.id })
+        .from(payrollEntries)
+        .where(and(
+          eq(payrollEntries.payrollRunId, runId),
+          eq(payrollEntries.employeeId, employeeId),
+        ))
+        .limit(1);
+      if (existing.length > 0) throw new Error('Employee already in this payroll run');
+
+      const emp = await tx.query.employees.findFirst({
+        where: eq(employees.id, employeeId),
+      });
+      if (!emp) throw new Error(`Employee #${employeeId} not found`);
+
+      const baseSalary = parseFloat(emp.baseSalary || '0');
+      const transportAllowance = parseFloat(emp.transportAllowance || '0');
+      const stdDays = run.standardWorkingDays;
+      const calc = calculatePayrollEntry({
+        baseSalary, workingDays: stdDays, standardWorkingDays: stdDays,
+        weekdayOvertimeHours: 0, weekendOvertimeHours: 0,
+        transportAllowance, bonus: 0, salaryDifference: 0,
+        salaryAdvance: 0, otherDeductions: 0, sskEnrolled: emp.sskEnrolled,
+      });
+
+      const [entry] = await tx.insert(payrollEntries).values({
+        payrollRunId: runId, employeeId: emp.id,
+        employeeName: emp.name, employeeRole: emp.role,
+        baseSalary: String(baseSalary), sskEnrolled: emp.sskEnrolled,
+        workingDays: stdDays, standardWorkingDays: stdDays,
+        basicSalary: String(calc.basicSalary),
+        weekdayOvertimeHours: '0', weekdayOvertimeAmount: '0',
+        weekendOvertimeHours: '0', weekendOvertimeAmount: '0',
+        transportAllowance: String(transportAllowance),
+        bonus: '0', salaryDifference: '0',
+        grossSalary: String(calc.grossSalary),
+        salaryAdvance: '0', otherDeductions: '0',
+        sskEmployee: String(calc.sskEmployee),
+        totalDeductions: String(calc.totalDeductions),
+        netSalary: String(calc.netSalary), sskEmployer: String(calc.sskEmployer),
+      }).returning();
+
+      const remaining = await tx.select({ id: payrollEntries.id })
+        .from(payrollEntries)
+        .where(eq(payrollEntries.payrollRunId, runId));
+      await tx.update(payrollRuns).set({
+        entryCount: remaining.length, updatedAt: new Date(),
+      }).where(eq(payrollRuns.id, runId));
+
+      await recalculatePayrollRunTotals(tx, runId);
+      return entry;
+    });
+    return result;
+  },
+
+  async remove_entry_from_run(args, ctx) {
+    const { runId, entryId } = args;
+    await db.transaction(async (tx) => {
+      const run = await tx.query.payrollRuns.findFirst({
+        where: eq(payrollRuns.id, runId),
+      });
+      if (!run) throw new Error(`Payroll run #${runId} not found`);
+      if (run.status !== 'draft') throw new Error('Can only remove entries from draft runs');
+
+      const entry = await tx.query.payrollEntries.findFirst({
+        where: and(
+          eq(payrollEntries.id, entryId),
+          eq(payrollEntries.payrollRunId, runId),
+        ),
+      });
+      if (!entry) throw new Error(`Entry #${entryId} not found in run #${runId}`);
+
+      await tx.delete(payrollEntries).where(eq(payrollEntries.id, entryId));
+
+      const remaining = await tx.select({ id: payrollEntries.id })
+        .from(payrollEntries)
+        .where(eq(payrollEntries.payrollRunId, runId));
+      await tx.update(payrollRuns).set({
+        entryCount: remaining.length, updatedAt: new Date(),
+      }).where(eq(payrollRuns.id, runId));
+
+      await recalculatePayrollRunTotals(tx, runId);
+    });
+    return { deleted: true, entryId, runId };
+  },
+
   async get_revenue_chart() {
     const rows = await db.execute(sql`
       WITH months AS (
@@ -3660,6 +3911,168 @@ export const toolExecutors: Record<
       revenue: parseFloat(row.revenue ?? '0'),
       invoiceCount: parseInt(row.invoice_count ?? '0', 10),
     }));
+  },
+
+  // -- Partner Expenses --
+  async list_partner_categories() {
+    return await db.select().from(partnerExpenseCategories)
+      .orderBy(partnerExpenseCategories.sortOrder);
+  },
+
+  async list_partner_expenses(args) {
+    const conditions = [];
+    if (args.year) {
+      conditions.push(gte(partnerExpenses.date, `${args.year}-01-01`));
+      conditions.push(lte(partnerExpenses.date, `${args.year}-12-31`));
+    }
+    if (args.categoryId) {
+      conditions.push(eq(partnerExpenses.categoryId, args.categoryId));
+    }
+    if (args.search) {
+      conditions.push(ilike(partnerExpenses.description, `%${args.search}%`));
+    }
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    return await db.query.partnerExpenses.findMany({
+      where,
+      with: { category: true },
+      orderBy: desc(partnerExpenses.date),
+      limit: 50,
+    });
+  },
+
+  async list_partner_payments(args) {
+    const conditions = [];
+    if (args.year) {
+      conditions.push(gte(partnerPayments.date, `${args.year}-01-01`));
+      conditions.push(lte(partnerPayments.date, `${args.year}-12-31`));
+    }
+    const where = conditions.length > 0 ? and(...conditions) : undefined;
+    return await db.select().from(partnerPayments)
+      .where(where)
+      .orderBy(desc(partnerPayments.date))
+      .limit(50);
+  },
+
+  async get_partner_balance(args) {
+    const expConds = [];
+    const payConds = [];
+    const sskConds = [];
+    if (args.year) {
+      expConds.push(gte(partnerExpenses.date, `${args.year}-01-01`));
+      expConds.push(lte(partnerExpenses.date, `${args.year}-12-31`));
+      payConds.push(gte(partnerPayments.date, `${args.year}-01-01`));
+      payConds.push(lte(partnerPayments.date, `${args.year}-12-31`));
+      sskConds.push(eq(partnerSskEntries.year, args.year));
+    }
+    const [exp] = await db.select({
+      total: sql<string>`coalesce(sum(${partnerExpenses.partnerShare}), 0)`,
+    }).from(partnerExpenses).where(expConds.length ? and(...expConds) : undefined);
+    const [pay] = await db.select({
+      total: sql<string>`coalesce(sum(${partnerPayments.amount}), 0)`,
+    }).from(partnerPayments).where(payConds.length ? and(...payConds) : undefined);
+    const [ssk] = await db.select({
+      total: sql<string>`coalesce(sum(${partnerSskEntries.totalAmount}), 0)`,
+    }).from(partnerSskEntries).where(sskConds.length ? sskConds[0] : undefined);
+
+    const totalExp = parseFloat(exp.total);
+    const totalSsk = parseFloat(ssk.total);
+    const totalPay = parseFloat(pay.total);
+    return {
+      totalExpenses: totalExp,
+      totalSsk: totalSsk,
+      totalPayments: totalPay,
+      balance: totalExp + totalSsk - totalPay,
+      summary: totalExp + totalSsk - totalPay > 0
+        ? `Partner owes ${(totalExp + totalSsk - totalPay).toFixed(2)} JOD`
+        : totalExp + totalSsk - totalPay < 0
+          ? `Partner overpaid by ${Math.abs(totalExp + totalSsk - totalPay).toFixed(2)} JOD`
+          : 'Settled',
+    };
+  },
+
+  async list_partner_ssk_entries(args) {
+    const where = args.year
+      ? eq(partnerSskEntries.year, args.year) : undefined;
+    return await db.select().from(partnerSskEntries)
+      .where(where)
+      .orderBy(desc(partnerSskEntries.year), desc(partnerSskEntries.month));
+  },
+
+  async list_partner_employees() {
+    return await db.select().from(partnerEmployees)
+      .orderBy(partnerEmployees.name);
+  },
+
+  async create_partner_expense(args, ctx) {
+    const share = Math.round(args.partnerShare * 100) / 100;
+    const [expense] = await db.insert(partnerExpenses).values({
+      categoryId: args.categoryId ?? null,
+      date: args.date,
+      description: args.description,
+      totalAmount: String(args.totalAmount),
+      splitPercent: String(args.splitPercent),
+      partnerShare: String(share),
+      notes: args.notes ?? null,
+    }).returning();
+    await db.insert(activityLog).values({
+      entityType: 'partner_expense', entityId: expense.id,
+      action: 'created',
+      description: `Partner expense "${args.description}" (${share} JOD) via AI`,
+      userId: ctx?.userId,
+    });
+    return expense;
+  },
+
+  async create_partner_payment(args, ctx) {
+    const [payment] = await db.insert(partnerPayments).values({
+      date: args.date,
+      amount: String(args.amount),
+      description: args.description ?? null,
+      paymentMethod: args.paymentMethod ?? null,
+    }).returning();
+    await db.insert(activityLog).values({
+      entityType: 'partner_payment', entityId: payment.id,
+      action: 'created',
+      description: `Partner payment of ${args.amount} JOD via AI`,
+      userId: ctx?.userId,
+    });
+    return payment;
+  },
+
+  async generate_partner_ssk(args, ctx) {
+    const { year, month } = args;
+    const existing = await db.select({ id: partnerSskEntries.id })
+      .from(partnerSskEntries)
+      .where(and(eq(partnerSskEntries.year, year), eq(partnerSskEntries.month, month)))
+      .limit(1);
+    if (existing.length > 0) {
+      throw new Error(`SSK for ${year}-${String(month).padStart(2, '0')} already exists`);
+    }
+    const lastDay = new Date(year, month, 0).toISOString().split('T')[0];
+    const firstDay = new Date(year, month - 1, 1).toISOString().split('T')[0];
+    const activeEmps = await db.select().from(partnerEmployees).where(
+      and(
+        lte(partnerEmployees.startDate, lastDay),
+        or(isNull(partnerEmployees.endDate), gte(partnerEmployees.endDate, firstDay)),
+        eq(partnerEmployees.isActive, true),
+      ),
+    );
+    if (activeEmps.length === 0) throw new Error('No active partner employees');
+    const breakdown = activeEmps.map((e) => ({
+      employeeId: e.id, name: e.name,
+      amount: parseFloat(e.sskMonthlyAmount || '0'),
+    }));
+    const total = breakdown.reduce((s, b) => s + b.amount, 0);
+    const [entry] = await db.insert(partnerSskEntries).values({
+      year, month, totalAmount: String(total), breakdown,
+    }).returning();
+    await db.insert(activityLog).values({
+      entityType: 'partner_ssk_entry', entityId: entry.id,
+      action: 'generated',
+      description: `Partner SSK ${year}-${String(month).padStart(2, '0')} (${total} JOD) via AI`,
+      userId: ctx?.userId,
+    });
+    return entry;
   },
 };
 
@@ -3843,6 +4256,12 @@ export async function generateActionSummary(
       `Reopen payroll run #${args.id} back to draft`,
     mark_all_paid: async () =>
       `Mark all pending entries in run #${args.id} as paid`,
+    add_employee_to_run: async () => {
+      const emp = await db.query.employees.findFirst({ where: eq(employees.id, Number(args.employeeId)) });
+      return `Add ${emp?.name || `employee #${args.employeeId}`} to payroll run #${args.runId}`;
+    },
+    remove_entry_from_run: async () =>
+      `Remove entry #${args.entryId} from payroll run #${args.runId}`,
     submit_to_jofotara: async () => {
       const num = await resolveInvoiceNumber(args.invoiceId);
       return `Submit ${num} to JoFotara (${args.paymentMethod})`;
@@ -3852,6 +4271,12 @@ export async function generateActionSummary(
       const origNum = await resolveInvoiceNumber(args.originalInvoiceId);
       return `Submit credit note ${num} for ${origNum} to JoFotara`;
     },
+    create_partner_expense: async () =>
+      `Add partner expense "${args.description}" (${args.partnerShare} JOD)`,
+    create_partner_payment: async () =>
+      `Record partner payment of ${args.amount} JOD`,
+    generate_partner_ssk: async () =>
+      `Generate partner SSK for ${args.year}-${String(args.month).padStart(2, '0')}`,
   };
   try {
     return await (summaryMap[toolName]?.() ?? Promise.resolve(`Execute ${toolName}`));

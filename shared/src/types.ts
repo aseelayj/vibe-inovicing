@@ -14,6 +14,7 @@ import type {
   EmailTemplateType,
   PayrollRunStatus,
   PayrollPaymentStatus,
+  PartnerExpensePaymentMethod,
 } from './constants';
 
 // ---- User ----
@@ -651,4 +652,82 @@ export interface DashboardTaxSummary {
   ytdIncomeTaxEstimate: number;
   ytdRevenue: number;
   ytdExpenses: number;
+}
+
+// ---- Partner Expenses ----
+export interface PartnerExpenseCategory {
+  id: number;
+  name: string;
+  nameEn: string | null;
+  defaultSplitPercent: number;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PartnerExpense {
+  id: number;
+  categoryId: number | null;
+  category?: PartnerExpenseCategory | null;
+  date: string;
+  description: string;
+  totalAmount: number;
+  splitPercent: number;
+  partnerShare: number;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PartnerPayment {
+  id: number;
+  date: string;
+  amount: number;
+  description: string | null;
+  paymentMethod: PartnerExpensePaymentMethod | null;
+  reference: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PartnerEmployee {
+  id: number;
+  name: string;
+  sskMonthlyAmount: number;
+  startDate: string;
+  endDate: string | null;
+  isActive: boolean;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PartnerSskBreakdownItem {
+  employeeId: number;
+  name: string;
+  amount: number;
+}
+
+export interface PartnerSskEntry {
+  id: number;
+  year: number;
+  month: number;
+  totalAmount: number;
+  breakdown: PartnerSskBreakdownItem[];
+  isPaid: boolean;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PartnerBalanceSummary {
+  totalExpenses: number;
+  totalSsk: number;
+  totalPayments: number;
+  balance: number;
+  expenseCount: number;
+  sskCount: number;
+  paymentCount: number;
 }

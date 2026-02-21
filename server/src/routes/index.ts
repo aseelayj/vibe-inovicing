@@ -21,6 +21,7 @@ import trackingRoutes from './tracking.routes.js';
 import emailLogRoutes from './email-log.routes.js';
 import employeeRoutes from './employee.routes.js';
 import payrollRoutes from './payroll.routes.js';
+import partnerExpenseRoutes from './partner-expenses.routes.js';
 
 export function mountRoutes(app: Express) {
   app.use('/api/auth', authRoutes);
@@ -44,4 +45,5 @@ export function mountRoutes(app: Express) {
   app.use('/api/email-log', authMiddleware, emailLogRoutes);
   app.use('/api/employees', authMiddleware, employeeRoutes);
   app.use('/api/payroll', authMiddleware, payrollRoutes);
+  app.use('/api/partner-expenses', authMiddleware, partnerExpenseRoutes);
 }

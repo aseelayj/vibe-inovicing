@@ -5,6 +5,7 @@ import type * as schema from '../db/schema.js';
 import {
   SSK_EMPLOYEE_RATE,
   SSK_EMPLOYER_RATE,
+  SSK_SALARY_CAP,
   WEEKDAY_OT_MULTIPLIER,
   WEEKEND_OT_MULTIPLIER,
 } from '@vibe/shared';
@@ -63,8 +64,10 @@ export function calculatePayrollEntry(p: CalcParams): CalcResult {
     + p.salaryDifference,
   );
 
+  const sskBase = Math.min(grossSalary, SSK_SALARY_CAP);
+
   const sskEmployee = p.sskEnrolled
-    ? round2(grossSalary * SSK_EMPLOYEE_RATE / 100)
+    ? round2(sskBase * SSK_EMPLOYEE_RATE / 100)
     : 0;
 
   const totalDeductions = round2(
@@ -74,7 +77,7 @@ export function calculatePayrollEntry(p: CalcParams): CalcResult {
   const netSalary = round2(grossSalary - totalDeductions);
 
   const sskEmployer = p.sskEnrolled
-    ? round2(grossSalary * SSK_EMPLOYER_RATE / 100)
+    ? round2(sskBase * SSK_EMPLOYER_RATE / 100)
     : 0;
 
   return {

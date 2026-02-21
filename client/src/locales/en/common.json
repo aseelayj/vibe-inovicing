@@ -149,5 +149,20 @@
   "emailHistory": "Email History",
   "opened": "Opened",
   "clicked": "Clicked",
-  "noOpens": "No opens recorded"
+  "noOpens": "No opens recorded",
+  "employee": "Employee",
+  "employees": "Employees",
+  "payroll": "Payroll",
+  "payrollSummary": "Payroll Summary",
+  "totalGross": "Total Gross",
+  "totalNetSalary": "Total Net",
+  "sskEmployer": "SSK Employer",
+  "companyCost": "Company Cost",
+  "monthlyBreakdown": "Monthly Breakdown",
+  "net": "Net",
+  "payrollHistory": "Payroll History",
+  "updateSalary": "Update Salary",
+  "finalize": "Finalize",
+  "markAllPaid": "Mark All Paid",
+  "viewDetails": "View Details"
 }
