@@ -223,7 +223,7 @@ function QuoteEditForm({
                     <div className="col-span-5">{tc('description')}</div>
                     <div className="col-span-2">{tc('quantity')}</div>
                     <div className="col-span-2">{tc('unitPrice')}</div>
-                    <div className="col-span-2 text-right">{tc('amount')}</div>
+                    <div className="col-span-2 text-end">{tc('amount')}</div>
                     <div className="col-span-1" />
                   </div>
 

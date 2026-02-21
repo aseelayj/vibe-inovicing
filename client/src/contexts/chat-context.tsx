@@ -58,23 +58,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('dashboard-mode', dashboardMode);
   }, [dashboardMode]);
 
-  // Cmd+. → toggle chat sidebar (default mode only)
-  // Cmd+Shift+. → toggle dashboard mode (works in both modes)
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === '.' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        if (e.shiftKey) {
-          toggleDashboardMode();
-        } else if (dashboardMode === 'default') {
-          setIsOpen((prev) => !prev);
-        }
-      }
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [dashboardMode, toggleDashboardMode]);
-
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
 
   const toggleChat = useCallback(() => setIsOpen((prev) => !prev), []);
@@ -111,6 +94,23 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       return next;
     });
   }, []);
+
+  // Cmd+. → toggle chat sidebar (default mode only)
+  // Cmd+Shift+. → toggle dashboard mode (works in both modes)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === '.' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        if (e.shiftKey) {
+          toggleDashboardMode();
+        } else if (dashboardMode === 'default') {
+          setIsOpen((prev) => !prev);
+        }
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [dashboardMode, toggleDashboardMode]);
 
   return (
     <ChatContext.Provider

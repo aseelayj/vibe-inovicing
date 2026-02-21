@@ -63,7 +63,7 @@ export function InvoiceLineItems() {
             <div className="col-span-5">{t('description')}</div>
             <div className="col-span-2">{t('quantity')}</div>
             <div className="col-span-2">{t('unitPrice')}</div>
-            <div className="col-span-2 text-right">{t('amount')}</div>
+            <div className="col-span-2 text-end">{t('amount')}</div>
             <div className="col-span-1" />
           </div>
 

@@ -129,7 +129,7 @@ export function InvoicesPage() {
               <TableHead>{tc('status')}</TableHead>
               <TableHead className="hidden md:table-cell">{t('issueDate')}</TableHead>
               <TableHead className="hidden lg:table-cell">{t('dueDate')}</TableHead>
-              <TableHead className="text-right">{tc('total')}</TableHead>
+              <TableHead className="text-end">{tc('total')}</TableHead>
               <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
@@ -176,7 +176,7 @@ export function InvoicesPage() {
                         variant="outline"
                         className="border-transparent bg-green-100 text-green-700"
                       >
-                        <Globe className="mr-0.5 h-3 w-3" />
+                        <Globe className="me-0.5 h-3 w-3" />
                         {tc('eInvoice')}
                       </Badge>
                     )}
@@ -188,7 +188,7 @@ export function InvoicesPage() {
                 <TableCell className="hidden lg:table-cell">
                   {formatDate(invoice.dueDate)}
                 </TableCell>
-                <TableCell className="text-right font-medium">
+                <TableCell className="text-end font-medium">
                   {formatCurrency(invoice.total, invoice.currency)}
                 </TableCell>
                 <TableCell>
@@ -305,13 +305,13 @@ export function InvoicesPage() {
         </div>
 
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="text"
             placeholder={t('searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 sm:w-64"
+            className="w-full ps-9 sm:w-64"
           />
         </div>
       </div>

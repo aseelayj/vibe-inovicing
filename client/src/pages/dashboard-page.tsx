@@ -31,6 +31,7 @@ import {
   useRecentActivity,
 } from '@/hooks/use-dashboard';
 import { useTaxDeadlines, useGstSummary } from '@/hooks/use-reports';
+import { useSettings } from '@/hooks/use-settings';
 import { formatCurrency, formatDate, formatTimeAgo } from '@/lib/format';
 
 const statCards = [
@@ -73,6 +74,8 @@ export function DashboardPage() {
   const { data: activity, isLoading: activityLoading } = useRecentActivity();
   const { data: deadlines } = useTaxDeadlines();
   const { data: gstSummary } = useGstSummary();
+  const { data: settings } = useSettings();
+  const currency = settings?.defaultCurrency || 'JOD';
 
   if (statsLoading) {
     return <LoadingSpinner />;
@@ -95,7 +98,7 @@ export function DashboardPage() {
                       {t(card.label)}
                     </p>
                     <p className="mt-1 text-lg font-bold tracking-tight sm:text-2xl">
-                      {formatCurrency(value)}
+                      {formatCurrency(value, currency)}
                     </p>
                   </div>
                   <div className={`shrink-0 rounded-lg p-2 sm:p-3 ${card.color}`}>
@@ -159,7 +162,11 @@ export function DashboardPage() {
                       tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
                       tickLine={false}
                       axisLine={false}
-                      tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+                      tickFormatter={(v) =>
+                        v >= 1000
+                          ? `${formatCurrency(v / 1000, currency).replace(/\.00$/, '')}k`
+                          : formatCurrency(v, currency)
+                      }
                       width={45}
                     />
                     <Tooltip
@@ -304,7 +311,7 @@ export function DashboardPage() {
                 to={`/tax-reports?tab=sales-tax`}
                 className="text-xs text-muted-foreground hover:text-foreground"
               >
-                <FileSpreadsheet className="mr-1 inline h-3 w-3" />
+                <FileSpreadsheet className="me-1 inline h-3 w-3" />
                 {t('fullReport')}
               </Link>
             </CardHeader>

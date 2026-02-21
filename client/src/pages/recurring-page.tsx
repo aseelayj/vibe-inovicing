@@ -264,7 +264,7 @@ export function RecurringPage() {
                 <TableHead>{t('nextRun')}</TableHead>
                 <TableHead>{t('lastRun')}</TableHead>
                 <TableHead>{tc('status')}</TableHead>
-                <TableHead className="text-right">{tc('amount')}</TableHead>
+                <TableHead className="text-end">{tc('amount')}</TableHead>
                 <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
@@ -290,7 +290,7 @@ export function RecurringPage() {
                       {item.isActive ? t('active') : t('inactive')}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right font-medium">
+                  <TableCell className="text-end font-medium">
                     {formatCurrency(item.total ?? 0, item.currency)}
                   </TableCell>
                   <TableCell>
@@ -603,7 +603,7 @@ export function RecurringPage() {
                   <div className="col-span-5">{tc('description')}</div>
                   <div className="col-span-2">{tc('qty')}</div>
                   <div className="col-span-2">{tc('price')}</div>
-                  <div className="col-span-2 text-right">{tc('amount')}</div>
+                  <div className="col-span-2 text-end">{tc('amount')}</div>
                   <div className="col-span-1" />
                 </div>
                 {form.lineItems.map((item, index) => {

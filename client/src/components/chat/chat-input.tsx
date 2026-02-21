@@ -15,10 +15,11 @@ interface ChatInputProps {
   isStreaming: boolean;
   onStop?: () => void;
   disabled?: boolean;
+  variant?: 'sidebar' | 'fullscreen';
 }
 
 export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(
-  function ChatInput({ onSend, onUpload, isStreaming, onStop, disabled }, ref) {
+  function ChatInput({ onSend, onUpload, isStreaming, onStop, disabled, variant = 'sidebar' }, ref) {
     const { t } = useTranslation('chat');
     const [value, setValue] = useState('');
     const [isTranscribing, setIsTranscribing] = useState(false);
@@ -48,11 +49,13 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(
       }
     };
 
+    const maxHeight = variant === 'fullscreen' ? 320 : 160;
+
     const handleInput = () => {
       const el = textareaRef.current;
       if (!el) return;
       el.style.height = 'auto';
-      el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+      el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -121,8 +124,10 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(
 
     const canSend = value.trim().length > 0 && !isStreaming && !disabled;
 
+    const isFullscreen = variant === 'fullscreen';
+
     return (
-      <div className="px-3 pb-3 pt-1">
+      <div className={cn('px-3 pb-3 pt-1', isFullscreen && 'px-4 pb-4 pt-2')}>
         <div
           className={cn(
             'relative rounded-2xl border bg-muted/40 transition-colors',
@@ -158,7 +163,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(
               />
 
               {/* Bottom toolbar inside the container */}
-              <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between">
+              <div className="absolute bottom-1.5 start-1.5 end-1.5 flex items-center justify-between">
                 <div className="flex items-center gap-0.5">
                   <button
                     type="button"
@@ -223,6 +228,11 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(
             </>
           )}
         </div>
+        {isFullscreen && (
+          <p className="mt-1 text-center text-[10px] text-muted-foreground/40">
+            {t('shiftEnterHint')}
+          </p>
+        )}
       </div>
     );
   },

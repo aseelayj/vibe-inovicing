@@ -18,9 +18,12 @@ function AppLayoutInner() {
   if (dashboardMode === 'chat') {
     return (
       <TooltipProvider>
-        <div className="flex h-screen flex-col bg-background">
-          <ChatModeHeader />
-          <ChatPanel variant="fullscreen" />
+        <div className="flex h-screen bg-background">
+          <Sidebar mobileOpen={sidebarOpen} onClose={closeSidebar} />
+          <div className="flex flex-1 flex-col ltr:lg:pl-64 rtl:lg:pr-64">
+            <ChatModeHeader onToggleSidebar={toggleSidebar} />
+            <ChatPanel variant="fullscreen" />
+          </div>
         </div>
       </TooltipProvider>
     );

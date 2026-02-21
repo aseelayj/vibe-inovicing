@@ -35,5 +35,18 @@
   "quotesCategory": "عروض الأسعار",
   "clientsCategory": "العملاء",
   "reportsCategory": "التقارير",
-  "toggleSidebar": "تبديل الشريط الجانبي"
+  "toggleSidebar": "تبديل الشريط الجانبي",
+  "howCanIHelp": "كيف يمكنني مساعدتك؟",
+  "emptyStateDescription": "يمكنني مساعدتك في إدارة الفواتير وعروض الأسعار والعملاء والمزيد.",
+  "askAnything": "اسأل أي شيء...",
+  "chatMessage": "رسالة المحادثة",
+  "voiceInput": "إدخال صوتي",
+  "copyMessage": "نسخ الرسالة",
+  "copied": "تم النسخ",
+  "copy": "نسخ",
+  "cancelled": "تم الإلغاء",
+  "messageFailed": "فشل إرسال الرسالة",
+  "retry": "إعادة المحاولة",
+  "removeAttachment": "إزالة {{name}}",
+  "closeChat": "إغلاق المحادثة"
 }

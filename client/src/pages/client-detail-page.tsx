@@ -201,7 +201,7 @@ export function ClientDetailPage() {
                       <TableHead>{ti('invoice')}</TableHead>
                       <TableHead>{tc('status')}</TableHead>
                       <TableHead>{tc('date')}</TableHead>
-                      <TableHead className="text-right">{tc('total')}</TableHead>
+                      <TableHead className="text-end">{tc('total')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -239,7 +239,7 @@ export function ClientDetailPage() {
                           <TableCell>
                             {formatDate(inv.issueDate)}
                           </TableCell>
-                          <TableCell className="text-right font-medium">
+                          <TableCell className="text-end font-medium">
                             {formatCurrency(inv.total, inv.currency)}
                           </TableCell>
                         </TableRow>
@@ -258,7 +258,7 @@ export function ClientDetailPage() {
                       <TableHead>{tq('quote')}</TableHead>
                       <TableHead>{tc('status')}</TableHead>
                       <TableHead>{tc('date')}</TableHead>
-                      <TableHead className="text-right">{tc('total')}</TableHead>
+                      <TableHead className="text-end">{tc('total')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -296,7 +296,7 @@ export function ClientDetailPage() {
                           <TableCell>
                             {formatDate(q.issueDate)}
                           </TableCell>
-                          <TableCell className="text-right font-medium">
+                          <TableCell className="text-end font-medium">
                             {formatCurrency(q.total, q.currency)}
                           </TableCell>
                         </TableRow>

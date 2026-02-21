@@ -2,7 +2,30 @@ import { useCallback, useEffect, useMemo, useRef, useState, memo } from 'react';
 import type { ChatMessage as ChatMessageType } from '@vibe/shared';
 import { useTranslation } from 'react-i18next';
 import { ChatMessage } from './chat-message';
-import { ArrowDown, Sparkles } from 'lucide-react';
+import {
+  ArrowDown, Sparkles, FileText, Users, Receipt, BarChart3,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+const categoryIcons: Record<string, typeof FileText> = {
+  invoices: FileText,
+  quotes: Receipt,
+  clients: Users,
+  reports: BarChart3,
+};
+
+const categoryColors: Record<string, string> = {
+  invoices: 'border-s-blue-500/50',
+  quotes: 'border-s-amber-500/50',
+  clients: 'border-s-green-500/50',
+  reports: 'border-s-purple-500/50',
+};
+
+export interface SuggestionGroup {
+  category: string;
+  icon: string;
+  items: string[];
+}
 
 interface ChatMessageListProps {
   messages: ChatMessageType[];
@@ -11,6 +34,8 @@ interface ChatMessageListProps {
   isLoading?: boolean;
   executingMessageId?: number | null;
   suggestions?: string[];
+  suggestionGroups?: SuggestionGroup[];
+  variant?: 'sidebar' | 'fullscreen';
   onConfirm: (messageId: number, overrideArgs?: Record<string, any>) => void;
   onReject: (messageId: number) => void;
   onSuggestionClick?: (text: string) => void;
@@ -25,10 +50,13 @@ export const ChatMessageList = memo(function ChatMessageList({
   isLoading,
   executingMessageId,
   suggestions,
+  suggestionGroups,
+  variant = 'sidebar',
   onConfirm,
   onReject,
   onSuggestionClick,
 }: ChatMessageListProps) {
+  const isFullscreen = variant === 'fullscreen';
   const { t } = useTranslation('chat');
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -93,21 +121,61 @@ export const ChatMessageList = memo(function ChatMessageList({
       {/* Empty state */}
       {!isLoading && messages.length === 0 && !isStreaming && (
         <div className="flex h-full flex-col items-center justify-center px-8">
-          <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10">
-            <Sparkles className="h-5 w-5 text-primary" />
+          <div className={cn(
+            'mb-4 flex items-center justify-center rounded-2xl bg-primary/10',
+            isFullscreen ? 'h-14 w-14' : 'h-10 w-10',
+          )}>
+            <Sparkles className={cn('text-primary', isFullscreen ? 'h-7 w-7' : 'h-5 w-5')} />
           </div>
-          <p className="text-sm font-medium text-foreground">{t('howCanIHelp')}</p>
+          <p className={cn(
+            'font-medium text-foreground',
+            isFullscreen ? 'text-lg font-semibold' : 'text-sm',
+          )}>
+            {t('howCanIHelp')}
+          </p>
           <p className="mt-1.5 text-center text-xs leading-relaxed text-muted-foreground/70">
             {t('emptyStateDescription')}
           </p>
-          {suggestions && suggestions.length > 0 && (
+
+          {/* Fullscreen: grouped 2-col suggestion grid */}
+          {isFullscreen && suggestionGroups && suggestionGroups.length > 0 && (
+            <div className="mt-6 grid w-full max-w-xl grid-cols-1 gap-2 sm:grid-cols-2">
+              {suggestionGroups.map((group) => {
+                const Icon = categoryIcons[group.icon] || Sparkles;
+                const colorClass = categoryColors[group.icon] || 'border-s-primary/50';
+                return group.items.map((item) => (
+                  <button
+                    key={item}
+                    onClick={() => onSuggestionClick?.(item)}
+                    className={cn(
+                      'rounded-xl border border-border/60 border-s-2 bg-background',
+                      'px-3.5 py-2.5 text-start text-xs text-muted-foreground',
+                      'transition-all hover:border-primary/30 hover:text-foreground',
+                      colorClass,
+                    )}
+                  >
+                    <div className="mb-1 flex items-center gap-1.5">
+                      <Icon className="h-3 w-3 text-muted-foreground/50" />
+                      <span className="text-[10px] font-medium text-muted-foreground/50">
+                        {group.category}
+                      </span>
+                    </div>
+                    {item}
+                  </button>
+                ));
+              })}
+            </div>
+          )}
+
+          {/* Sidebar: simple suggestion list */}
+          {!isFullscreen && suggestions && suggestions.length > 0 && (
             <div className="mt-5 flex w-full max-w-[300px] flex-col gap-1.5">
               {suggestions.map((s) => (
                 <button
                   key={s}
                   onClick={() => onSuggestionClick?.(s)}
                   className="rounded-xl border border-border/60 bg-background px-3.5 py-2
-                    text-left text-xs text-muted-foreground transition-all
+                    text-start text-xs text-muted-foreground transition-all
                     hover:border-primary/30 hover:text-foreground"
                 >
                   {s}

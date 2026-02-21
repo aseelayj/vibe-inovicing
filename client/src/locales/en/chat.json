@@ -35,5 +35,18 @@
   "quotesCategory": "Quotes",
   "clientsCategory": "Clients",
   "reportsCategory": "Reports",
-  "toggleSidebar": "Toggle sidebar"
+  "toggleSidebar": "Toggle sidebar",
+  "howCanIHelp": "How can I help you?",
+  "emptyStateDescription": "I can help you manage invoices, quotes, clients, and more.",
+  "askAnything": "Ask anything...",
+  "chatMessage": "Chat message",
+  "voiceInput": "Voice input",
+  "copyMessage": "Copy message",
+  "copied": "Copied",
+  "copy": "Copy",
+  "cancelled": "Cancelled",
+  "messageFailed": "Message failed to send",
+  "retry": "Retry",
+  "removeAttachment": "Remove {{name}}",
+  "closeChat": "Close chat"
 }

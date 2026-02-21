@@ -180,7 +180,7 @@ export function FullscreenConversationList({
               />
             ) : (
               <button
-                className="flex flex-1 flex-col items-start text-left min-w-0"
+                className="flex flex-1 flex-col items-start text-start min-w-0"
                 onClick={() => onSelect(conv.id)}
                 onDoubleClick={(e) => onRename && startRename(conv, e)}
               >

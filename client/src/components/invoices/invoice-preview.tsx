@@ -53,7 +53,7 @@ export function InvoicePreview() {
               </p>
             )}
           </div>
-          <div className="text-right">
+          <div className="text-end">
             <h3 className="text-2xl font-bold text-primary">{t('invoice')}</h3>
             <p className="mt-1 text-sm text-muted-foreground">{t('draft')}</p>
           </div>
@@ -68,7 +68,7 @@ export function InvoicePreview() {
               {values.clientName || t('selectAClient')}
             </p>
           </div>
-          <div className="space-y-2 text-right">
+          <div className="space-y-2 text-end">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 {t('issueDate')}
@@ -91,16 +91,16 @@ export function InvoicePreview() {
         <table className="mb-8 w-full text-sm">
           <thead>
             <tr className="border-b">
-              <th className="pb-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <th className="pb-2 text-start text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 {tc('description')}
               </th>
-              <th className="pb-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <th className="pb-2 text-end text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 {tc('qty')}
               </th>
-              <th className="pb-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <th className="pb-2 text-end text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 {tc('price')}
               </th>
-              <th className="pb-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <th className="pb-2 text-end text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 {tc('amount')}
               </th>
             </tr>
@@ -132,13 +132,13 @@ export function InvoicePreview() {
                       <td className="py-2">
                         {item.description || tc('untitledItem')}
                       </td>
-                      <td className="py-2 text-right text-muted-foreground">
+                      <td className="py-2 text-end text-muted-foreground">
                         {qty}
                       </td>
-                      <td className="py-2 text-right text-muted-foreground">
+                      <td className="py-2 text-end text-muted-foreground">
                         {formatCurrency(price, currency)}
                       </td>
-                      <td className="py-2 text-right font-medium">
+                      <td className="py-2 text-end font-medium">
                         {formatCurrency(qty * price, currency)}
                       </td>
                     </tr>

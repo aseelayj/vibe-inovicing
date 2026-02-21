@@ -10,6 +10,16 @@ function getDateFnsLocale() {
   return i18n.language === 'ar' ? { locale: ar } : {};
 }
 
+/** Ensure timestamp strings without timezone are treated as UTC */
+function parseDate(date: string | Date): Date {
+  if (date instanceof Date) return date;
+  // If the string has no timezone indicator, append Z to treat as UTC
+  if (date && !date.endsWith('Z') && !date.includes('+') && !/\d{2}:\d{2}$/.test(date)) {
+    return new Date(date + 'Z');
+  }
+  return new Date(date);
+}
+
 export function formatCurrency(
   amount: number | string | null | undefined,
   currency = 'USD',
@@ -23,15 +33,15 @@ export function formatCurrency(
 }
 
 export function formatDate(date: string | Date): string {
-  return format(new Date(date), 'MMM d, yyyy', getDateFnsLocale());
+  return format(parseDate(date), 'MMM d, yyyy', getDateFnsLocale());
 }
 
 export function formatDateShort(date: string | Date): string {
-  return format(new Date(date), 'MM/dd/yyyy', getDateFnsLocale());
+  return format(parseDate(date), 'MM/dd/yyyy', getDateFnsLocale());
 }
 
 export function formatTimeAgo(date: string | Date): string {
-  return formatDistanceToNow(new Date(date), {
+  return formatDistanceToNow(parseDate(date), {
     addSuffix: true,
     ...getDateFnsLocale(),
   });

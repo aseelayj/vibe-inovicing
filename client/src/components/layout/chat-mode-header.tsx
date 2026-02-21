@@ -1,8 +1,12 @@
-import { Zap } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ModeToggle } from './mode-toggle';
 
-export function ChatModeHeader() {
+interface ChatModeHeaderProps {
+  onToggleSidebar?: () => void;
+}
+
+export function ChatModeHeader({ onToggleSidebar }: ChatModeHeaderProps) {
   const { t } = useTranslation('nav');
 
   return (
@@ -11,10 +15,15 @@ export function ChatModeHeader() {
         border-b bg-background/80 px-4 backdrop-blur-sm"
     >
       <div className="flex items-center gap-2.5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-          <Zap className="h-4 w-4 text-primary-foreground" />
-        </div>
-        <span className="text-lg font-bold tracking-tight">{t('appName')}</span>
+        <button
+          onClick={onToggleSidebar}
+          className="flex h-8 w-8 items-center justify-center rounded-lg
+            text-muted-foreground transition-colors hover:bg-muted
+            hover:text-foreground lg:hidden"
+          aria-label={t('toggleMenu')}
+        >
+          <Menu className="h-5 w-5" />
+        </button>
       </div>
 
       <ModeToggle />

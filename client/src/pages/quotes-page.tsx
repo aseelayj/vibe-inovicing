@@ -120,7 +120,7 @@ export function QuotesPage() {
               <TableHead>{tc('client')}</TableHead>
               <TableHead className="hidden md:table-cell">{t('issueDate')}</TableHead>
               <TableHead className="hidden lg:table-cell">{t('expiryDate')}</TableHead>
-              <TableHead className="text-right">{tc('amount')}</TableHead>
+              <TableHead className="text-end">{tc('amount')}</TableHead>
               <TableHead>{tc('status')}</TableHead>
               <TableHead className="w-12" />
             </TableRow>
@@ -143,7 +143,7 @@ export function QuotesPage() {
                 <TableCell className="hidden lg:table-cell">
                   {quote.expiryDate ? formatDate(quote.expiryDate) : '--'}
                 </TableCell>
-                <TableCell className="text-right font-medium">
+                <TableCell className="text-end font-medium">
                   {formatCurrency(quote.total, quote.currency)}
                 </TableCell>
                 <TableCell>
@@ -247,13 +247,13 @@ export function QuotesPage() {
         </div>
 
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="text"
             placeholder={t('searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 sm:w-64"
+            className="w-full ps-9 sm:w-64"
           />
         </div>
       </div>

@@ -107,12 +107,12 @@ function Details({
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium hover:bg-accent/50"
+        className="flex w-full items-center justify-between px-4 py-3 text-start text-sm font-medium hover:bg-accent/50"
       >
         <span>
           {label}
           {count != null && (
-            <Badge variant="secondary" className="ml-2 text-xs">
+            <Badge variant="secondary" className="ms-2 text-xs">
               {count}
             </Badge>
           )}
@@ -236,12 +236,12 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
           </p>
           {daysLeft != null && daysLeft >= 0 && (
             <p className="mt-2 text-sm text-muted-foreground">
-              <Calendar className="mr-1 inline h-3.5 w-3.5" />
+              <Calendar className="me-1 inline h-3.5 w-3.5" />
               {t('dueBy', { date: formatDate(gst!.period.deadline) })}
               {daysLeft <= 30 && (
                 <Badge
                   variant="secondary"
-                  className={`ml-2 ${
+                  className={`ms-2 ${
                     daysLeft <= 14
                       ? 'bg-red-100 text-red-700'
                       : 'bg-yellow-100 text-yellow-700'
@@ -340,8 +340,8 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
                 <TableHead>{t('invoice')}</TableHead>
                 <TableHead>{t('client')}</TableHead>
                 <TableHead>{t('date')}</TableHead>
-                <TableHead className="text-right">{t('amount')}</TableHead>
-                <TableHead className="text-right">{t('tax')}</TableHead>
+                <TableHead className="text-end">{t('amount')}</TableHead>
+                <TableHead className="text-end">{t('tax')}</TableHead>
                 <TableHead>{t('type')}</TableHead>
               </TableRow>
             </TableHeader>
@@ -361,10 +361,10 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
                   <TableCell className="whitespace-nowrap">
                     {formatDate(inv.issueDate)}
                   </TableCell>
-                  <TableCell className="text-right font-mono">
+                  <TableCell className="text-end font-mono">
                     {formatCurrency(inv.subtotal, 'JOD')}
                   </TableCell>
-                  <TableCell className="text-right font-mono">
+                  <TableCell className="text-end font-mono">
                     {formatCurrency(inv.taxAmount, 'JOD')}
                   </TableCell>
                   <TableCell>
@@ -417,8 +417,8 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
                 <TableHead>{t('what')}</TableHead>
                 <TableHead>{t('supplier')}</TableHead>
                 <TableHead>{t('category')}</TableHead>
-                <TableHead className="text-right">{t('amount')}</TableHead>
-                <TableHead className="text-right">{t('taxPaid')}</TableHead>
+                <TableHead className="text-end">{t('amount')}</TableHead>
+                <TableHead className="text-end">{t('taxPaid')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -436,10 +436,10 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
                       {CATEGORY_LABELS[txn.category] || txn.category}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right font-mono">
+                  <TableCell className="text-end font-mono">
                     {formatCurrency(txn.amount, 'JOD')}
                   </TableCell>
-                  <TableCell className="text-right font-mono">
+                  <TableCell className="text-end font-mono">
                     {txn.taxAmount
                       ? formatCurrency(txn.taxAmount, 'JOD')
                       : <span className="text-muted-foreground">--</span>}
@@ -543,7 +543,7 @@ function IncomeTaxTab({ initialYear }: { initialYear?: number }) {
             {formatCurrency(data.totalLiability, 'JOD')}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            <Calendar className="mr-1 inline h-3.5 w-3.5" />
+            <Calendar className="me-1 inline h-3.5 w-3.5" />
             {t('dueByDate', { year: year + 1 })}
           </p>
         </CardContent>
@@ -658,7 +658,7 @@ function IncomeTaxTab({ initialYear }: { initialYear?: number }) {
                       />
                     </div>
                   </div>
-                  <span className="w-10 text-right text-xs text-muted-foreground">
+                  <span className="w-10 text-end text-xs text-muted-foreground">
                     {pct.toFixed(0)}%
                   </span>
                 </div>
@@ -848,9 +848,9 @@ function ProfitLossTab() {
             <TableHeader>
               <TableRow>
                 <TableHead>{t('month')}</TableHead>
-                <TableHead className="text-right">{t('in')}</TableHead>
-                <TableHead className="text-right">{t('out')}</TableHead>
-                <TableHead className="text-right">{t('net')}</TableHead>
+                <TableHead className="text-end">{t('in')}</TableHead>
+                <TableHead className="text-end">{t('out')}</TableHead>
+                <TableHead className="text-end">{t('net')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -870,14 +870,14 @@ function ProfitLossTab() {
                   return (
                     <TableRow key={month}>
                       <TableCell>{month}</TableCell>
-                      <TableCell className="text-right font-mono text-green-600">
+                      <TableCell className="text-end font-mono text-green-600">
                         {formatCurrency(rev, 'JOD')}
                       </TableCell>
-                      <TableCell className="text-right font-mono text-red-600">
+                      <TableCell className="text-end font-mono text-red-600">
                         {formatCurrency(exp, 'JOD')}
                       </TableCell>
                       <TableCell
-                        className={`text-right font-mono font-semibold ${
+                        className={`text-end font-mono font-semibold ${
                           net >= 0 ? 'text-green-600' : 'text-red-600'
                         }`}
                       >
@@ -914,7 +914,7 @@ function ProfitLossTab() {
                       />
                     </div>
                   </div>
-                  <span className="w-10 text-right text-xs text-muted-foreground">
+                  <span className="w-10 text-end text-xs text-muted-foreground">
                     {pct.toFixed(0)}%
                   </span>
                 </div>
@@ -970,7 +970,7 @@ function Row({
     <div className={`flex items-center justify-between py-1.5 ${bold ? 'font-semibold' : ''}`}>
       <span className="text-sm">{label}</span>
       <span className={`font-mono text-sm ${colorClass}`}>
-        {sign && <span className="mr-0.5">{sign}</span>}
+        {sign && <span className="me-0.5">{sign}</span>}
         {formatCurrency(Math.abs(value), 'JOD')}
       </span>
     </div>
@@ -1050,15 +1050,15 @@ export function TaxReportsPage() {
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-5">
         <TabsList>
           <TabsTrigger value="sales-tax">
-            <Receipt className="mr-1.5 h-3.5 w-3.5" />
+            <Receipt className="me-1.5 h-3.5 w-3.5" />
             {t('salesTax')}
           </TabsTrigger>
           <TabsTrigger value="income-tax">
-            <Calculator className="mr-1.5 h-3.5 w-3.5" />
+            <Calculator className="me-1.5 h-3.5 w-3.5" />
             {t('incomeTax')}
           </TabsTrigger>
           <TabsTrigger value="profit-loss">
-            <BarChart3 className="mr-1.5 h-3.5 w-3.5" />
+            <BarChart3 className="me-1.5 h-3.5 w-3.5" />
             {t('profitLoss')}
           </TabsTrigger>
         </TabsList>

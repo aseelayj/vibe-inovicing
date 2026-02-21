@@ -112,7 +112,7 @@ export const AiEntityCard = memo(function AiEntityCard({ data, toolName, onActio
                   )} />
                   <span className="text-xs font-medium">{d.label}</span>
                 </div>
-                <p className="mt-0.5 ml-[18px] text-[10px] text-muted-foreground/60">
+                <p className="mt-0.5 ms-[18px] text-[10px] text-muted-foreground/60">
                   {d.period} &middot; Due: {d.deadline}
                 </p>
               </div>
@@ -291,7 +291,7 @@ export const AiEntityCard = memo(function AiEntityCard({ data, toolName, onActio
           </span>
         </div>
         {d.errors?.length > 0 && (
-          <ul className="ml-5 space-y-0.5">
+          <ul className="ms-5 space-y-0.5">
             {d.errors.map((err: string, i: number) => (
               <li key={i} className="text-[10px] text-red-600">&bull; {err}</li>
             ))}
@@ -626,17 +626,17 @@ function JofotaraSubmissionCard({ item }: { item: any }) {
             </span>
           </div>
           {item.uuid && (
-            <p className="mt-0.5 ml-[18px] text-[10px] text-muted-foreground/60 truncate">
+            <p className="mt-0.5 ms-[18px] text-[10px] text-muted-foreground/60 truncate">
               UUID: {item.uuid}
             </p>
           )}
           {item.invoiceNumber && (
-            <p className="ml-[18px] text-[10px] text-muted-foreground/60">
+            <p className="ms-[18px] text-[10px] text-muted-foreground/60">
               JoFotara #: {item.invoiceNumber}
             </p>
           )}
           {item.errorMessage && (
-            <p className="ml-[18px] text-[10px] text-red-500 mt-0.5">{item.errorMessage}</p>
+            <p className="ms-[18px] text-[10px] text-red-500 mt-0.5">{item.errorMessage}</p>
           )}
         </div>
       </div>

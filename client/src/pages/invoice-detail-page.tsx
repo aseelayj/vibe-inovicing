@@ -303,7 +303,7 @@ export function InvoiceDetailPage() {
                         'border-transparent',
                       )}
                     >
-                      <Globe className="mr-1 h-3 w-3" />
+                      <Globe className="me-1 h-3 w-3" />
                       {invoice.jofotaraStatus === 'submitted'
                         ? t('jofotaraEInvoiced')
                         : invoice.jofotaraStatus.replace(/_/g, ' ')}
@@ -499,7 +499,7 @@ export function InvoiceDetailPage() {
                 >
                   <span
                     className={cn(
-                      'mr-2 inline-block h-2 w-2 rounded-full',
+                      'me-2 inline-block h-2 w-2 rounded-full',
                       STATUS_COLORS[s]?.split(' ')[0],
                     )}
                   />
@@ -563,7 +563,7 @@ export function InvoiceDetailPage() {
                     </p>
                   )}
                 </div>
-                <div className="flex flex-wrap gap-4 sm:flex-col sm:gap-3 sm:text-right">
+                <div className="flex flex-wrap gap-4 sm:flex-col sm:gap-3 sm:text-end">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       {t('issueDate')}
@@ -600,24 +600,24 @@ export function InvoiceDetailPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>{tc('description')}</TableHead>
-                    <TableHead className="text-right">{tc('qty')}</TableHead>
-                    <TableHead className="text-right">
+                    <TableHead className="text-end">{tc('qty')}</TableHead>
+                    <TableHead className="text-end">
                       {tc('unitPrice')}
                     </TableHead>
-                    <TableHead className="text-right">{tc('amount')}</TableHead>
+                    <TableHead className="text-end">{tc('amount')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {invoice.lineItems?.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell>{item.description}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-end">
                         {item.quantity}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-end">
                         {formatCurrency(item.unitPrice, invoice.currency)}
                       </TableCell>
-                      <TableCell className="text-right font-medium">
+                      <TableCell className="text-end font-medium">
                         {formatCurrency(item.amount, invoice.currency)}
                       </TableCell>
                     </TableRow>
@@ -1219,7 +1219,7 @@ export function InvoiceDetailPage() {
           {jofotaraStep === 'validating' && (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              <span className="ml-2 text-sm text-muted-foreground">
+              <span className="ms-2 text-sm text-muted-foreground">
                 {t('validatingInvoice')}
               </span>
             </div>

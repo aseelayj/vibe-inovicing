@@ -415,7 +415,7 @@ function ImportDialog({
                     <TableHead>{t('date')}</TableHead>
                     <TableHead>{t('description')}</TableHead>
                     <TableHead>{t('type')}</TableHead>
-                    <TableHead className="text-right">
+                    <TableHead className="text-end">
                       {tc('amount')}
                     </TableHead>
                     <TableHead>{t('category')}</TableHead>
@@ -456,7 +456,7 @@ function ImportDialog({
                           {txn.type}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right font-mono text-sm">
+                      <TableCell className="text-end font-mono text-sm">
                         {txn.amount.toFixed(2)}
                       </TableCell>
                       <TableCell>
@@ -619,13 +619,13 @@ export function TransactionsPage() {
         </select>
 
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="text"
             placeholder={t('searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-60 pl-9"
+            className="w-60 ps-9"
           />
         </div>
       </div>
@@ -661,7 +661,7 @@ export function TransactionsPage() {
                 <TableHead>{t('description')}</TableHead>
                 <TableHead>{t('account')}</TableHead>
                 <TableHead>{t('category')}</TableHead>
-                <TableHead className="text-right">
+                <TableHead className="text-end">
                   {tc('amount')}
                 </TableHead>
                 <TableHead className="w-12" />
@@ -687,7 +687,7 @@ export function TransactionsPage() {
                     </Badge>
                   </TableCell>
                   <TableCell
-                    className={`text-right font-mono ${
+                    className={`text-end font-mono ${
                       txn.type === 'income'
                         ? 'text-green-600'
                         : 'text-red-600'

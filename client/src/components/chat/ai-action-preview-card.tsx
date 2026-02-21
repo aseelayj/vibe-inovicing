@@ -14,14 +14,14 @@ interface AiActionPreviewCardProps {
 }
 
 const ACTION_COLORS: Record<string, string> = {
-  create: 'border-l-blue-500',
-  update: 'border-l-amber-500',
-  delete: 'border-l-red-500',
-  send: 'border-l-green-500',
-  convert: 'border-l-violet-500',
-  toggle: 'border-l-orange-500',
-  duplicate: 'border-l-blue-500',
-  submit: 'border-l-green-500',
+  create: 'border-s-blue-500',
+  update: 'border-s-amber-500',
+  delete: 'border-s-red-500',
+  send: 'border-s-green-500',
+  convert: 'border-s-violet-500',
+  toggle: 'border-s-orange-500',
+  duplicate: 'border-s-blue-500',
+  submit: 'border-s-green-500',
 };
 
 const EDITABLE_FIELDS: Record<string, Set<string>> = {
@@ -49,7 +49,7 @@ function getActionColor(toolName: string): string {
   for (const [key, color] of Object.entries(ACTION_COLORS)) {
     if (toolName.includes(key)) return color;
   }
-  return 'border-l-border';
+  return 'border-s-border';
 }
 
 function formatLabel(key: string): string {
@@ -105,7 +105,7 @@ function ActionArgsDisplay({
             <div className="space-y-1">
               {lineItems.map((item, i) => (
                 <div key={i} className="flex justify-between text-xs">
-                  <span className="truncate pr-2 text-foreground">{item.description}</span>
+                  <span className="truncate pe-2 text-foreground">{item.description}</span>
                   <span className="shrink-0 text-muted-foreground">
                     {item.quantity} &times; {item.unitPrice}
                   </span>
@@ -178,7 +178,7 @@ export function AiActionPreviewCard({
   };
 
   return (
-    <div className={cn('rounded-xl border border-l-[3px] bg-muted/20 p-3.5', color)}>
+    <div className={cn('rounded-xl border border-s-[3px] bg-muted/20 p-3.5', color)}>
       {/* Header */}
       <div className="mb-3 flex items-center justify-between">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">

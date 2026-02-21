@@ -9,14 +9,40 @@ import {
 } from '@/hooks/use-chat';
 import { useChatStream } from '@/hooks/use-chat-stream';
 import { usePageContext } from '@/hooks/use-page-context';
-import { ChatMessageList } from './chat-message-list';
+import { ChatMessageList, type SuggestionGroup } from './chat-message-list';
 import { ChatInput } from './chat-input';
 import { ConversationSwitcher } from './conversation-switcher';
+import { FullscreenConversationList } from './fullscreen-conversation-list';
 import { cn } from '@/lib/utils';
 import type { ChatAttachment, ChatMessage } from '@vibe/shared';
 import { toast } from 'sonner';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
+function getFullscreenSuggestionGroups(t: (key: string) => string): SuggestionGroup[] {
+  return [
+    {
+      category: t('invoicesCategory'),
+      icon: 'invoices',
+      items: ['Create a new invoice', 'Show overdue invoices'],
+    },
+    {
+      category: t('quotesCategory'),
+      icon: 'quotes',
+      items: ['Create a new quote', 'Convert a quote to invoice'],
+    },
+    {
+      category: t('clientsCategory'),
+      icon: 'clients',
+      items: ['Create a new client', 'List all clients'],
+    },
+    {
+      category: t('reportsCategory'),
+      icon: 'reports',
+      items: ['Show my dashboard stats', 'Get GST summary'],
+    },
+  ];
+}
 
 function getSuggestions(section: string, entityType?: string, entityId?: number): string[] {
   if (section === 'invoices') {
@@ -91,6 +117,11 @@ export function ChatPanel({ variant = 'sidebar' }: ChatPanelProps) {
   const suggestions = useMemo(
     () => getSuggestions(pageContext.section, pageContext.entityType, pageContext.entityId),
     [pageContext.section, pageContext.entityType, pageContext.entityId],
+  );
+
+  const suggestionGroups = useMemo(
+    () => isFullscreen ? getFullscreenSuggestionGroups(t) : undefined,
+    [isFullscreen, t],
   );
 
   // Focus input when chat opens
@@ -267,7 +298,7 @@ export function ChatPanel({ variant = 'sidebar' }: ChatPanelProps) {
     }
   }, [deleteConversation, activeConversationId, setActiveConversation]);
 
-  // Fullscreen mode — always visible, different layout
+  // Fullscreen mode — persistent sidebar + centered chat
   if (isFullscreen) {
     return (
       <div
@@ -277,7 +308,7 @@ export function ChatPanel({ variant = 'sidebar' }: ChatPanelProps) {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className="flex h-full w-full flex-col bg-background"
+        className="relative flex h-full w-full bg-background"
       >
         {/* Drag overlay */}
         {isDragging && (
@@ -287,76 +318,77 @@ export function ChatPanel({ variant = 'sidebar' }: ChatPanelProps) {
           </div>
         )}
 
-        {/* Header */}
-        <div className="flex h-14 items-center justify-center border-b px-3">
-          <div className="mx-auto w-full max-w-3xl">
-            <ConversationSwitcher
-              conversations={conversations}
-              activeId={activeConversationId}
-              onSelect={setActiveConversation}
-              onNew={startNewChat}
-              onDelete={handleDeleteConversation}
-              onRename={handleRenameConversation}
+        {/* Conversation sidebar */}
+        <FullscreenConversationList
+          conversations={conversations}
+          activeId={activeConversationId}
+          onSelect={setActiveConversation}
+          onNew={startNewChat}
+          onDelete={handleDeleteConversation}
+          onRename={handleRenameConversation}
+        />
+
+        {/* Main chat area */}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col overflow-hidden">
+            <ChatMessageList
+              messages={messages}
+              streamingText={streamingText}
+              isStreaming={isStreaming}
+              isLoading={messagesLoading && !!activeConversationId}
+              executingMessageId={executingMessageId}
+              suggestions={suggestions}
+              suggestionGroups={suggestionGroups}
+              variant="fullscreen"
+              onConfirm={handleConfirm}
+              onReject={handleReject}
+              onSuggestionClick={handleSend}
+            />
+
+            {/* Retry bar */}
+            {lastFailedMessage && !isStreaming && (
+              <div className="flex items-center justify-between border-t bg-destructive/5 px-3 py-2">
+                <span className="text-xs text-destructive/80">{t('messageFailed')}</span>
+                <button
+                  onClick={handleRetry}
+                  className="text-xs font-medium text-destructive hover:underline"
+                >
+                  {t('retry')}
+                </button>
+              </div>
+            )}
+
+            {/* Pending attachments */}
+            {pendingAttachments.length > 0 && (
+              <div className="flex gap-1.5 border-t px-3 py-2">
+                {pendingAttachments.map((att, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-1.5 rounded-lg bg-muted/80 px-2.5 py-1 text-xs"
+                  >
+                    <span className="max-w-[100px] truncate">{att.name}</span>
+                    <button
+                      onClick={() => setPendingAttachments((prev) => prev.filter((_, j) => j !== i))}
+                      className="text-muted-foreground hover:text-destructive"
+                      aria-label={t('removeAttachment', { name: att.name })}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Input */}
+            <ChatInput
+              ref={inputRef}
+              onSend={handleSend}
+              onUpload={handleUpload}
+              isStreaming={isStreaming}
+              onStop={stopStream}
+              variant="fullscreen"
             />
           </div>
-        </div>
-
-        {/* Messages — centered */}
-        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col overflow-hidden">
-          <ChatMessageList
-            messages={messages}
-            streamingText={streamingText}
-            isStreaming={isStreaming}
-            isLoading={messagesLoading && !!activeConversationId}
-            executingMessageId={executingMessageId}
-            suggestions={suggestions}
-            onConfirm={handleConfirm}
-            onReject={handleReject}
-            onSuggestionClick={handleSend}
-          />
-
-          {/* Retry bar */}
-          {lastFailedMessage && !isStreaming && (
-            <div className="flex items-center justify-between border-t bg-destructive/5 px-3 py-2">
-              <span className="text-xs text-destructive/80">{t('messageFailed')}</span>
-              <button
-                onClick={handleRetry}
-                className="text-xs font-medium text-destructive hover:underline"
-              >
-                {t('retry')}
-              </button>
-            </div>
-          )}
-
-          {/* Pending attachments */}
-          {pendingAttachments.length > 0 && (
-            <div className="flex gap-1.5 border-t px-3 py-2">
-              {pendingAttachments.map((att, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-1.5 rounded-lg bg-muted/80 px-2.5 py-1 text-xs"
-                >
-                  <span className="max-w-[100px] truncate">{att.name}</span>
-                  <button
-                    onClick={() => setPendingAttachments((prev) => prev.filter((_, j) => j !== i))}
-                    className="text-muted-foreground hover:text-destructive"
-                    aria-label={t('removeAttachment', { name: att.name })}
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Input */}
-          <ChatInput
-            ref={inputRef}
-            onSend={handleSend}
-            onUpload={handleUpload}
-            isStreaming={isStreaming}
-            onStop={stopStream}
-          />
         </div>
       </div>
     );
@@ -383,8 +415,8 @@ export function ChatPanel({ variant = 'sidebar' }: ChatPanelProps) {
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={cn(
-          'fixed right-0 top-0 z-40 flex h-screen w-full flex-col',
-          'border-l bg-background transition-transform duration-300 ease-in-out',
+          'fixed end-0 top-0 z-40 flex h-screen w-full flex-col',
+          'border-s bg-background transition-transform duration-300 ease-in-out',
           'lg:w-[420px]',
           isOpen ? 'translate-x-0' : 'translate-x-full',
         )}

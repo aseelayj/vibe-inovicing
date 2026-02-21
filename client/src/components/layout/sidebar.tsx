@@ -85,7 +85,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
             ? 'translate-x-0'
             : 'ltr:-translate-x-full rtl:translate-x-full',
           // Desktop: always visible
-          'lg:z-30 lg:translate-x-0',
+          'lg:z-30 lg:ltr:translate-x-0 lg:rtl:translate-x-0',
         )}
       >
         <div className="flex h-14 items-center gap-2.5 px-6 lg:h-16">

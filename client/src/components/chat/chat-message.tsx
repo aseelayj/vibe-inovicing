@@ -70,8 +70,8 @@ function MarkdownContent({ text }: { text: string }) {
       components={{
         p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
         strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-        ul: ({ children }) => <ul className="mb-2 ml-4 list-disc last:mb-0">{children}</ul>,
-        ol: ({ children }) => <ol className="mb-2 ml-4 list-decimal last:mb-0">{children}</ol>,
+        ul: ({ children }) => <ul className="mb-2 ms-4 list-disc last:mb-0">{children}</ul>,
+        ol: ({ children }) => <ol className="mb-2 ms-4 list-decimal last:mb-0">{children}</ol>,
         li: ({ children }) => <li className="mb-0.5">{children}</li>,
         code: ({ children, className }) => {
           const isBlock = className?.includes('language-');
@@ -284,7 +284,7 @@ export const ChatMessage = memo(function ChatMessage({
 
           {/* Timestamp */}
           {!isStreaming && message.id > 0 && (
-            <div className="mt-1 text-right text-[10px] text-muted-foreground/40
+            <div className="mt-1 text-end text-[10px] text-muted-foreground/40
               opacity-0 transition-opacity group-hover:opacity-100">
               {formatTime(message.createdAt)}
             </div>
@@ -357,13 +357,13 @@ export const ChatMessage = memo(function ChatMessage({
 
       {/* Dynamic follow-up suggestions */}
       {!isUser && dynamicSuggestions.length > 0 && !isStreaming && (
-        <div className="mt-2 flex w-full flex-col gap-1.5 pl-0">
+        <div className="mt-2 flex w-full flex-col gap-1.5 ps-0">
           {dynamicSuggestions.map((s, idx) => (
             <button
               key={idx}
               onClick={() => onSuggestionClick?.(s)}
               className="group/btn flex w-fit max-w-full items-center gap-2 rounded-xl
-                border border-border/60 bg-background px-3 py-1.5 text-left text-xs
+                border border-border/60 bg-background px-3 py-1.5 text-start text-xs
                 text-muted-foreground transition-all
                 hover:border-primary/30 hover:text-foreground"
             >

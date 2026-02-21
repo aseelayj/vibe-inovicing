@@ -370,7 +370,7 @@ export function BankAccountsPage() {
                 <TableHead>{t('accountName')}</TableHead>
                 <TableHead>{t('bank')}</TableHead>
                 <TableHead>{tc('currency')}</TableHead>
-                <TableHead className="text-right">{t('balance')}</TableHead>
+                <TableHead className="text-end">{t('balance')}</TableHead>
                 <TableHead>{tc('status')}</TableHead>
                 <TableHead className="w-12" />
               </TableRow>
@@ -390,7 +390,7 @@ export function BankAccountsPage() {
                   </TableCell>
                   <TableCell>{account.bankName || '--'}</TableCell>
                   <TableCell>{account.currency}</TableCell>
-                  <TableCell className="text-right font-mono">
+                  <TableCell className="text-end font-mono">
                     {formatCurrency(
                       parseFloat(String(account.currentBalance)),
                       account.currency,

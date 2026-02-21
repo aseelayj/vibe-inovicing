@@ -169,14 +169,14 @@ export function ConversationSwitcher({
           role="listbox"
           aria-label={t('conversations')}
           onKeyDown={handleKeyDown}
-          className="absolute left-0 top-full z-50 mt-1 w-72 rounded-xl border
+          className="absolute start-0 top-full z-50 mt-1 w-72 rounded-xl border
             bg-popover shadow-lg"
         >
           {/* Search */}
           {conversations.length > 3 && (
             <div className="border-b px-2 py-2">
               <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground/40" />
+                <Search className="absolute start-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground/40" />
                 <input
                   ref={searchInputRef}
                   value={searchQuery}
@@ -186,7 +186,7 @@ export function ConversationSwitcher({
                     if (e.key === 'ArrowDown') { e.preventDefault(); setFocusIndex(0); }
                   }}
                   placeholder={t('search')}
-                  className="w-full rounded-lg border bg-background py-1.5 pl-8 pr-2 text-xs
+                  className="w-full rounded-lg border bg-background py-1.5 ps-8 pe-2 text-xs
                     outline-none placeholder:text-muted-foreground/40 focus:ring-1 focus:ring-ring"
                 />
               </div>
@@ -242,7 +242,7 @@ export function ConversationSwitcher({
                   />
                 ) : (
                   <button
-                    className="flex flex-1 flex-col items-start text-left min-w-0"
+                    className="flex flex-1 flex-col items-start text-start min-w-0"
                     onClick={() => { onSelect(conv.id); setOpen(false); }}
                     onDoubleClick={(e) => onRename && startRename(conv, e)}
                   >
@@ -252,7 +252,7 @@ export function ConversationSwitcher({
                     </span>
                   </button>
                 )}
-                <div className="ml-1 flex items-center gap-0.5 shrink-0">
+                <div className="ms-1 flex items-center gap-0.5 shrink-0">
                   {onRename && editingId !== conv.id && (
                     <button
                       onClick={(e) => startRename(conv, e)}

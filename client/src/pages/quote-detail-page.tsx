@@ -253,7 +253,7 @@ export function QuoteDetailPage() {
                     </p>
                   )}
                 </div>
-                <div className="flex flex-wrap gap-4 sm:flex-col sm:gap-3 sm:text-right">
+                <div className="flex flex-wrap gap-4 sm:flex-col sm:gap-3 sm:text-end">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       {t('issueDate')}
@@ -290,22 +290,22 @@ export function QuoteDetailPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>{tc('description')}</TableHead>
-                    <TableHead className="text-right">{tc('qty')}</TableHead>
-                    <TableHead className="text-right">{tc('unitPrice')}</TableHead>
-                    <TableHead className="text-right">{tc('amount')}</TableHead>
+                    <TableHead className="text-end">{tc('qty')}</TableHead>
+                    <TableHead className="text-end">{tc('unitPrice')}</TableHead>
+                    <TableHead className="text-end">{tc('amount')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {quote.lineItems?.map((item: any) => (
                     <TableRow key={item.id}>
                       <TableCell>{item.description}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-end">
                         {item.quantity}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-end">
                         {formatCurrency(item.unitPrice, quote.currency)}
                       </TableCell>
-                      <TableCell className="text-right font-medium">
+                      <TableCell className="text-end font-medium">
                         {formatCurrency(item.amount, quote.currency)}
                       </TableCell>
                     </TableRow>

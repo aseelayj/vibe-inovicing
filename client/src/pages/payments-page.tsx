@@ -75,7 +75,7 @@ export function PaymentsPage() {
                 <TableHead className="hidden lg:table-cell">{t('client')}</TableHead>
                 <TableHead className="hidden md:table-cell">{t('method')}</TableHead>
                 <TableHead className="hidden lg:table-cell">{t('reference')}</TableHead>
-                <TableHead className="text-right">{t('amount', { ns: 'common' })}</TableHead>
+                <TableHead className="text-end">{t('amount', { ns: 'common' })}</TableHead>
                 <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
@@ -112,7 +112,7 @@ export function PaymentsPage() {
                   <TableCell className="hidden lg:table-cell">
                     {payment.reference || '--'}
                   </TableCell>
-                  <TableCell className="text-right font-medium text-green-600">
+                  <TableCell className="text-end font-medium text-green-600">
                     {formatCurrency(payment.amount)}
                   </TableCell>
                   <TableCell>
