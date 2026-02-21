@@ -27,6 +27,7 @@ router.get('/', async (req, res, next) => {
     const response = { ...settingsRow };
     response.jofotaraClientSecret = maskSecret(response.jofotaraClientSecret);
     response.paypalClientSecret = maskSecret(response.paypalClientSecret);
+    response.geminiApiKey = maskSecret(response.geminiApiKey);
     response.resendApiKey = maskSecret(response.resendApiKey);
     response.smtpPassword = maskSecret(response.smtpPassword);
 
@@ -72,6 +73,7 @@ router.put('/', validate(updateSettingsSchema), async (req, res, next) => {
     for (const key of [
       'jofotaraClientSecret',
       'paypalClientSecret',
+      'geminiApiKey',
       'resendApiKey',
       'smtpPassword',
     ]) {
@@ -92,6 +94,7 @@ router.put('/', validate(updateSettingsSchema), async (req, res, next) => {
     const response = { ...updated };
     response.jofotaraClientSecret = maskSecret(response.jofotaraClientSecret);
     response.paypalClientSecret = maskSecret(response.paypalClientSecret);
+    response.geminiApiKey = maskSecret(response.geminiApiKey);
     response.resendApiKey = maskSecret(response.resendApiKey);
     response.smtpPassword = maskSecret(response.smtpPassword);
 

@@ -64,6 +64,7 @@ export const settings = pgTable('settings', {
   paypalEnvironment: varchar('paypal_environment', { length: 10 })
     .notNull().default('sandbox'),
   paypalEnabled: boolean('paypal_enabled').notNull().default(false),
+  geminiApiKey: text('gemini_api_key'),
   emailProvider: varchar('email_provider', { length: 10 })
     .notNull().default('resend'),
   resendApiKey: text('resend_api_key'),

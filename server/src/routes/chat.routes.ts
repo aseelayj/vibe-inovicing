@@ -2,11 +2,10 @@ import { Router } from 'express';
 import { eq, desc, and, lt, ne } from 'drizzle-orm';
 import multer from 'multer';
 import * as XLSX from 'xlsx';
-import { GoogleGenAI } from '@google/genai';
 import { db } from '../db/index.js';
 import { conversations, chatMessages, invoices } from '../db/schema.js';
-import { env } from '../env.js';
 import { buildSystemPrompt, buildGeminiContents } from '../services/chat.service.js';
+import { getGeminiClient } from '../services/gemini-client.js';
 import {
   chatToolDeclarations,
   toolExecutors,
@@ -17,7 +16,6 @@ import type { ChatMessage, ChatToolCall, PageContext } from '@vibe/shared';
 import { type AuthRequest } from '../middleware/auth.middleware.js';
 
 const router = Router();
-const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
@@ -45,8 +43,8 @@ async function autoTitleConversation(conversationId: number) {
     .map((m) => `${m.role}: ${m.content!.slice(0, 200)}`)
     .join('\n');
 
-  const result = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
+  const result = await (await getGeminiClient()).models.generateContent({
+    model: 'gemini-3-flash-preview',
     contents: [{ role: 'user', parts: [{ text: snippet }] }],
     config: {
       systemInstruction:
@@ -104,8 +102,8 @@ router.post('/transcribe', upload.single('audio'), async (req, res, next) => {
 
     const base64Audio = req.file.buffer.toString('base64');
 
-    const result = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+    const result = await (await getGeminiClient()).models.generateContent({
+      model: 'gemini-3-flash-preview',
       contents: [
         {
           role: 'user',
@@ -297,8 +295,8 @@ async function streamGeminiResponse(
   }
 
   try {
-    const stream = await ai.models.generateContentStream({
-      model: 'gemini-2.5-flash',
+    const stream = await (await getGeminiClient()).models.generateContentStream({
+      model: 'gemini-3-flash-preview',
       contents,
       config: {
         systemInstruction: systemPrompt,

@@ -24,6 +24,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { useSettings, useUpdateSettings } from '@/hooks/use-settings';
 
 interface IntegrationsFormValues {
+  geminiApiKey: string;
   jofotaraEnabled: boolean;
   jofotaraClientId: string;
   jofotaraClientSecret: string;
@@ -53,6 +54,7 @@ export function IntegrationsSettingsPage() {
   useEffect(() => {
     if (settings) {
       reset({
+        geminiApiKey: settings.geminiApiKey || '',
         jofotaraEnabled: settings.jofotaraEnabled || false,
         jofotaraClientId: settings.jofotaraClientId || '',
         jofotaraClientSecret: settings.jofotaraClientSecret || '',
@@ -77,6 +79,27 @@ export function IntegrationsSettingsPage() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="max-w-2xl space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('geminiTitle')}</CardTitle>
+          <CardDescription>{t('geminiDesc')}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="geminiApiKey">{t('geminiApiKey')}</Label>
+            <Input
+              id="geminiApiKey"
+              type="password"
+              placeholder={t('geminiApiKeyPlaceholder')}
+              {...register('geminiApiKey')}
+            />
+            <p className="text-xs text-muted-foreground">
+              {t('geminiApiKeyHint')}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>{t('jofotaraTitle')}</CardTitle>

@@ -139,6 +139,7 @@ export const updateSettingsSchema = z.object({
   paypalClientSecret: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
   paypalEnvironment: z.enum(['sandbox', 'live']).optional(),
   paypalEnabled: z.boolean().optional(),
+  geminiApiKey: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
   emailProvider: z.enum(['resend', 'smtp']).optional(),
   resendApiKey: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
   smtpHost: optionalString(255),

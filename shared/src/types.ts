@@ -192,6 +192,7 @@ export interface Settings {
   paypalClientSecret: string | null;
   paypalEnvironment: 'sandbox' | 'live';
   paypalEnabled: boolean;
+  geminiApiKey: string | null;
   emailProvider: string;
   resendApiKey: string | null;
   smtpHost: string | null;

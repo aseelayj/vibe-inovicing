@@ -1,8 +1,6 @@
-import { GoogleGenAI, createPartFromBase64, type Part } from '@google/genai';
+import { createPartFromBase64, type Part } from '@google/genai';
 import { TRANSACTION_CATEGORIES } from '@vibe/shared';
-import { env } from '../env.js';
-
-const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
+import { getGeminiClient } from './gemini-client.js';
 
 function parseJsonResponse(text: string): any {
   const cleaned = text
@@ -32,7 +30,7 @@ export async function generateInvoiceFromPrompt(
     .map((c) => `ID:${c.id} - ${c.name}${c.company ? ` (${c.company})` : ''}`)
     .join('\n');
 
-  const response = await ai.models.generateContent({
+  const response = await (await getGeminiClient()).models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: prompt,
     config: {
@@ -71,7 +69,7 @@ export async function suggestLineItems(
     ).join('\n')
     : 'No previous history.';
 
-  const response = await ai.models.generateContent({
+  const response = await (await getGeminiClient()).models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: partialDescription
       ? `Suggest line items similar to or continuing from: "${partialDescription}"`
@@ -107,7 +105,7 @@ export async function draftEmail(params: {
     followup: `Draft a follow-up email about invoice ${params.invoiceNumber} for ${params.total} due on ${params.dueDate}.`,
   };
 
-  const response = await ai.models.generateContent({
+  const response = await (await getGeminiClient()).models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: contextMap[params.type],
     config: {
@@ -132,7 +130,7 @@ export async function summarizeDashboard(stats: {
   totalClients: number;
   paidThisMonth: number;
 }): Promise<string> {
-  const response = await ai.models.generateContent({
+  const response = await (await getGeminiClient()).models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: `Summarize these business metrics: ${JSON.stringify(stats)}`,
     config: {
@@ -153,7 +151,7 @@ export async function smartSearch(
 ): Promise<{
   results: { type: 'invoice' | 'client'; id: number; label: string; detail: string }[];
 }> {
-  const response = await ai.models.generateContent({
+  const response = await (await getGeminiClient()).models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: `Search query: "${query}"`,
     config: {
@@ -210,8 +208,8 @@ If you cannot parse any transactions, return an empty array [].`;
     contents.push(`Parse the following bank statement data and extract transactions:\n\n${text}`);
   }
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
+  const response = await (await getGeminiClient()).models.generateContent({
+    model: 'gemini-3-flash-preview',
     contents,
     config: {
       systemInstruction,
@@ -250,8 +248,8 @@ export async function generateDailySummary(
     }
   }
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
+  const response = await (await getGeminiClient()).models.generateContent({
+    model: 'gemini-3-flash-preview',
     contents: `Summarize the following team activity for ${date}:\n${activityText}`,
     config: {
       systemInstruction: `You are a business activity summarizer. Given a list of activities grouped by team member, provide:
