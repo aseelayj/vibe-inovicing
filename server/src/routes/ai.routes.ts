@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { eq, ilike, or } from 'drizzle-orm';
+import { z } from 'zod';
 import { validate } from '../middleware/validate.js';
 import {
   aiGenerateInvoiceSchema,
@@ -21,6 +22,10 @@ import {
   summarizeDashboard,
   smartSearch,
 } from '../services/ai.service.js';
+
+const aiDraftReminderSchema = z.object({
+  invoiceId: z.number().int().positive('invoiceId is required'),
+});
 
 const router = Router();
 
@@ -91,7 +96,7 @@ router.post(
   validate(aiDraftEmailSchema),
   async (req, res, next) => {
     try {
-      const { invoiceId, type } = req.body;
+      const { invoiceId, context: type } = req.body;
 
       const invoice = await db.query.invoices.findFirst({
         where: eq(invoices.id, invoiceId),
@@ -130,7 +135,7 @@ router.post(
 );
 
 // POST /draft-reminder
-router.post('/draft-reminder', async (req, res, next) => {
+router.post('/draft-reminder', validate(aiDraftReminderSchema), async (req, res, next) => {
   try {
     const { invoiceId } = req.body;
 

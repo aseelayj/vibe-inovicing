@@ -1,9 +1,17 @@
 import { useNavigate, useParams } from 'react-router';
 import { ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router';
+import { Button } from '@/components/ui/button';
 import { InvoiceForm } from '@/components/invoices/invoice-form';
-import { useInvoice, useUpdateInvoice, useSendInvoice } from '@/hooks/use-invoices';
+import type { InvoiceAction } from '@/components/invoices/invoice-form';
+import {
+  useInvoice,
+  useUpdateInvoice,
+  useSendInvoice,
+} from '@/hooks/use-invoices';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { api } from '@/lib/api-client';
+import { toast } from 'sonner';
 
 export function InvoiceEditPage() {
   const { id } = useParams();
@@ -17,16 +25,27 @@ export function InvoiceEditPage() {
 
   const handleSubmit = async (
     data: Record<string, unknown>,
-    action: 'draft' | 'send',
+    action: InvoiceAction,
   ) => {
     try {
       await updateInvoice.mutateAsync({ id: invoice.id, data });
-      if (action === 'send') {
-        await sendInvoice.mutateAsync(invoice.id);
+      if (action === 'publish') {
+        try {
+          await api.patch(`/invoices/${invoice.id}/status`, { status: 'sent' });
+          toast.success('Invoice published');
+        } catch {
+          toast.error('Invoice saved but failed to publish');
+        }
+      } else if (action === 'send') {
+        try {
+          await sendInvoice.mutateAsync(invoice.id);
+        } catch {
+          // toast already shown by mutation onError
+        }
       }
       navigate(`/invoices/${invoice.id}`);
     } catch {
-      // handled by mutation
+      // update failed - handled by mutation
     }
   };
 
@@ -37,30 +56,31 @@ export function InvoiceEditPage() {
     currency: invoice.currency,
     taxRate: invoice.taxRate,
     discountAmount: invoice.discountAmount,
+    isTaxable: invoice.isTaxable,
     notes: invoice.notes,
     terms: invoice.terms,
-    lineItems: invoice.lineItems?.map((item) => ({
-      description: item.description,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-    })) ?? [],
+    lineItems:
+      invoice.lineItems?.map((item) => ({
+        description: item.description,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+      })) ?? [],
     clientName: invoice.client?.name,
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link
-          to={`/invoices/${id}`}
-          className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
-        >
-          <ArrowLeft className="h-5 w-5" />
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex items-center gap-3">
+        <Link to={`/invoices/${id}`}>
+          <Button variant="ghost" size="icon" className="shrink-0">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
         </Link>
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Edit Invoice {invoice.invoiceNumber}
+        <div className="min-w-0">
+          <h2 className="truncate text-xl font-bold sm:text-2xl">
+            Edit {invoice.invoiceNumber}
           </h2>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-0.5 hidden text-sm text-muted-foreground sm:block">
             Update the invoice details below
           </p>
         </div>

@@ -35,10 +35,36 @@ export const settings = pgTable('settings', {
     .notNull().default('INV'),
   nextInvoiceNumber: integer('next_invoice_number')
     .notNull().default(1),
+  exemptInvoicePrefix: varchar('exempt_invoice_prefix', { length: 10 })
+    .notNull().default('EINV'),
+  nextExemptInvoiceNumber: integer('next_exempt_invoice_number')
+    .notNull().default(1),
   quotePrefix: varchar('quote_prefix', { length: 10 })
     .notNull().default('QUO'),
   nextQuoteNumber: integer('next_quote_number')
     .notNull().default(1),
+  jofotaraClientId: varchar('jofotara_client_id', { length: 100 }),
+  jofotaraClientSecret: text('jofotara_client_secret'),
+  jofotaraCompanyTin: varchar('jofotara_company_tin', { length: 50 }),
+  jofotaraIncomeSourceSequence: varchar(
+    'jofotara_income_source_sequence', { length: 50 },
+  ),
+  jofotaraInvoiceType: varchar('jofotara_invoice_type', { length: 20 })
+    .notNull().default('general_sales'),
+  jofotaraEnabled: boolean('jofotara_enabled').notNull().default(false),
+  bankEtihadUsername: varchar('bank_etihad_username', { length: 100 }),
+  bankEtihadEnabled: boolean('bank_etihad_enabled').notNull().default(false),
+  filingStatus: varchar('filing_status', { length: 20 })
+    .notNull().default('single'),
+  personalExemption: decimal('personal_exemption', {
+    precision: 10, scale: 2,
+  }).notNull().default('9000'),
+  familyExemption: decimal('family_exemption', {
+    precision: 10, scale: 2,
+  }).notNull().default('9000'),
+  additionalExemptions: decimal('additional_exemptions', {
+    precision: 10, scale: 2,
+  }).notNull().default('0'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
@@ -56,6 +82,8 @@ export const clients = pgTable('clients', {
   state: varchar('state', { length: 100 }),
   postalCode: varchar('postal_code', { length: 20 }),
   country: varchar('country', { length: 100 }),
+  taxId: varchar('tax_id', { length: 50 }),
+  cityCode: varchar('city_code', { length: 10 }),
   notes: text('notes'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
@@ -90,10 +118,17 @@ export const invoices = pgTable('invoices', {
     .notNull().default('0'),
   notes: text('notes'),
   terms: text('terms'),
+  isTaxable: boolean('is_taxable').notNull().default(false),
   isRecurring: boolean('is_recurring').notNull().default(false),
   recurringId: integer('recurring_id'),
   sentAt: timestamp('sent_at'),
   paidAt: timestamp('paid_at'),
+  jofotaraUuid: varchar('jofotara_uuid', { length: 100 }),
+  jofotaraStatus: varchar('jofotara_status', { length: 30 })
+    .notNull().default('not_submitted'),
+  jofotaraQrCode: text('jofotara_qr_code'),
+  jofotaraInvoiceNumber: varchar('jofotara_invoice_number', { length: 100 }),
+  jofotaraSubmittedAt: timestamp('jofotara_submitted_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => [
@@ -173,6 +208,8 @@ export const payments = pgTable('payments', {
   paymentDate: date('payment_date').notNull().defaultNow(),
   paymentMethod: varchar('payment_method', { length: 50 }),
   reference: varchar('reference', { length: 255 }),
+  bankAccountId: integer('bank_account_id')
+    .references(() => bankAccounts.id, { onDelete: 'set null' }),
   notes: text('notes'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => [
@@ -190,6 +227,7 @@ export const recurringInvoices = pgTable('recurring_invoices', {
   nextRunDate: date('next_run_date').notNull(),
   lastRunDate: date('last_run_date'),
   isActive: boolean('is_active').notNull().default(true),
+  isTaxable: boolean('is_taxable').notNull().default(false),
   currency: varchar('currency', { length: 3 }).notNull().default('USD'),
   subtotal: decimal('subtotal', { precision: 12, scale: 2 })
     .notNull().default('0'),
@@ -239,6 +277,111 @@ export const emailLog = pgTable('email_log', {
   sentAt: timestamp('sent_at').notNull().defaultNow(),
 });
 
+// ---- Bank Accounts ----
+export const bankAccounts = pgTable('bank_accounts', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 255 }).notNull(),
+  bankName: varchar('bank_name', { length: 255 }),
+  accountNumber: varchar('account_number', { length: 50 }),
+  currency: varchar('currency', { length: 3 }).notNull().default('USD'),
+  initialBalance: decimal('initial_balance', { precision: 12, scale: 2 })
+    .notNull().default('0'),
+  currentBalance: decimal('current_balance', { precision: 12, scale: 2 })
+    .notNull().default('0'),
+  isActive: boolean('is_active').notNull().default(true),
+  notes: text('notes'),
+  bankEtihadLinked: boolean('bank_etihad_linked').notNull().default(false),
+  lastSyncAt: timestamp('last_sync_at'),
+  lastSyncStatus: varchar('last_sync_status', { length: 20 }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// ---- Bank Sessions (for bank portal auth tokens) ----
+export const bankSessions = pgTable('bank_sessions', {
+  id: serial('id').primaryKey(),
+  provider: varchar('provider', { length: 50 }).notNull()
+    .default('bank_al_etihad'),
+  token: text('token').notNull(),
+  refreshToken: text('refresh_token'),
+  expiresAt: timestamp('expires_at').notNull(),
+  metadata: jsonb('metadata'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+// ---- Transactions ----
+export const transactions = pgTable('transactions', {
+  id: serial('id').primaryKey(),
+  bankAccountId: integer('bank_account_id').notNull()
+    .references(() => bankAccounts.id, { onDelete: 'cascade' }),
+  type: varchar('type', { length: 20 }).notNull(),
+  category: varchar('category', { length: 50 }).notNull(),
+  amount: decimal('amount', { precision: 12, scale: 2 }).notNull(),
+  date: date('date').notNull().defaultNow(),
+  description: varchar('description', { length: 500 }).notNull(),
+  notes: text('notes'),
+  bankReference: varchar('bank_reference', { length: 255 }),
+  bankSyncedAt: timestamp('bank_synced_at'),
+  isFromBank: boolean('is_from_bank').notNull().default(false),
+  taxAmount: decimal('tax_amount', { precision: 12, scale: 2 }),
+  supplierName: varchar('supplier_name', { length: 255 }),
+  invoiceReference: varchar('invoice_reference', { length: 255 }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => [
+  index('idx_transactions_bank_account_id').on(table.bankAccountId),
+  index('idx_transactions_type').on(table.type),
+  index('idx_transactions_date').on(table.date),
+  index('idx_transactions_category').on(table.category),
+  index('idx_transactions_bank_reference').on(table.bankReference),
+]);
+
+// ---- Conversations ----
+export const conversations = pgTable('conversations', {
+  id: serial('id').primaryKey(),
+  title: varchar('title', { length: 255 }).notNull().default('New Chat'),
+  pageContext: jsonb('page_context'),
+  isArchived: boolean('is_archived').notNull().default(false),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// ---- Chat Messages ----
+export const chatMessages = pgTable('chat_messages', {
+  id: serial('id').primaryKey(),
+  conversationId: integer('conversation_id').notNull()
+    .references(() => conversations.id, { onDelete: 'cascade' }),
+  role: varchar('role', { length: 20 }).notNull(),
+  content: text('content'),
+  toolCall: jsonb('tool_call'),
+  toolResult: jsonb('tool_result'),
+  actionStatus: varchar('action_status', { length: 20 }),
+  attachments: jsonb('attachments'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [
+  index('idx_chat_messages_conversation').on(table.conversationId),
+]);
+
+// ---- JoFotara Submissions ----
+export const jofotaraSubmissions = pgTable('jofotara_submissions', {
+  id: serial('id').primaryKey(),
+  invoiceId: integer('invoice_id').notNull()
+    .references(() => invoices.id, { onDelete: 'cascade' }),
+  uuid: varchar('uuid', { length: 100 }),
+  status: varchar('status', { length: 30 }).notNull(),
+  invoiceNumber: varchar('invoice_number', { length: 100 }),
+  qrCode: text('qr_code'),
+  xmlContent: text('xml_content'),
+  rawResponse: jsonb('raw_response'),
+  errorMessage: text('error_message'),
+  isCreditInvoice: boolean('is_credit_invoice').notNull().default(false),
+  originalInvoiceId: varchar('original_invoice_id', { length: 100 }),
+  reasonForReturn: text('reason_for_return'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [
+  index('idx_jofotara_submissions_invoice').on(table.invoiceId),
+]);
+
 // ---- Activity Log ----
 export const activityLog = pgTable('activity_log', {
   id: serial('id').primaryKey(),
@@ -267,7 +410,18 @@ export const invoicesRelations = relations(invoices, ({ one, many }) => ({
   }),
   lineItems: many(invoiceLineItems),
   payments: many(payments),
+  jofotaraSubmissions: many(jofotaraSubmissions),
 }));
+
+export const jofotaraSubmissionsRelations = relations(
+  jofotaraSubmissions,
+  ({ one }) => ({
+    invoice: one(invoices, {
+      fields: [jofotaraSubmissions.invoiceId],
+      references: [invoices.id],
+    }),
+  }),
+);
 
 export const invoiceLineItemsRelations = relations(
   invoiceLineItems,
@@ -302,6 +456,10 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
     fields: [payments.invoiceId],
     references: [invoices.id],
   }),
+  bankAccount: one(bankAccounts, {
+    fields: [payments.bankAccountId],
+    references: [bankAccounts.id],
+  }),
 }));
 
 export const recurringInvoicesRelations = relations(
@@ -321,6 +479,40 @@ export const recurringInvoiceLineItemsRelations = relations(
     recurringInvoice: one(recurringInvoices, {
       fields: [recurringInvoiceLineItems.recurringInvoiceId],
       references: [recurringInvoices.id],
+    }),
+  }),
+);
+
+export const bankAccountsRelations = relations(
+  bankAccounts,
+  ({ many }) => ({
+    transactions: many(transactions),
+  }),
+);
+
+export const conversationsRelations = relations(
+  conversations,
+  ({ many }) => ({
+    messages: many(chatMessages),
+  }),
+);
+
+export const chatMessagesRelations = relations(
+  chatMessages,
+  ({ one }) => ({
+    conversation: one(conversations, {
+      fields: [chatMessages.conversationId],
+      references: [conversations.id],
+    }),
+  }),
+);
+
+export const transactionsRelations = relations(
+  transactions,
+  ({ one }) => ({
+    bankAccount: one(bankAccounts, {
+      fields: [transactions.bankAccountId],
+      references: [bankAccounts.id],
     }),
   }),
 );

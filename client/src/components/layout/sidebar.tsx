@@ -1,97 +1,166 @@
+import { useEffect } from 'react';
 import { Link, useLocation } from 'react-router';
 import {
   LayoutDashboard,
   FileText,
   FileCheck,
+  FileSpreadsheet,
   Users,
   CreditCard,
   RefreshCw,
+  Landmark,
+  ArrowLeftRight,
   Settings,
   LogOut,
   Zap,
   type LucideIcon,
 } from 'lucide-react';
-import { cn } from '@/lib/cn';
+import { cn } from '@/lib/utils';
 import { NAV_ITEMS } from '@/lib/constants';
 import { useAuth } from '@/hooks/use-auth';
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 const iconMap: Record<string, LucideIcon> = {
   LayoutDashboard,
   FileText,
   FileCheck,
+  FileSpreadsheet,
   Users,
   CreditCard,
   RefreshCw,
+  Landmark,
+  ArrowLeftRight,
   Settings,
 };
 
-export function Sidebar() {
+interface SidebarProps {
+  mobileOpen?: boolean;
+  onClose?: () => void;
+}
+
+export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
   const location = useLocation();
   const { logout } = useAuth();
 
+  // Close sidebar on route change (mobile)
+  useEffect(() => {
+    onClose?.();
+  }, [location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Lock body scroll when mobile sidebar is open
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = ''; };
+    }
+  }, [mobileOpen]);
+
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-gray-200 bg-white">
-      <div className="flex h-16 items-center gap-2.5 border-b border-gray-200 px-6">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-500">
-          <Zap className="h-4.5 w-4.5 text-white" />
+    <>
+      {/* Mobile backdrop */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={cn(
+          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col',
+          'border-r bg-background transition-transform duration-300 ease-in-out',
+          // Mobile: slide in/out
+          mobileOpen ? 'translate-x-0' : '-translate-x-full',
+          // Desktop: always visible
+          'lg:z-30 lg:translate-x-0',
+        )}
+      >
+        <div className="flex h-14 items-center gap-2.5 px-6 lg:h-16">
+          <div
+            className={cn(
+              'flex h-8 w-8 items-center justify-center rounded-lg',
+              'bg-primary',
+            )}
+          >
+            <Zap className="h-4 w-4 text-primary-foreground" />
+          </div>
+          <span className="text-lg font-bold tracking-tight">
+            Vibe Invoicing
+          </span>
         </div>
-        <span className="text-lg font-bold text-gray-900">
-          Vibe Invoicing
-        </span>
-      </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Main navigation">
-        <ul className="space-y-1">
-          {NAV_ITEMS.map((item) => {
-            const Icon = iconMap[item.icon];
-            const isActive =
-              item.path === '/'
-                ? location.pathname === '/'
-                : location.pathname.startsWith(item.path);
+        <Separator />
 
-            return (
-              <li key={item.path}>
-                <Link
-                  to={item.path}
-                  className={cn(
-                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium',
-                    'transition-colors duration-150',
-                    isActive
-                      ? 'bg-primary-50 text-primary-700'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
-                  )}
-                  aria-current={isActive ? 'page' : undefined}
-                >
-                  {Icon && (
-                    <Icon
-                      className={cn(
-                        'h-5 w-5 shrink-0',
-                        isActive ? 'text-primary-500' : 'text-gray-400',
-                      )}
-                    />
-                  )}
-                  {item.label}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
+        <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Main navigation">
+          <ul className="space-y-1">
+            {NAV_ITEMS.map((item) => {
+              const Icon = iconMap[item.icon];
+              const isActive =
+                item.path === '/'
+                  ? location.pathname === '/'
+                  : location.pathname.startsWith(item.path);
 
-      <div className="border-t border-gray-200 px-3 py-4">
-        <button
-          type="button"
-          onClick={logout}
-          className={cn(
-            'flex w-full items-center gap-3 rounded-lg px-3 py-2.5',
-            'text-sm font-medium text-gray-600',
-            'transition-colors duration-150 hover:bg-gray-50 hover:text-gray-900',
-          )}
-        >
-          <LogOut className="h-5 w-5 text-gray-400" />
-          Logout
-        </button>
-      </div>
-    </aside>
+              return (
+                <li key={item.path}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Link
+                        to={item.path}
+                        className={cn(
+                          'flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium',
+                          'transition-colors duration-150',
+                          isActive
+                            ? 'bg-accent text-accent-foreground'
+                            : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+                        )}
+                        aria-current={isActive ? 'page' : undefined}
+                      >
+                        {Icon && (
+                          <Icon
+                            className={cn(
+                              'h-4 w-4 shrink-0',
+                              isActive
+                                ? 'text-foreground'
+                                : 'text-muted-foreground',
+                            )}
+                          />
+                        )}
+                        {item.label}
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" sideOffset={8}>
+                      {item.label}
+                    </TooltipContent>
+                  </Tooltip>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+
+        <Separator />
+
+        <div className="px-3 py-4">
+          <Button
+            variant="ghost"
+            className={cn(
+              'w-full justify-start gap-3 text-muted-foreground',
+              'hover:text-foreground',
+            )}
+            onClick={logout}
+          >
+            <LogOut className="h-4 w-4" />
+            Logout
+          </Button>
+        </div>
+      </aside>
+    </>
   );
 }

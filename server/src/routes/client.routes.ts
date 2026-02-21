@@ -4,6 +4,7 @@ import { db } from '../db/index.js';
 import { clients, invoices, quotes, activityLog } from '../db/schema.js';
 import { validate } from '../middleware/validate.js';
 import { createClientSchema, updateClientSchema } from '@vibe/shared';
+import { parseId } from '../utils/parse-id.js';
 
 const router = Router();
 
@@ -34,7 +35,8 @@ router.get('/', async (req, res, next) => {
 // GET /:id - Get single client with invoices and quotes
 router.get('/:id', async (req, res, next) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseId(req, res);
+    if (id === null) return;
 
     const client = await db.query.clients.findFirst({
       where: eq(clients.id, id),
@@ -78,7 +80,8 @@ router.post('/', validate(createClientSchema), async (req, res, next) => {
 // PUT /:id - Update client
 router.put('/:id', validate(updateClientSchema), async (req, res, next) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseId(req, res);
+    if (id === null) return;
 
     const [updated] = await db.update(clients)
       .set({ ...req.body, updatedAt: new Date() })
@@ -106,7 +109,8 @@ router.put('/:id', validate(updateClientSchema), async (req, res, next) => {
 // DELETE /:id - Delete client
 router.delete('/:id', async (req, res, next) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseId(req, res);
+    if (id === null) return;
 
     const [deleted] = await db.delete(clients)
       .where(eq(clients.id, id))

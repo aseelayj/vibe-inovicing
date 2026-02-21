@@ -1,5 +1,6 @@
 import puppeteer, { type Browser } from 'puppeteer';
 import { renderInvoiceHtml } from '../templates/invoice-pdf.js';
+import { renderQuoteHtml } from '../templates/quote-pdf.js';
 
 let browser: Browser | null = null;
 
@@ -13,13 +14,7 @@ async function getBrowser(): Promise<Browser> {
   return browser;
 }
 
-export async function generateInvoicePdf(data: {
-  invoice: any;
-  lineItems: any[];
-  client: any;
-  settings: any;
-}): Promise<Buffer> {
-  const html = renderInvoiceHtml(data);
+async function renderPdf(html: string): Promise<Buffer> {
   const b = await getBrowser();
   const page = await b.newPage();
 
@@ -34,6 +29,26 @@ export async function generateInvoicePdf(data: {
   } finally {
     await page.close();
   }
+}
+
+export async function generateInvoicePdf(data: {
+  invoice: any;
+  lineItems: any[];
+  client: any;
+  settings: any;
+}): Promise<Buffer> {
+  const html = await renderInvoiceHtml(data);
+  return renderPdf(html);
+}
+
+export async function generateQuotePdf(data: {
+  quote: any;
+  lineItems: any[];
+  client: any;
+  settings: any;
+}): Promise<Buffer> {
+  const html = renderQuoteHtml(data);
+  return renderPdf(html);
 }
 
 export async function closeBrowser() {

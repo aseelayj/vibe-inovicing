@@ -17,6 +17,7 @@ import {
 } from '@vibe/shared';
 import { generateInvoicePdf } from '../services/pdf.service.js';
 import { sendInvoiceEmail, sendPaymentReminder } from '../services/email.service.js';
+import { parseId } from '../utils/parse-id.js';
 
 const router = Router();
 
@@ -39,25 +40,32 @@ function calculateTotals(
   };
 }
 
-// Helper: generate invoice number from settings
+// Helper: generate invoice number from settings (atomic increment)
 async function generateInvoiceNumber(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  isTaxable: boolean,
 ) {
-  const [settingsRow] = await tx.select().from(settings).limit(1);
+  const updateCol = isTaxable
+    ? { nextInvoiceNumber: sql`${settings.nextInvoiceNumber} + 1` }
+    : { nextExemptInvoiceNumber: sql`${settings.nextExemptInvoiceNumber} + 1` };
+
+  const [settingsRow] = await tx
+    .update(settings)
+    .set(updateCol)
+    .returning();
 
   if (!settingsRow) {
     throw new Error('Settings not found. Please configure settings first.');
   }
 
-  const prefix = settingsRow.invoicePrefix;
-  const nextNum = settingsRow.nextInvoiceNumber;
-  const invoiceNumber = `${prefix}-${String(nextNum).padStart(4, '0')}`;
+  const prefix = isTaxable
+    ? settingsRow.invoicePrefix
+    : settingsRow.exemptInvoicePrefix;
+  const currentNum = isTaxable
+    ? settingsRow.nextInvoiceNumber - 1
+    : settingsRow.nextExemptInvoiceNumber - 1;
 
-  await tx.update(settings)
-    .set({ nextInvoiceNumber: nextNum + 1 })
-    .where(eq(settings.id, settingsRow.id));
-
-  return invoiceNumber;
+  return `${prefix}-${String(currentNum).padStart(4, '0')}`;
 }
 
 // GET / - List invoices with filters and pagination
@@ -67,6 +75,7 @@ router.get('/', async (req, res, next) => {
       status,
       clientId,
       search,
+      isTaxable,
       page = '1',
       pageSize = '20',
     } = req.query;
@@ -83,6 +92,12 @@ router.get('/', async (req, res, next) => {
 
     if (clientId && typeof clientId === 'string') {
       conditions.push(eq(invoices.clientId, parseInt(clientId, 10)));
+    }
+
+    if (isTaxable === 'true') {
+      conditions.push(eq(invoices.isTaxable, true));
+    } else if (isTaxable === 'false') {
+      conditions.push(eq(invoices.isTaxable, false));
     }
 
     if (search && typeof search === 'string') {
@@ -141,7 +156,8 @@ router.get('/', async (req, res, next) => {
 // GET /:id - Get single invoice with line items and client
 router.get('/:id', async (req, res, next) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseId(req, res);
+    if (id === null) return;
 
     const invoice = await db.query.invoices.findFirst({
       where: eq(invoices.id, id),
@@ -168,19 +184,22 @@ router.post('/', validate(createInvoiceSchema), async (req, res, next) => {
   try {
     const {
       lineItems: lineItemsInput,
-      taxRate = 0,
+      taxRate: rawTaxRate = 0,
       discountAmount = 0,
+      isTaxable = false,
       ...invoiceData
     } = req.body;
 
+    const taxRate = isTaxable ? 16 : 0;
     const totals = calculateTotals(lineItemsInput, taxRate, discountAmount);
 
     const result = await db.transaction(async (tx) => {
-      const invoiceNumber = await generateInvoiceNumber(tx);
+      const invoiceNumber = await generateInvoiceNumber(tx, isTaxable);
 
       const [invoice] = await tx.insert(invoices).values({
         ...invoiceData,
         invoiceNumber,
+        isTaxable,
         taxRate: String(taxRate),
         discountAmount: String(discountAmount),
         subtotal: totals.subtotal,
@@ -226,7 +245,8 @@ router.post('/', validate(createInvoiceSchema), async (req, res, next) => {
 // PUT /:id - Update invoice and replace line items
 router.put('/:id', validate(updateInvoiceSchema), async (req, res, next) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseId(req, res);
+    if (id === null) return;
     const {
       lineItems: lineItemsInput,
       taxRate,
@@ -322,7 +342,8 @@ router.put('/:id', validate(updateInvoiceSchema), async (req, res, next) => {
 // DELETE /:id - Delete invoice
 router.delete('/:id', async (req, res, next) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseId(req, res);
+    if (id === null) return;
 
     const [deleted] = await db.delete(invoices)
       .where(eq(invoices.id, id))
@@ -349,7 +370,8 @@ router.delete('/:id', async (req, res, next) => {
 // POST /:id/duplicate - Duplicate invoice with new number
 router.post('/:id/duplicate', async (req, res, next) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseId(req, res);
+    if (id === null) return;
 
     const original = await db.query.invoices.findFirst({
       where: eq(invoices.id, id),
@@ -362,12 +384,15 @@ router.post('/:id/duplicate', async (req, res, next) => {
     }
 
     const result = await db.transaction(async (tx) => {
-      const invoiceNumber = await generateInvoiceNumber(tx);
+      const invoiceNumber = await generateInvoiceNumber(
+        tx, original.isTaxable,
+      );
 
       const [duplicate] = await tx.insert(invoices).values({
         invoiceNumber,
         clientId: original.clientId,
         status: 'draft',
+        isTaxable: original.isTaxable,
         issueDate: new Date().toISOString().split('T')[0],
         dueDate: original.dueDate,
         currency: original.currency,
@@ -420,7 +445,8 @@ router.patch(
   validate(updateInvoiceStatusSchema),
   async (req, res, next) => {
     try {
-      const id = parseInt(req.params.id, 10);
+      const id = parseId(req, res);
+      if (id === null) return;
       const { status } = req.body;
 
       const updateData: Record<string, unknown> = {
@@ -462,7 +488,8 @@ router.patch(
 // GET /:id/pdf - Download invoice as PDF
 router.get('/:id/pdf', async (req, res, next) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseId(req, res);
+    if (id === null) return;
 
     const invoice = await db.query.invoices.findFirst({
       where: eq(invoices.id, id),
@@ -498,7 +525,8 @@ router.get('/:id/pdf', async (req, res, next) => {
 // POST /:id/send - Send invoice via email
 router.post('/:id/send', async (req, res, next) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseId(req, res);
+    if (id === null) return;
     const { subject, body } = req.body;
 
     const invoice = await db.query.invoices.findFirst({
@@ -571,7 +599,8 @@ router.post('/:id/send', async (req, res, next) => {
 // POST /:id/remind - Send payment reminder email
 router.post('/:id/remind', async (req, res, next) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseId(req, res);
+    if (id === null) return;
     const { subject, body } = req.body;
 
     const invoice = await db.query.invoices.findFirst({

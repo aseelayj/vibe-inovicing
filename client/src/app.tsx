@@ -15,6 +15,11 @@ import { QuoteCreatePage } from '@/pages/quote-create-page';
 import { QuoteDetailPage } from '@/pages/quote-detail-page';
 import { PaymentsPage } from '@/pages/payments-page';
 import { SettingsPage } from '@/pages/settings-page';
+import { RecurringPage } from '@/pages/recurring-page';
+import { QuoteEditPage } from '@/pages/quote-edit-page';
+import { BankAccountsPage } from '@/pages/bank-accounts-page';
+import { TransactionsPage } from '@/pages/transactions-page';
+import { TaxReportsPage } from '@/pages/tax-reports-page';
 import { NotFoundPage } from '@/pages/not-found-page';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -56,8 +61,12 @@ export function App() {
         <Route path="quotes" element={<QuotesPage />} />
         <Route path="quotes/new" element={<QuoteCreatePage />} />
         <Route path="quotes/:id" element={<QuoteDetailPage />} />
-        <Route path="quotes/:id/edit" element={<QuoteCreatePage />} />
+        <Route path="quotes/:id/edit" element={<QuoteEditPage />} />
         <Route path="payments" element={<PaymentsPage />} />
+        <Route path="recurring" element={<RecurringPage />} />
+        <Route path="bank-accounts" element={<BankAccountsPage />} />
+        <Route path="transactions" element={<TransactionsPage />} />
+        <Route path="tax-reports" element={<TaxReportsPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>

@@ -1,6 +1,7 @@
 import { Resend } from 'resend';
 import { env } from '../env.js';
 import { renderInvoiceEmailHtml, renderReminderEmailHtml } from '../templates/invoice-email.js';
+import { renderQuoteEmailHtml } from '../templates/quote-email.js';
 
 const resend = new Resend(env.RESEND_API_KEY);
 
@@ -39,6 +40,46 @@ export async function sendInvoiceEmail(params: {
 
   if (error) {
     throw new Error(`Email send failed: ${error.message}`);
+  }
+
+  return { id: data?.id || '' };
+}
+
+export async function sendQuoteEmail(params: {
+  to: string;
+  subject: string;
+  body: string;
+  pdfBuffer: Buffer;
+  quoteNumber: string;
+  businessName: string;
+  clientName: string;
+  total: string;
+  currency: string;
+  expiryDate: string | null;
+}): Promise<{ id: string }> {
+  const html = renderQuoteEmailHtml({
+    businessName: params.businessName,
+    clientName: params.clientName,
+    quoteNumber: params.quoteNumber,
+    total: params.total,
+    currency: params.currency,
+    expiryDate: params.expiryDate,
+    body: params.body,
+  });
+
+  const { data, error } = await resend.emails.send({
+    from: `${params.businessName} <${env.FROM_EMAIL}>`,
+    to: params.to,
+    subject: params.subject,
+    html,
+    attachments: [{
+      filename: `${params.quoteNumber}.pdf`,
+      content: params.pdfBuffer,
+    }],
+  });
+
+  if (error) {
+    throw new Error(`Quote email send failed: ${error.message}`);
   }
 
   return { id: data?.id || '' };

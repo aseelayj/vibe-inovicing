@@ -1,13 +1,16 @@
 import { Router } from 'express';
-import { eq, desc, sql, sum } from 'drizzle-orm';
+import { eq, desc, sum, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
   payments,
   invoices,
   activityLog,
+  transactions,
+  bankAccounts,
 } from '../db/schema.js';
 import { validate } from '../middleware/validate.js';
 import { createPaymentSchema } from '@vibe/shared';
+import { parseId } from '../utils/parse-id.js';
 
 const router = Router();
 
@@ -61,7 +64,7 @@ async function recalculateInvoicePayments(
 router.get('/', async (req, res, next) => {
   try {
     const result = await db.query.payments.findMany({
-      with: { invoice: true },
+      with: { invoice: { with: { client: true } } },
       orderBy: [desc(payments.paymentDate)],
     });
 
@@ -74,7 +77,8 @@ router.get('/', async (req, res, next) => {
 // GET /invoice/:invoiceId - Get payments for a specific invoice
 router.get('/invoice/:invoiceId', async (req, res, next) => {
   try {
-    const invoiceId = parseInt(req.params.invoiceId, 10);
+    const invoiceId = parseId(req, res, 'invoiceId');
+    if (invoiceId === null) return;
 
     const result = await db.select().from(payments)
       .where(eq(payments.invoiceId, invoiceId))
@@ -89,7 +93,10 @@ router.get('/invoice/:invoiceId', async (req, res, next) => {
 // POST / - Create payment
 router.post('/', validate(createPaymentSchema), async (req, res, next) => {
   try {
-    const { invoiceId, amount, paymentDate, paymentMethod, reference, notes } = req.body;
+    const {
+      invoiceId, amount, paymentDate, paymentMethod,
+      reference, bankAccountId, notes,
+    } = req.body;
 
     // Verify invoice exists
     const [invoice] = await db.select().from(invoices)
@@ -100,6 +107,23 @@ router.post('/', validate(createPaymentSchema), async (req, res, next) => {
       return;
     }
 
+    if (invoice.status === 'draft' || invoice.status === 'cancelled') {
+      res.status(400).json({
+        error: `Cannot record payment for ${invoice.status} invoice`,
+      });
+      return;
+    }
+
+    // Verify bank account if provided
+    if (bankAccountId) {
+      const [account] = await db.select().from(bankAccounts)
+        .where(eq(bankAccounts.id, bankAccountId));
+      if (!account) {
+        res.status(404).json({ error: 'Bank account not found' });
+        return;
+      }
+    }
+
     const result = await db.transaction(async (tx) => {
       const [payment] = await tx.insert(payments).values({
         invoiceId,
@@ -107,10 +131,31 @@ router.post('/', validate(createPaymentSchema), async (req, res, next) => {
         paymentDate,
         paymentMethod,
         reference,
+        bankAccountId: bankAccountId ?? null,
         notes,
       }).returning();
 
       await recalculateInvoicePayments(tx, invoiceId);
+
+      // Auto-create income transaction if bank account selected
+      if (bankAccountId) {
+        await tx.insert(transactions).values({
+          bankAccountId,
+          type: 'income',
+          category: 'invoice_payment',
+          amount: String(amount),
+          date: paymentDate,
+          description: `Payment for ${invoice.invoiceNumber}`,
+        });
+
+        // Update bank account balance
+        await tx.update(bankAccounts)
+          .set({
+            currentBalance: sql`${bankAccounts.currentBalance} + ${String(amount)}`,
+            updatedAt: new Date(),
+          })
+          .where(eq(bankAccounts.id, bankAccountId));
+      }
 
       await tx.insert(activityLog).values({
         entityType: 'payment',
@@ -131,7 +176,8 @@ router.post('/', validate(createPaymentSchema), async (req, res, next) => {
 // DELETE /:id - Delete payment and recalculate invoice
 router.delete('/:id', async (req, res, next) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseId(req, res);
+    if (id === null) return;
 
     const [payment] = await db.select().from(payments)
       .where(eq(payments.id, id));
@@ -142,6 +188,16 @@ router.delete('/:id', async (req, res, next) => {
     }
 
     await db.transaction(async (tx) => {
+      // Reverse bank account transaction if linked
+      if (payment.bankAccountId) {
+        await tx.update(bankAccounts)
+          .set({
+            currentBalance: sql`${bankAccounts.currentBalance} - ${payment.amount}`,
+            updatedAt: new Date(),
+          })
+          .where(eq(bankAccounts.id, payment.bankAccountId));
+      }
+
       await tx.delete(payments).where(eq(payments.id, id));
 
       await recalculateInvoicePayments(tx, payment.invoiceId);

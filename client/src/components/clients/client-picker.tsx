@@ -1,7 +1,24 @@
-import { useState, useRef, useEffect } from 'react';
-import { Search, Plus, Check } from 'lucide-react';
+import { useState } from 'react';
+import { Check, ChevronsUpDown, Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from '@/components/ui/command';
 import { useClients, useCreateClient } from '@/hooks/use-clients';
-import { cn } from '@/lib/cn';
+import { cn } from '@/lib/utils';
 
 export interface ClientPickerProps {
   value: number | null;
@@ -9,31 +26,16 @@ export interface ClientPickerProps {
 }
 
 export function ClientPicker({ value, onChange }: ClientPickerProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [newClientName, setNewClientName] = useState('');
-  const containerRef = useRef<HTMLDivElement>(null);
 
   const { data: clientsData } = useClients(search);
   const createClient = useCreateClient();
 
-  const clients = clientsData?.data ?? [];
+  const clients = (Array.isArray(clientsData) ? clientsData : clientsData?.data ?? []) as any[];
   const selectedClient = clients.find((c) => c.id === value);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
-        setIsOpen(false);
-        setShowCreate(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   const handleCreateClient = async () => {
     if (!newClientName.trim()) return;
@@ -44,119 +46,109 @@ export function ClientPicker({ value, onChange }: ClientPickerProps) {
       onChange(client.id);
       setNewClientName('');
       setShowCreate(false);
-      setIsOpen(false);
+      setOpen(false);
     } catch {
       // error handled by mutation
     }
   };
 
   return (
-    <div ref={containerRef} className="relative">
-      <label className="mb-1.5 block text-sm font-medium text-gray-700">
-        Client
-      </label>
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className={cn(
-          'flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm',
-          'transition-colors',
-          isOpen
-            ? 'border-primary-500 ring-2 ring-primary-500/20'
-            : 'border-gray-300 hover:border-gray-400',
-        )}
-      >
-        <span className={selectedClient ? 'text-gray-900' : 'text-gray-400'}>
-          {selectedClient
-            ? `${selectedClient.name}${selectedClient.company ? ` - ${selectedClient.company}` : ''}`
-            : 'Select a client...'}
-        </span>
-        <Search className="h-4 w-4 text-gray-400" />
-      </button>
-
-      {isOpen && (
-        <div className="absolute z-20 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg">
-          <div className="p-2">
-            <input
-              type="text"
+    <div className="space-y-2">
+      <Label>Client</Label>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="w-full justify-between font-normal"
+          >
+            <span className={cn(!selectedClient && 'text-muted-foreground')}>
+              {selectedClient
+                ? `${selectedClient.name}${selectedClient.company ? ` - ${selectedClient.company}` : ''}`
+                : 'Select a client...'}
+            </span>
+            <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+          <Command shouldFilter={false}>
+            <CommandInput
               placeholder="Search clients..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-md border border-gray-200 px-3 py-1.5 text-sm placeholder-gray-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500/20"
-              autoFocus
+              onValueChange={setSearch}
             />
-          </div>
-
-          <ul className="max-h-48 overflow-y-auto py-1">
-            {clients.length === 0 && (
-              <li className="px-3 py-2 text-sm text-gray-500">
-                No clients found
-              </li>
-            )}
-            {clients.map((client) => (
-              <li key={client.id}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onChange(client.id);
-                    setIsOpen(false);
-                    setSearch('');
-                  }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+            <CommandList>
+              <CommandEmpty>No clients found.</CommandEmpty>
+              <CommandGroup>
+                {clients.map((client) => (
+                  <CommandItem
+                    key={client.id}
+                    value={String(client.id)}
+                    onSelect={() => {
+                      onChange(client.id);
+                      setOpen(false);
+                      setSearch('');
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        'h-4 w-4',
+                        value === client.id ? 'opacity-100' : 'opacity-0',
+                      )}
+                    />
+                    <div>
+                      <p className="font-medium">{client.name}</p>
+                      {client.company && (
+                        <p className="text-xs text-muted-foreground">
+                          {client.company}
+                        </p>
+                      )}
+                    </div>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+            <CommandSeparator />
+            <div className="p-2">
+              {showCreate ? (
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Client name"
+                    value={newClientName}
+                    onChange={(e) => setNewClientName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleCreateClient();
+                      }
+                    }}
+                    autoFocus
+                    className="h-8"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleCreateClient}
+                    disabled={createClient.isPending}
+                  >
+                    Add
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start"
+                  onClick={() => setShowCreate(true)}
                 >
-                  {value === client.id && (
-                    <Check className="h-4 w-4 shrink-0 text-primary-500" />
-                  )}
-                  <div className={value === client.id ? '' : 'pl-6'}>
-                    <p className="font-medium text-gray-900">{client.name}</p>
-                    {client.company && (
-                      <p className="text-xs text-gray-500">{client.company}</p>
-                    )}
-                  </div>
-                </button>
-              </li>
-            ))}
-          </ul>
-
-          <div className="border-t border-gray-100 p-2">
-            {showCreate ? (
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Client name"
-                  value={newClientName}
-                  onChange={(e) => setNewClientName(e.target.value)}
-                  className="flex-1 rounded-md border border-gray-200 px-3 py-1.5 text-sm placeholder-gray-400 focus:border-primary-500 focus:outline-none"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleCreateClient();
-                    }
-                  }}
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  onClick={handleCreateClient}
-                  disabled={createClient.isPending}
-                  className="rounded-md bg-primary-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-50"
-                >
-                  Add
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setShowCreate(true)}
-                className="flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-sm text-primary-600 hover:bg-primary-50"
-              >
-                <Plus className="h-4 w-4" />
-                Create new client
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+                  <Plus className="h-4 w-4" />
+                  Create new client
+                </Button>
+              )}
+            </div>
+          </Command>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }

@@ -1,3 +1,5 @@
+import QRCode from 'qrcode';
+
 function formatCurrency(amount: number | string, currency = 'USD') {
   const num = typeof amount === 'string' ? parseFloat(amount) : amount;
   return new Intl.NumberFormat('en-US', {
@@ -14,12 +16,12 @@ function formatDate(dateStr: string) {
   });
 }
 
-export function renderInvoiceHtml(data: {
+export async function renderInvoiceHtml(data: {
   invoice: any;
   lineItems: any[];
   client: any;
   settings: any;
-}): string {
+}): Promise<string> {
   const { invoice, lineItems, client, settings } = data;
   const currency = invoice.currency || 'USD';
 
@@ -142,7 +144,7 @@ export function renderInvoiceHtml(data: {
         </div>
       </div>
       <div>
-        <div class="invoice-title">INVOICE</div>
+        <div class="invoice-title">${invoice.isTaxable ? 'TAX INVOICE' : 'INVOICE'}</div>
         <div class="invoice-number">${invoice.invoiceNumber}</div>
         <div style="text-align: right;">
           <span class="status-badge"
@@ -257,6 +259,18 @@ export function renderInvoiceHtml(data: {
     <div class="notes-section" style="margin-top: 16px;">
       <div class="notes-title">Terms & Conditions</div>
       <div class="notes-content">${invoice.terms}</div>
+    </div>` : ''}
+
+    ${invoice.jofotaraQrCode ? `
+    <div style="margin-top: 32px; text-align: center;
+      border-top: 1px solid #e5e7eb; padding-top: 24px;">
+      <img src="${await QRCode.toDataURL(invoice.jofotaraQrCode, {
+        width: 120, margin: 1,
+      })}" width="120" height="120"
+        style="display: inline-block;" />
+      <p style="margin-top: 8px; font-size: 11px; color: #6b7280;">
+        JoFotara E-Invoice
+      </p>
     </div>` : ''}
 
     <div class="footer">

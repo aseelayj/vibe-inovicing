@@ -8,12 +8,17 @@ import {
   Pencil,
   Copy,
   Trash2,
+  Send,
+  FileText,
+  Globe,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { EmptyState } from '@/components/ui/empty-state';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Table,
   TableHeader,
@@ -23,34 +28,48 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
   useInvoices,
   useDeleteInvoice,
   useDuplicateInvoice,
+  useSendInvoice,
 } from '@/hooks/use-invoices';
 import { formatCurrency, formatDate } from '@/lib/format';
-import { cn } from '@/lib/cn';
-import { FileText } from 'lucide-react';
-
-const TABS = [
-  { label: 'All', value: 'all' },
-  { label: 'Draft', value: 'draft' },
-  { label: 'Sent', value: 'sent' },
-  { label: 'Overdue', value: 'overdue' },
-  { label: 'Paid', value: 'paid' },
-];
+import { STATUS_COLORS } from '@/lib/constants';
+import { cn } from '@/lib/utils';
 
 export function InvoicesPage() {
   const navigate = useNavigate();
   const [status, setStatus] = useState('all');
+  const [taxFilter, setTaxFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
-  const [openMenu, setOpenMenu] = useState<number | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [sendId, setSendId] = useState<number | null>(null);
 
-  const { data, isLoading } = useInvoices({ status, search });
+  const { data, isLoading } = useInvoices({
+    status,
+    search,
+    isTaxable: taxFilter === 'all' ? undefined : taxFilter,
+  });
   const deleteInvoice = useDeleteInvoice();
   const duplicateInvoice = useDuplicateInvoice();
+  const sendInvoice = useSendInvoice();
 
-  const invoices = data?.data ?? [];
+  const invoices = (Array.isArray(data) ? data : data?.data ?? []) as any[];
 
   const handleDelete = async () => {
     if (deleteId === null) return;
@@ -62,57 +81,21 @@ export function InvoicesPage() {
     }
   };
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Invoices</h2>
-          <p className="mt-1 text-sm text-gray-500">
-            Manage and track your invoices
-          </p>
-        </div>
-        <Link to="/invoices/new">
-          <Button>
-            <Plus className="h-4 w-4" />
-            New Invoice
-          </Button>
-        </Link>
-      </div>
+  const handleSend = async () => {
+    if (sendId === null) return;
+    try {
+      await sendInvoice.mutateAsync(sendId);
+      setSendId(null);
+    } catch {
+      // handled by mutation
+    }
+  };
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex gap-1 rounded-lg border border-gray-200 bg-white p-1">
-          {TABS.map((tab) => (
-            <button
-              key={tab.value}
-              type="button"
-              onClick={() => setStatus(tab.value)}
-              className={cn(
-                'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-                status === tab.value
-                  ? 'bg-primary-50 text-primary-700'
-                  : 'text-gray-500 hover:text-gray-700',
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+  const renderInvoiceTable = () => {
+    if (isLoading) return <LoadingSpinner />;
 
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search invoices..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm placeholder-gray-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 sm:w-64"
-          />
-        </div>
-      </div>
-
-      {isLoading ? (
-        <LoadingSpinner />
-      ) : invoices.length === 0 ? (
+    if (invoices.length === 0) {
+      return (
         <EmptyState
           icon={FileText}
           title="No invoices found"
@@ -121,128 +104,269 @@ export function InvoicesPage() {
               ? 'Try adjusting your filters or search term.'
               : 'Create your first invoice to get started.'
           }
-          actionLabel={!search && status === 'all' ? 'Create Invoice' : undefined}
+          actionLabel={
+            !search && status === 'all' ? 'Create Invoice' : undefined
+          }
           onAction={
             !search && status === 'all'
               ? () => navigate('/invoices/new')
               : undefined
           }
         />
-      ) : (
-        <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Invoice</TableHead>
-                <TableHead>Client</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Issue Date</TableHead>
-                <TableHead>Due Date</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead className="w-12" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {invoices.map((invoice) => (
-                <TableRow key={invoice.id}>
-                  <TableCell>
+      );
+    }
+
+    return (
+      <div className="rounded-xl border bg-card shadow-sm">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Invoice</TableHead>
+              <TableHead>Client</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="hidden md:table-cell">Issue Date</TableHead>
+              <TableHead className="hidden lg:table-cell">Due Date</TableHead>
+              <TableHead className="text-right">Total</TableHead>
+              <TableHead className="w-12" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {invoices.map((invoice) => (
+              <TableRow key={invoice.id}>
+                <TableCell>
+                  <div className="flex items-center gap-1.5">
                     <Link
                       to={`/invoices/${invoice.id}`}
-                      className="font-medium text-primary-600 hover:text-primary-700"
+                      className="font-medium text-primary hover:underline"
                     >
                       {invoice.invoiceNumber}
                     </Link>
-                  </TableCell>
-                  <TableCell>
-                    {invoice.client?.name || 'No client'}
-                  </TableCell>
-                  <TableCell>
-                    <Badge status={invoice.status} />
-                  </TableCell>
-                  <TableCell>{formatDate(invoice.issueDate)}</TableCell>
-                  <TableCell>{formatDate(invoice.dueDate)}</TableCell>
-                  <TableCell className="text-right font-medium">
-                    {formatCurrency(invoice.total, invoice.currency)}
-                  </TableCell>
-                  <TableCell>
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setOpenMenu(openMenu === invoice.id ? null : invoice.id)
-                        }
-                        className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'border-transparent text-[10px] px-1.5 py-0',
+                        invoice.isTaxable
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-gray-100 text-gray-600',
+                      )}
+                    >
+                      {invoice.isTaxable ? 'Tax' : 'Exempt'}
+                    </Badge>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  {invoice.client?.name || 'No client'}
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1.5">
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        STATUS_COLORS[invoice.status],
+                        'border-transparent',
+                      )}
+                    >
+                      {invoice.status.replace(/_/g, ' ')}
+                    </Badge>
+                    {invoice.jofotaraStatus === 'submitted' && (
+                      <Badge
+                        variant="outline"
+                        className="border-transparent bg-green-100 text-green-700"
+                      >
+                        <Globe className="mr-0.5 h-3 w-3" />
+                        E-Invoice
+                      </Badge>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell className="hidden md:table-cell">
+                  {formatDate(invoice.issueDate)}
+                </TableCell>
+                <TableCell className="hidden lg:table-cell">
+                  {formatDate(invoice.dueDate)}
+                </TableCell>
+                <TableCell className="text-right font-medium">
+                  {formatCurrency(invoice.total, invoice.currency)}
+                </TableCell>
+                <TableCell>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
                         aria-label="Actions"
                       >
                         <MoreHorizontal className="h-4 w-4" />
-                      </button>
-                      {openMenu === invoice.id && (
-                        <div className="absolute right-0 z-10 mt-1 w-44 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigate(`/invoices/${invoice.id}`);
-                              setOpenMenu(null);
-                            }}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                          >
-                            <Eye className="h-4 w-4" />
-                            View
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigate(`/invoices/${invoice.id}/edit`);
-                              setOpenMenu(null);
-                            }}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                          >
-                            <Pencil className="h-4 w-4" />
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              duplicateInvoice.mutate(invoice.id);
-                              setOpenMenu(null);
-                            }}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                          >
-                            <Copy className="h-4 w-4" />
-                            Duplicate
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setDeleteId(invoice.id);
-                              setOpenMenu(null);
-                            }}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            Delete
-                          </button>
-                        </div>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() =>
+                          navigate(`/invoices/${invoice.id}`)
+                        }
+                      >
+                        <Eye className="h-4 w-4" />
+                        View
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() =>
+                          navigate(`/invoices/${invoice.id}/edit`)
+                        }
+                      >
+                        <Pencil className="h-4 w-4" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={async () => {
+                          const dup = await duplicateInvoice.mutateAsync(invoice.id);
+                          if (dup?.id) navigate(`/invoices/${dup.id}`);
+                        }}
+                      >
+                        <Copy className="h-4 w-4" />
+                        Duplicate
+                      </DropdownMenuItem>
+                      {invoice.status === 'draft' && (
+                        <DropdownMenuItem
+                          onClick={() => setSendId(invoice.id)}
+                        >
+                          <Send className="h-4 w-4" />
+                          Send
+                        </DropdownMenuItem>
                       )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onClick={() => setDeleteId(invoice.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  };
 
-      <ConfirmDialog
-        isOpen={deleteId !== null}
-        onClose={() => setDeleteId(null)}
-        onConfirm={handleDelete}
-        title="Delete Invoice"
-        message="Are you sure you want to delete this invoice? This action cannot be undone."
-        confirmText="Delete"
-        variant="danger"
-        loading={deleteInvoice.isPending}
-      />
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-xl font-bold sm:text-2xl">Invoices</h2>
+          <p className="mt-0.5 hidden text-sm text-muted-foreground sm:block">
+            Manage and track your invoices
+            {' · '}
+            <Link
+              to={`/tax-reports?tab=sales-tax&year=${new Date().getFullYear()}&period=${Math.floor(new Date().getMonth() / 2)}`}
+              className="inline-flex items-center gap-1 text-primary hover:underline"
+            >
+              <FileSpreadsheet className="inline h-3 w-3" />
+              Tax report
+            </Link>
+          </p>
+        </div>
+        <Link to="/invoices/new">
+          <Button size="sm" className="shrink-0 sm:size-default">
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">New Invoice</span>
+            <span className="sm:hidden">New</span>
+          </Button>
+        </Link>
+      </div>
+
+      <div className="space-y-3">
+        <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+          <div className="flex items-center gap-3">
+            <Tabs value={status} onValueChange={setStatus}>
+              <TabsList>
+                <TabsTrigger value="all">All</TabsTrigger>
+                <TabsTrigger value="draft">Draft</TabsTrigger>
+                <TabsTrigger value="sent">Sent</TabsTrigger>
+                <TabsTrigger value="paid">Paid</TabsTrigger>
+                <TabsTrigger value="overdue">Overdue</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <Tabs value={taxFilter} onValueChange={setTaxFilter}>
+              <TabsList>
+                <TabsTrigger value="all">All Types</TabsTrigger>
+                <TabsTrigger value="true">Taxable</TabsTrigger>
+                <TabsTrigger value="false">Exempt</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+        </div>
+
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search invoices..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 sm:w-64"
+          />
+        </div>
+      </div>
+
+      {renderInvoiceTable()}
+
+      {/* Delete confirmation dialog */}
+      <Dialog
+        open={deleteId !== null}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Invoice</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this invoice? This action
+              cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteId(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deleteInvoice.isPending}
+            >
+              {deleteInvoice.isPending ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send confirmation dialog */}
+      <Dialog
+        open={sendId !== null}
+        onOpenChange={(open) => !open && setSendId(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send Invoice</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to send this invoice to the client?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSendId(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSend}
+              disabled={sendInvoice.isPending}
+            >
+              {sendInvoice.isPending ? 'Sending...' : 'Send'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

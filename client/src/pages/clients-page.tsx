@@ -1,10 +1,26 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Plus, Search, Users } from 'lucide-react';
+import {
+  Plus,
+  Search,
+  Users,
+  MoreHorizontal,
+  Eye,
+  Pencil,
+  Trash2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Modal } from '@/components/ui/modal';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import {
   Table,
   TableHeader,
@@ -13,17 +29,31 @@ import {
   TableHead,
   TableCell,
 } from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ClientForm } from '@/components/clients/client-form';
-import { useClients, useCreateClient } from '@/hooks/use-clients';
+import {
+  useClients,
+  useCreateClient,
+  useDeleteClient,
+} from '@/hooks/use-clients';
+import { formatDate } from '@/lib/format';
 
 export function ClientsPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
   const { data, isLoading } = useClients(search);
   const createClient = useCreateClient();
+  const deleteClient = useDeleteClient();
 
-  const clients = data?.data ?? [];
+  const clients = (Array.isArray(data) ? data : data?.data ?? []) as any[];
 
   const handleCreate = async (formData: Record<string, unknown>) => {
     try {
@@ -35,29 +65,40 @@ export function ClientsPage() {
     }
   };
 
+  const handleDelete = async () => {
+    if (deleteId === null) return;
+    try {
+      await deleteClient.mutateAsync(deleteId);
+      setDeleteId(null);
+    } catch {
+      // handled
+    }
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Clients</h2>
-          <p className="mt-1 text-sm text-gray-500">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-xl font-bold sm:text-2xl">Clients</h2>
+          <p className="mt-0.5 hidden text-sm text-muted-foreground sm:block">
             Manage your client directory
           </p>
         </div>
-        <Button onClick={() => setShowCreate(true)}>
+        <Button size="sm" className="shrink-0 sm:size-default" onClick={() => setShowCreate(true)}>
           <Plus className="h-4 w-4" />
-          New Client
+          <span className="hidden sm:inline">New Client</span>
+          <span className="sm:hidden">New</span>
         </Button>
       </div>
 
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        <input
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
           type="text"
           placeholder="Search clients..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm placeholder-gray-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 sm:w-80"
+          className="w-full pl-9 sm:w-80"
         />
       </div>
 
@@ -76,14 +117,15 @@ export function ClientsPage() {
           onAction={!search ? () => setShowCreate(true) : undefined}
         />
       ) : (
-        <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="rounded-xl border bg-card shadow-sm">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Company</TableHead>
-                <TableHead>Phone</TableHead>
+                <TableHead className="hidden md:table-cell">Company</TableHead>
+                <TableHead className="hidden lg:table-cell">Created</TableHead>
+                <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -92,14 +134,59 @@ export function ClientsPage() {
                   <TableCell>
                     <Link
                       to={`/clients/${client.id}`}
-                      className="font-medium text-primary-600 hover:text-primary-700"
+                      className="font-medium text-primary hover:underline"
                     >
                       {client.name}
                     </Link>
                   </TableCell>
                   <TableCell>{client.email || '--'}</TableCell>
-                  <TableCell>{client.company || '--'}</TableCell>
-                  <TableCell>{client.phone || '--'}</TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    {client.company || '--'}
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell">
+                    {client.createdAt
+                      ? formatDate(client.createdAt)
+                      : '--'}
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          aria-label="Actions"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() =>
+                            navigate(`/clients/${client.id}`)
+                          }
+                        >
+                          <Eye className="h-4 w-4" />
+                          View
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            navigate(`/clients/${client.id}`)
+                          }
+                        >
+                          <Pencil className="h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={() => setDeleteId(client.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -107,17 +194,53 @@ export function ClientsPage() {
         </div>
       )}
 
-      <Modal
-        isOpen={showCreate}
-        onClose={() => setShowCreate(false)}
-        title="New Client"
+      {/* Create client dialog */}
+      <Dialog
+        open={showCreate}
+        onOpenChange={(open) => !open && setShowCreate(false)}
       >
-        <ClientForm
-          onSubmit={handleCreate}
-          isLoading={createClient.isPending}
-          onCancel={() => setShowCreate(false)}
-        />
-      </Modal>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>New Client</DialogTitle>
+            <DialogDescription>
+              Add a new client to your directory.
+            </DialogDescription>
+          </DialogHeader>
+          <ClientForm
+            onSubmit={handleCreate}
+            isLoading={createClient.isPending}
+            onCancel={() => setShowCreate(false)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation dialog */}
+      <Dialog
+        open={deleteId !== null}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Client</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this client? Associated
+              invoices and quotes will not be deleted.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteId(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deleteClient.isPending}
+            >
+              {deleteClient.isPending ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

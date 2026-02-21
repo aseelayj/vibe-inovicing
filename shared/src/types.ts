@@ -4,6 +4,11 @@ import type {
   PaymentMethod,
   RecurringFrequency,
   Currency,
+  TransactionType,
+  TransactionCategory,
+  JofotaraSubmissionStatus,
+  JofotaraInvoiceType,
+  FilingStatus,
 } from './constants';
 
 // ---- Client ----
@@ -19,6 +24,8 @@ export interface Client {
   state: string | null;
   postalCode: string | null;
   country: string | null;
+  taxId: string | null;
+  cityCode: string | null;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
@@ -58,10 +65,16 @@ export interface Invoice {
   amountPaid: number;
   notes: string | null;
   terms: string | null;
+  isTaxable: boolean;
   isRecurring: boolean;
   recurringId: number | null;
   sentAt: string | null;
   paidAt: string | null;
+  jofotaraUuid: string | null;
+  jofotaraStatus: JofotaraSubmissionStatus;
+  jofotaraQrCode: string | null;
+  jofotaraInvoiceNumber: string | null;
+  jofotaraSubmittedAt: string | null;
   lineItems?: LineItem[];
   createdAt: string;
   updatedAt: string;
@@ -100,6 +113,8 @@ export interface Payment {
   paymentDate: string;
   paymentMethod: PaymentMethod | null;
   reference: string | null;
+  bankAccountId: number | null;
+  bankAccount?: BankAccount | null;
   notes: string | null;
   createdAt: string;
 }
@@ -115,6 +130,7 @@ export interface RecurringInvoice {
   nextRunDate: string;
   lastRunDate: string | null;
   isActive: boolean;
+  isTaxable: boolean;
   currency: Currency;
   subtotal: number;
   taxRate: number;
@@ -142,8 +158,100 @@ export interface Settings {
   defaultPaymentTerms: number;
   invoicePrefix: string;
   nextInvoiceNumber: number;
+  exemptInvoicePrefix: string;
+  nextExemptInvoiceNumber: number;
   quotePrefix: string;
   nextQuoteNumber: number;
+  jofotaraClientId: string | null;
+  jofotaraClientSecret: string | null;
+  jofotaraCompanyTin: string | null;
+  jofotaraIncomeSourceSequence: string | null;
+  jofotaraInvoiceType: JofotaraInvoiceType;
+  jofotaraEnabled: boolean;
+  bankEtihadUsername: string | null;
+  bankEtihadEnabled: boolean;
+  filingStatus: FilingStatus;
+  personalExemption: number;
+  familyExemption: number;
+  additionalExemptions: number;
+}
+
+// ---- JoFotara Submission ----
+export interface JofotaraSubmission {
+  id: number;
+  invoiceId: number;
+  uuid: string | null;
+  status: string;
+  invoiceNumber: string | null;
+  qrCode: string | null;
+  xmlContent: string | null;
+  rawResponse: unknown;
+  errorMessage: string | null;
+  isCreditInvoice: boolean;
+  originalInvoiceId: string | null;
+  reasonForReturn: string | null;
+  createdAt: string;
+}
+
+// ---- Bank Account ----
+export interface BankAccount {
+  id: number;
+  name: string;
+  bankName: string | null;
+  accountNumber: string | null;
+  currency: Currency;
+  initialBalance: number;
+  currentBalance: number;
+  isActive: boolean;
+  notes: string | null;
+  bankEtihadLinked: boolean;
+  lastSyncAt: string | null;
+  lastSyncStatus: BankSyncStatusValue | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ---- Transaction ----
+export interface Transaction {
+  id: number;
+  bankAccountId: number;
+  type: TransactionType;
+  category: TransactionCategory;
+  amount: number;
+  date: string;
+  description: string;
+  notes: string | null;
+  bankReference: string | null;
+  bankSyncedAt: string | null;
+  isFromBank: boolean;
+  taxAmount: number | null;
+  supplierName: string | null;
+  invoiceReference: string | null;
+  bankAccount?: BankAccount;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ---- Bank Sync ----
+export type BankSyncStatusValue = 'success' | 'failed' | 'syncing';
+
+export interface BankSyncStatus {
+  connected: boolean;
+  sessionActive: boolean;
+  lastSyncAt: string | null;
+  lastSyncStatus: BankSyncStatusValue | null;
+}
+
+export interface BankSyncResult {
+  imported: number;
+  skipped: number;
+  errors: string[];
+  bankAccountId: number;
+}
+
+export interface BankLoginResult {
+  status: 'otp_required' | 'success' | 'error';
+  message?: string;
 }
 
 // ---- Dashboard ----
@@ -154,6 +262,8 @@ export interface DashboardStats {
   totalInvoices: number;
   totalClients: number;
   paidThisMonth: number;
+  totalBankBalance: number;
+  monthlyExpenses: number;
 }
 
 export interface RevenueChartData {
@@ -170,6 +280,65 @@ export interface ActivityLogEntry {
   description: string | null;
   createdAt: string;
 }
+
+// ---- Chat ----
+export type ChatMessageRole = 'user' | 'assistant' | 'system';
+export type ActionStatus = 'pending' | 'confirmed' | 'rejected' | 'executed';
+
+export interface ChatConversation {
+  id: number;
+  title: string;
+  pageContext: PageContext | null;
+  isArchived: boolean;
+  createdAt: string;
+  updatedAt: string;
+  messages?: ChatMessage[];
+}
+
+export interface ChatMessage {
+  id: number;
+  conversationId: number;
+  role: ChatMessageRole;
+  content: string | null;
+  toolCall: ChatToolCall | null;
+  toolResult: ChatToolResult | null;
+  actionStatus: ActionStatus | null;
+  attachments: ChatAttachment[] | null;
+  createdAt: string;
+}
+
+export interface ChatToolCall {
+  name: string;
+  args: Record<string, unknown>;
+}
+
+export interface ChatToolResult {
+  name: string;
+  data: unknown;
+  summary: string;
+}
+
+export interface ChatAttachment {
+  name: string;
+  mimeType: string;
+  url: string;
+  size: number;
+}
+
+export interface PageContext {
+  path: string;
+  section: string;
+  entityType?: string;
+  entityId?: number;
+  action?: string;
+}
+
+export type ChatSSEEvent =
+  | { type: 'text_delta'; text: string }
+  | { type: 'tool_result'; data: ChatToolResult }
+  | { type: 'action_proposal'; messageId: number; toolCall: ChatToolCall; summary: string }
+  | { type: 'done'; messageId: number }
+  | { type: 'error'; message: string };
 
 // ---- API Response ----
 export interface ApiResponse<T> {
@@ -213,4 +382,100 @@ export interface AiDraftEmailRequest {
 export interface AiDraftEmailResponse {
   subject: string;
   body: string;
+}
+
+// ---- Tax Reports ----
+export interface SalesTaxReport {
+  period: { startDate: string; endDate: string; label: string; deadline: string };
+  taxableSales: number;
+  exemptSales: number;
+  totalSales: number;
+  outputTax: number;
+  invoiceCount: number;
+  invoices: SalesTaxInvoiceRow[];
+}
+
+export interface SalesTaxInvoiceRow {
+  id: number;
+  invoiceNumber: string;
+  clientName: string | null;
+  issueDate: string;
+  subtotal: number;
+  taxAmount: number;
+  total: number;
+  isTaxable: boolean;
+  status: string;
+}
+
+export interface PurchasesReport {
+  period: { startDate: string; endDate: string; label: string };
+  totalPurchases: number;
+  inputTax: number;
+  transactionCount: number;
+  transactions: PurchasesTransactionRow[];
+}
+
+export interface PurchasesTransactionRow {
+  id: number;
+  date: string;
+  description: string;
+  supplierName: string | null;
+  invoiceReference: string | null;
+  category: string;
+  amount: number;
+  taxAmount: number | null;
+}
+
+export interface GstReturnSummary {
+  period: { startDate: string; endDate: string; label: string; deadline: string };
+  outputTax: number;
+  inputTax: number;
+  netTax: number;
+  taxableSales: number;
+  exemptSales: number;
+  totalPurchases: number;
+}
+
+export interface AnnualIncomeTaxReport {
+  year: number;
+  totalRevenue: number;
+  totalExpenses: number;
+  grossProfit: number;
+  expensesByCategory: { category: string; amount: number }[];
+  personalExemption: number;
+  familyExemption: number;
+  additionalExemptions: number;
+  totalExemptions: number;
+  taxableIncome: number;
+  taxBrackets: { range: string; income: number; rate: number; tax: number }[];
+  totalTax: number;
+  nationalContribution: number;
+  totalLiability: number;
+}
+
+export interface ProfitLossReport {
+  period: { startDate: string; endDate: string };
+  revenue: { total: number; byMonth: { month: string; amount: number }[] };
+  expenses: {
+    total: number;
+    byCategory: { category: string; amount: number }[];
+    byMonth: { month: string; amount: number }[];
+  };
+  netProfit: number;
+}
+
+export interface TaxDeadline {
+  type: 'gst' | 'income_tax';
+  label: string;
+  period: string;
+  deadline: string;
+  daysUntil: number;
+}
+
+export interface DashboardTaxSummary {
+  currentPeriodGst: GstReturnSummary | null;
+  nextDeadlines: TaxDeadline[];
+  ytdIncomeTaxEstimate: number;
+  ytdRevenue: number;
+  ytdExpenses: number;
 }

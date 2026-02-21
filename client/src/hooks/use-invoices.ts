@@ -6,6 +6,8 @@ import { toast } from 'sonner';
 interface InvoiceFilters {
   status?: string;
   search?: string;
+  clientId?: number;
+  isTaxable?: string;
   page?: number;
   pageSize?: number;
 }
@@ -16,6 +18,8 @@ export function useInvoices(filters: InvoiceFilters = {}) {
     params.set('status', filters.status);
   }
   if (filters.search) params.set('search', filters.search);
+  if (filters.clientId) params.set('clientId', String(filters.clientId));
+  if (filters.isTaxable) params.set('isTaxable', filters.isTaxable);
   if (filters.page) params.set('page', String(filters.page));
   if (filters.pageSize) params.set('pageSize', String(filters.pageSize));
 
@@ -92,9 +96,10 @@ export function useDuplicateInvoice() {
   return useMutation({
     mutationFn: (id: number) =>
       api.post<Invoice>(`/invoices/${id}/duplicate`),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       toast.success('Invoice duplicated successfully');
+      return data;
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to duplicate invoice');

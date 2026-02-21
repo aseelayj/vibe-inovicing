@@ -14,7 +14,7 @@ export function useInvoicePayments(invoiceId: number | undefined) {
   return useQuery({
     queryKey: ['payments', 'invoice', invoiceId],
     queryFn: () =>
-      api.get<Payment[]>(`/invoices/${invoiceId}/payments`),
+      api.get<Payment[]>(`/payments/invoice/${invoiceId}`),
     enabled: !!invoiceId,
   });
 }
@@ -28,6 +28,8 @@ export function useCreatePayment() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
       toast.success('Payment recorded successfully');
     },
     onError: (error: Error) => {
@@ -44,6 +46,8 @@ export function useDeletePayment() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
       toast.success('Payment deleted successfully');
     },
     onError: (error: Error) => {

@@ -1,4 +1,5 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, createPartFromBase64, type Part } from '@google/genai';
+import { TRANSACTION_CATEGORIES } from '@vibe/shared';
 import { env } from '../env.js';
 
 const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
@@ -8,7 +9,12 @@ function parseJsonResponse(text: string): any {
     .replace(/```json\n?/g, '')
     .replace(/```\n?/g, '')
     .trim();
-  return JSON.parse(cleaned);
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    console.error('Failed to parse AI response:', cleaned.slice(0, 200));
+    throw new Error('AI returned an invalid response. Please try again.');
+  }
 }
 
 export async function generateInvoiceFromPrompt(
@@ -27,7 +33,7 @@ export async function generateInvoiceFromPrompt(
     .join('\n');
 
   const response = await ai.models.generateContent({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-3-flash-preview',
     contents: prompt,
     config: {
       systemInstruction: `You are an invoicing assistant. Given a natural language description of work done or services provided, generate a structured invoice.
@@ -66,7 +72,7 @@ export async function suggestLineItems(
     : 'No previous history.';
 
   const response = await ai.models.generateContent({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-3-flash-preview',
     contents: partialDescription
       ? `Suggest line items similar to or continuing from: "${partialDescription}"`
       : 'Suggest common line items based on the client history.',
@@ -102,7 +108,7 @@ export async function draftEmail(params: {
   };
 
   const response = await ai.models.generateContent({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-3-flash-preview',
     contents: contextMap[params.type],
     config: {
       systemInstruction: `You are an invoicing assistant for ${params.businessName}. Draft professional, concise emails for invoicing purposes. The client's name is ${params.clientName}.
@@ -127,7 +133,7 @@ export async function summarizeDashboard(stats: {
   paidThisMonth: number;
 }): Promise<string> {
   const response = await ai.models.generateContent({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-3-flash-preview',
     contents: `Summarize these business metrics: ${JSON.stringify(stats)}`,
     config: {
       systemInstruction: `You are a business analytics assistant. Given invoice/payment statistics, provide a brief, insightful 2-3 sentence summary highlighting key trends, concerns (like overdue amounts), and positives. Be concise and actionable. Respond with plain text only, no JSON.`,
@@ -148,7 +154,7 @@ export async function smartSearch(
   results: { type: 'invoice' | 'client'; id: number; label: string; detail: string }[];
 }> {
   const response = await ai.models.generateContent({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-3-flash-preview',
     contents: `Search query: "${query}"`,
     config: {
       systemInstruction: `You are a search assistant for an invoicing system. Given a search query, find the most relevant matches from the data below.
@@ -165,4 +171,53 @@ Return up to 10 most relevant results. Match by name, number, email, company, st
   });
 
   return parseJsonResponse(response.text || '{"results": []}');
+}
+
+export async function parseTransactionsFromText(
+  text: string,
+  base64Data?: string,
+  mimeType?: string,
+): Promise<{
+  date: string;
+  description: string;
+  amount: number;
+  type: 'income' | 'expense';
+  category: string;
+}[]> {
+  const categories = TRANSACTION_CATEGORIES.join(', ');
+  const systemInstruction = `You are a financial data extraction assistant. Parse bank statement data and extract individual transactions.
+
+Available categories: ${categories}
+
+For each transaction, determine:
+- date: in YYYY-MM-DD format
+- description: clear, concise description of the transaction
+- amount: always positive (the "type" field indicates direction)
+- type: "income" for credits/deposits, "expense" for debits/charges
+- category: best matching category from the list above
+
+Respond with ONLY a valid JSON array:
+[{"date": "YYYY-MM-DD", "description": "string", "amount": number, "type": "income" | "expense", "category": "string"}]
+
+If you cannot parse any transactions, return an empty array [].`;
+
+  const contents: (string | Part)[] = [];
+
+  if (base64Data && mimeType) {
+    contents.push(createPartFromBase64(base64Data, mimeType));
+    contents.push('Extract all transactions from this bank statement document.');
+  } else {
+    contents.push(`Parse the following bank statement data and extract transactions:\n\n${text}`);
+  }
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents,
+    config: {
+      systemInstruction,
+      temperature: 0.2,
+    },
+  });
+
+  return parseJsonResponse(response.text || '[]');
 }

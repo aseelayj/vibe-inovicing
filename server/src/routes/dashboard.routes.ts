@@ -6,6 +6,8 @@ import {
   clients,
   payments,
   activityLog,
+  bankAccounts,
+  transactions,
 } from '../db/schema.js';
 
 const router = Router();
@@ -76,6 +78,27 @@ router.get('/stats', async (req, res, next) => {
 
     const paidThisMonth = parseFloat(paidThisMonthResult?.value ?? '0');
 
+    // Total bank balance: sum of currentBalance from active accounts
+    const [bankBalanceResult] = await db
+      .select({ value: sum(bankAccounts.currentBalance) })
+      .from(bankAccounts)
+      .where(eq(bankAccounts.isActive, true));
+
+    const totalBankBalance = parseFloat(bankBalanceResult?.value ?? '0');
+
+    // Monthly expenses: sum of expense transactions this month
+    const [monthlyExpensesResult] = await db
+      .select({ value: sum(transactions.amount) })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.type, 'expense'),
+          sql`${transactions.date} >= ${firstOfMonthStr}`,
+        ),
+      );
+
+    const monthlyExpenses = parseFloat(monthlyExpensesResult?.value ?? '0');
+
     res.json({
       data: {
         totalRevenue,
@@ -84,6 +107,8 @@ router.get('/stats', async (req, res, next) => {
         totalInvoices,
         totalClients,
         paidThisMonth,
+        totalBankBalance,
+        monthlyExpenses,
       },
     });
   } catch (err) {

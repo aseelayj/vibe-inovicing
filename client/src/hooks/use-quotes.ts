@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 interface QuoteFilters {
   status?: string;
   search?: string;
+  clientId?: number;
   page?: number;
   pageSize?: number;
 }
@@ -16,6 +17,7 @@ export function useQuotes(filters: QuoteFilters = {}) {
     params.set('status', filters.status);
   }
   if (filters.search) params.set('search', filters.search);
+  if (filters.clientId) params.set('clientId', String(filters.clientId));
   if (filters.page) params.set('page', String(filters.page));
   if (filters.pageSize) params.set('pageSize', String(filters.pageSize));
 
@@ -90,8 +92,9 @@ export function useConvertQuote() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: number) =>
-      api.post<Invoice>(`/quotes/${id}/convert`),
+    mutationFn: (
+      { id, isTaxable = false }: { id: number; isTaxable?: boolean },
+    ) => api.post<Invoice>(`/quotes/${id}/convert`, { isTaxable }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
@@ -99,6 +102,21 @@ export function useConvertQuote() {
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to convert quote');
+    },
+  });
+}
+
+export function useSendQuote() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: number) => api.post(`/quotes/${id}/send`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['quotes'] });
+      toast.success('Quote sent successfully');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to send quote');
     },
   });
 }

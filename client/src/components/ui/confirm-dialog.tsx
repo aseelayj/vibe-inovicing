@@ -1,4 +1,12 @@
-import { Modal } from '@/components/ui/modal';
+import { Loader2 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 
 export interface ConfirmDialogProps {
@@ -23,20 +31,26 @@ export function ConfirmDialog({
   loading = false,
 }: ConfirmDialogProps) {
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title}>
-      <p className="text-sm text-gray-600">{message}</p>
-      <div className="mt-6 flex justify-end gap-3">
-        <Button variant="ghost" onClick={onClose} disabled={loading}>
-          Cancel
-        </Button>
-        <Button
-          variant={variant}
-          onClick={onConfirm}
-          loading={loading}
-        >
-          {confirmText}
-        </Button>
-      </div>
-    </Modal>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{message}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={loading}>
+            Cancel
+          </Button>
+          <Button
+            variant={variant === 'danger' ? 'destructive' : 'default'}
+            onClick={onConfirm}
+            disabled={loading}
+          >
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            {confirmText}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

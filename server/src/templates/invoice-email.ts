@@ -1,3 +1,12 @@
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export function renderInvoiceEmailHtml(data: {
   businessName: string;
   clientName: string;
@@ -7,7 +16,12 @@ export function renderInvoiceEmailHtml(data: {
   dueDate: string;
   body: string;
 }): string {
-  const { businessName, clientName, invoiceNumber, total, currency, dueDate, body } = data;
+  const bn = escapeHtml(data.businessName);
+  const cn = escapeHtml(data.clientName);
+  const inv = escapeHtml(data.invoiceNumber);
+  const tot = escapeHtml(data.total);
+  const dd = escapeHtml(data.dueDate);
+  const bd = escapeHtml(data.body);
 
   return `<!DOCTYPE html>
 <html>
@@ -27,7 +41,7 @@ export function renderInvoiceEmailHtml(data: {
           <tr>
             <td style="background: #2563eb; padding: 24px 32px;">
               <h1 style="color: white; margin: 0; font-size: 20px;
-                font-weight: 600;">${businessName}</h1>
+                font-weight: 600;">${bn}</h1>
             </td>
           </tr>
           <!-- Body -->
@@ -35,11 +49,11 @@ export function renderInvoiceEmailHtml(data: {
             <td style="padding: 32px;">
               <p style="margin: 0 0 16px; color: #1f2937;
                 font-size: 15px;">
-                Hi ${clientName},
+                Hi ${cn},
               </p>
               <div style="color: #4b5563; font-size: 14px;
                 line-height: 1.6; margin-bottom: 24px;
-                white-space: pre-wrap;">${body}</div>
+                white-space: pre-wrap;">${bd}</div>
 
               <!-- Invoice Summary Box -->
               <table width="100%" cellpadding="0" cellspacing="0"
@@ -53,14 +67,14 @@ export function renderInvoiceEmailHtml(data: {
                           padding-bottom: 8px;">Invoice Number</td>
                         <td style="text-align: right; font-weight: 600;
                           color: #1f2937; font-size: 14px;
-                          padding-bottom: 8px;">${invoiceNumber}</td>
+                          padding-bottom: 8px;">${inv}</td>
                       </tr>
                       <tr>
                         <td style="color: #6b7280; font-size: 13px;
                           padding-bottom: 8px;">Due Date</td>
                         <td style="text-align: right; font-weight: 600;
                           color: #1f2937; font-size: 14px;
-                          padding-bottom: 8px;">${dueDate}</td>
+                          padding-bottom: 8px;">${dd}</td>
                       </tr>
                       <tr>
                         <td style="color: #6b7280; font-size: 13px;
@@ -69,7 +83,7 @@ export function renderInvoiceEmailHtml(data: {
                         <td style="text-align: right; font-weight: 700;
                           color: #2563eb; font-size: 18px;
                           border-top: 1px solid #e5e7eb;
-                          padding-top: 12px;">${total}</td>
+                          padding-top: 12px;">${tot}</td>
                       </tr>
                     </table>
                   </td>
@@ -87,7 +101,7 @@ export function renderInvoiceEmailHtml(data: {
               border-top: 1px solid #e5e7eb;">
               <p style="margin: 0; color: #9ca3af; font-size: 12px;
                 text-align: center;">
-                Sent from ${businessName} via Vibe Invoicing
+                Sent from ${bn} via Vibe Invoicing
               </p>
             </td>
           </tr>
@@ -108,7 +122,13 @@ export function renderReminderEmailHtml(data: {
   daysOverdue: number;
   body: string;
 }): string {
-  const { businessName, clientName, invoiceNumber, total, dueDate, daysOverdue, body } = data;
+  const bn = escapeHtml(data.businessName);
+  const cn = escapeHtml(data.clientName);
+  const inv = escapeHtml(data.invoiceNumber);
+  const tot = escapeHtml(data.total);
+  const dd = escapeHtml(data.dueDate);
+  const bd = escapeHtml(data.body);
+  const { daysOverdue } = data;
 
   return `<!DOCTYPE html>
 <html>
@@ -134,11 +154,11 @@ export function renderReminderEmailHtml(data: {
             <td style="padding: 32px;">
               <p style="margin: 0 0 16px; color: #1f2937;
                 font-size: 15px;">
-                Hi ${clientName},
+                Hi ${cn},
               </p>
               <div style="color: #4b5563; font-size: 14px;
                 line-height: 1.6; margin-bottom: 24px;
-                white-space: pre-wrap;">${body}</div>
+                white-space: pre-wrap;">${bd}</div>
               <table width="100%" style="background: #fef2f2;
                 border-radius: 8px; border: 1px solid #fecaca;
                 margin-bottom: 24px;">
@@ -146,17 +166,17 @@ export function renderReminderEmailHtml(data: {
                   <td style="padding: 20px;">
                     <p style="margin: 0 0 8px; color: #991b1b;
                       font-weight: 600; font-size: 14px;">
-                      Invoice ${invoiceNumber}
+                      Invoice ${inv}
                       ${daysOverdue > 0
                         ? `- ${daysOverdue} days overdue` : ''}
                     </p>
                     <p style="margin: 0; color: #dc2626;
                       font-size: 24px; font-weight: 700;">
-                      ${total}
+                      ${tot}
                     </p>
                     <p style="margin: 8px 0 0; color: #991b1b;
                       font-size: 13px;">
-                      Due: ${dueDate}
+                      Due: ${dd}
                     </p>
                   </td>
                 </tr>
@@ -168,7 +188,7 @@ export function renderReminderEmailHtml(data: {
               border-top: 1px solid #e5e7eb;">
               <p style="margin: 0; color: #9ca3af; font-size: 12px;
                 text-align: center;">
-                Sent from ${businessName} via Vibe Invoicing
+                Sent from ${bn} via Vibe Invoicing
               </p>
             </td>
           </tr>

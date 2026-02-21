@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { Link } from 'react-router';
 import {
   DollarSign,
   Clock,
   AlertTriangle,
-  Users,
-  Sparkles,
+  Landmark,
+  TrendingDown,
+  Calendar,
+  FileSpreadsheet,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -15,16 +17,20 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import {
   useDashboardStats,
   useRevenueChart,
   useRecentActivity,
 } from '@/hooks/use-dashboard';
-import { useSummarizeDashboard } from '@/hooks/use-ai';
-import { formatCurrency, formatTimeAgo } from '@/lib/format';
+import { useTaxDeadlines, useGstSummary } from '@/hooks/use-reports';
+import { formatCurrency, formatDate, formatTimeAgo } from '@/lib/format';
 
 const statCards = [
   {
@@ -46,11 +52,16 @@ const statCards = [
     color: 'text-red-600 bg-red-100',
   },
   {
-    key: 'totalClients' as const,
-    label: 'Total Clients',
-    icon: Users,
-    color: 'text-purple-600 bg-purple-100',
-    isCurrency: false,
+    key: 'totalBankBalance' as const,
+    label: 'Bank Balance',
+    icon: Landmark,
+    color: 'text-emerald-600 bg-emerald-100',
+  },
+  {
+    key: 'monthlyExpenses' as const,
+    label: 'Expenses (Month)',
+    icon: TrendingDown,
+    color: 'text-orange-600 bg-orange-100',
   },
 ];
 
@@ -58,157 +69,278 @@ export function DashboardPage() {
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
   const { data: chartData, isLoading: chartLoading } = useRevenueChart();
   const { data: activity, isLoading: activityLoading } = useRecentActivity();
-  const summarize = useSummarizeDashboard();
-  const [aiSummary, setAiSummary] = useState<string | null>(null);
-
-  const handleSummarize = async () => {
-    try {
-      const result = await summarize.mutateAsync();
-      setAiSummary(result.summary);
-    } catch {
-      // handled by mutation
-    }
-  };
+  const { data: deadlines } = useTaxDeadlines();
+  const { data: gstSummary } = useGstSummary();
 
   if (statsLoading) {
     return <LoadingSpinner />;
   }
 
   return (
-    <div className="space-y-8">
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="space-y-4 sm:space-y-6 lg:space-y-8">
+      {/* Stat Cards — 2-col on mobile, scales up */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5 xl:gap-6">
         {statCards.map((card) => {
           const Icon = card.icon;
           const value = stats?.[card.key] ?? 0;
-          const isCurrency = card.isCurrency !== false;
 
           return (
-            <div
-              key={card.key}
-              className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-500">
-                    {card.label}
-                  </p>
-                  <p className="mt-1 text-2xl font-bold text-gray-900">
-                    {isCurrency ? formatCurrency(value) : value}
-                  </p>
+            <Card key={card.key} className="py-4 sm:py-6">
+              <CardContent className="px-3 pt-0 sm:px-6">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-medium text-muted-foreground sm:text-sm">
+                      {card.label}
+                    </p>
+                    <p className="mt-1 text-lg font-bold tracking-tight sm:text-2xl">
+                      {formatCurrency(value)}
+                    </p>
+                  </div>
+                  <div className={`shrink-0 rounded-lg p-2 sm:p-3 ${card.color}`}>
+                    <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </div>
                 </div>
-                <div className={`rounded-lg p-3 ${card.color}`}>
-                  <Icon className="h-5 w-5" />
-                </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           );
         })}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <Card title="Revenue Overview" className="xl:col-span-2">
-          {chartLoading ? (
-            <LoadingSpinner size="sm" />
-          ) : (
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData || []}>
-                  <defs>
-                    <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15} />
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis
-                    dataKey="month"
-                    tick={{ fontSize: 12, fill: '#9ca3af' }}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 12, fill: '#9ca3af' }}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
-                  />
-                  <Tooltip
-                    formatter={(value: number) => [
-                      formatCurrency(value),
-                      'Revenue',
-                    ]}
-                    contentStyle={{
-                      borderRadius: '8px',
-                      border: '1px solid #e5e7eb',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="revenue"
-                    stroke="#3b82f6"
-                    strokeWidth={2}
-                    fill="url(#revenueGrad)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          )}
+      {/* Revenue Chart + Recent Activity */}
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-3">
+        <Card className="xl:col-span-2">
+          <CardHeader>
+            <CardTitle>Revenue Overview</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {chartLoading ? (
+              <LoadingSpinner size="sm" />
+            ) : (
+              <div className="h-48 sm:h-64 lg:h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={chartData || []}
+                    margin={{ top: 5, right: 5, left: -10, bottom: 0 }}
+                  >
+                    <defs>
+                      <linearGradient
+                        id="revenueGrad"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="5%"
+                          stopColor="hsl(var(--primary))"
+                          stopOpacity={0.15}
+                        />
+                        <stop
+                          offset="95%"
+                          stopColor="hsl(var(--primary))"
+                          stopOpacity={0}
+                        />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="hsl(var(--border))"
+                    />
+                    <XAxis
+                      dataKey="month"
+                      tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                      tickLine={false}
+                      axisLine={false}
+                      interval="preserveStartEnd"
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+                      width={45}
+                    />
+                    <Tooltip
+                      formatter={(value: number) => [
+                        formatCurrency(value),
+                        'Revenue',
+                      ]}
+                      contentStyle={{
+                        borderRadius: '8px',
+                        border: '1px solid hsl(var(--border))',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                        backgroundColor: 'hsl(var(--background))',
+                        fontSize: '13px',
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="revenue"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2}
+                      fill="url(#revenueGrad)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
         </Card>
 
-        <Card title="Recent Activity">
-          {activityLoading ? (
-            <LoadingSpinner size="sm" />
-          ) : !activity?.length ? (
-            <p className="py-8 text-center text-sm text-gray-400">
-              No recent activity
-            </p>
-          ) : (
-            <ul className="space-y-4">
-              {activity.slice(0, 8).map((entry) => (
-                <li key={entry.id} className="flex gap-3">
-                  <div className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary-400" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm text-gray-700">
-                      {entry.description || `${entry.action} on ${entry.entityType}`}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      {formatTimeAgo(entry.createdAt)}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Activity</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {activityLoading ? (
+              <LoadingSpinner size="sm" />
+            ) : !activity?.length ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                No recent activity
+              </p>
+            ) : (
+              <ul className="space-y-1">
+                {activity.slice(0, 8).map((entry) => (
+                  <li
+                    key={entry.id}
+                    className="flex gap-3 rounded-md px-2 py-2.5 transition-colors
+                      hover:bg-accent/50"
+                  >
+                    <div
+                      className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm leading-snug">
+                        {entry.description
+                          || `${entry.action} on ${entry.entityType}`}
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {formatTimeAgo(entry.createdAt)}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
         </Card>
       </div>
 
-      <Card title="AI Summary">
-        {aiSummary ? (
-          <div className="space-y-3">
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700">
-              {aiSummary}
-            </p>
-            <Button variant="ghost" size="sm" onClick={handleSummarize}>
-              Regenerate
-            </Button>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center py-8">
-            <Sparkles className="mb-3 h-8 w-8 text-primary-400" />
-            <p className="mb-4 text-sm text-gray-500">
-              Get an AI-powered summary of your business performance
-            </p>
-            <Button
-              onClick={handleSummarize}
-              loading={summarize.isPending}
+      {/* Tax Compliance Widgets */}
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-3">
+        {/* Upcoming Tax Deadlines */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-base">Tax Deadlines</CardTitle>
+            <Link
+              to="/tax-reports?tab=sales-tax"
+              className="text-xs text-muted-foreground hover:text-foreground"
             >
-              <Sparkles className="h-4 w-4" />
-              Generate Summary
-            </Button>
-          </div>
+              View Reports
+            </Link>
+          </CardHeader>
+          <CardContent>
+            {!deadlines?.length ? (
+              <p className="py-4 text-center text-sm text-muted-foreground">
+                No upcoming deadlines
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {deadlines.slice(0, 4).map((d, i) => (
+                  <li
+                    key={i}
+                    className="flex items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-accent/50"
+                  >
+                    <div
+                      className={`shrink-0 rounded-lg p-1.5 ${
+                        d.daysUntil <= 14
+                          ? 'bg-red-100 text-red-600'
+                          : d.daysUntil <= 30
+                            ? 'bg-yellow-100 text-yellow-600'
+                            : 'bg-blue-100 text-blue-600'
+                      }`}
+                    >
+                      <Calendar className="h-3.5 w-3.5" />
+                    </div>
+                    <Link
+                      to={`/tax-reports?tab=${d.type === 'gst' ? 'sales-tax' : 'income-tax'}`}
+                      className="min-w-0 flex-1"
+                    >
+                      <p className="text-sm font-medium leading-snug">
+                        {d.label}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {d.period} — {formatDate(d.deadline)}
+                      </p>
+                    </Link>
+                    <span
+                      className={`shrink-0 text-xs font-semibold ${
+                        d.daysUntil <= 14
+                          ? 'text-red-600'
+                          : d.daysUntil <= 30
+                            ? 'text-yellow-600'
+                            : 'text-muted-foreground'
+                      }`}
+                    >
+                      {d.daysUntil}d
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Current Period GST */}
+        {gstSummary && (
+          <Card className="xl:col-span-2">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-base">
+                GST Summary — {gstSummary.period.label}
+              </CardTitle>
+              <Link
+                to={`/tax-reports?tab=sales-tax`}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                <FileSpreadsheet className="mr-1 inline h-3 w-3" />
+                Full Report
+              </Link>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div>
+                  <p className="text-xs text-muted-foreground">Taxable Sales</p>
+                  <p className="mt-0.5 text-sm font-semibold">
+                    {formatCurrency(gstSummary.taxableSales, 'JOD')}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Output Tax</p>
+                  <p className="mt-0.5 text-sm font-semibold text-red-600">
+                    {formatCurrency(gstSummary.outputTax, 'JOD')}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Input Tax</p>
+                  <p className="mt-0.5 text-sm font-semibold text-green-600">
+                    {formatCurrency(gstSummary.inputTax, 'JOD')}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Net Due</p>
+                  <p
+                    className={`mt-0.5 text-sm font-bold ${
+                      gstSummary.netTax >= 0 ? 'text-red-600' : 'text-green-600'
+                    }`}
+                  >
+                    {formatCurrency(gstSummary.netTax, 'JOD')}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         )}
-      </Card>
+      </div>
     </div>
   );
 }

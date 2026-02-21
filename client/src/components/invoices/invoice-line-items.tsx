@@ -23,7 +23,7 @@ export function InvoiceLineItems() {
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-900">Line Items</h3>
+        <h3 className="text-sm font-semibold">Line Items</h3>
         <Button
           type="button"
           variant="ghost"
@@ -38,8 +38,8 @@ export function InvoiceLineItems() {
       </div>
 
       {fields.length === 0 && (
-        <div className="rounded-lg border-2 border-dashed border-gray-200 py-8 text-center">
-          <p className="text-sm text-gray-500">No line items yet.</p>
+        <div className="rounded-lg border-2 border-dashed py-8 text-center">
+          <p className="text-sm text-muted-foreground">No line items yet.</p>
           <Button
             type="button"
             variant="ghost"
@@ -57,7 +57,7 @@ export function InvoiceLineItems() {
 
       {fields.length > 0 && (
         <div className="space-y-3">
-          <div className="grid grid-cols-12 gap-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+          <div className="grid grid-cols-12 gap-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             <div className="col-span-5">Description</div>
             <div className="col-span-2">Quantity</div>
             <div className="col-span-2">Unit Price</div>
@@ -69,18 +69,28 @@ export function InvoiceLineItems() {
             const qty = Number(watchedItems?.[index]?.quantity) || 0;
             const price = Number(watchedItems?.[index]?.unitPrice) || 0;
             const amount = qty * price;
-            const lineErrors = (errors.lineItems as Record<string, unknown>)?.[
-              index
-            ] as Record<string, { message?: string }> | undefined;
+            const lineErrors = (
+              errors.lineItems as Record<string, unknown>
+            )?.[index] as
+              | Record<string, { message?: string }>
+              | undefined;
 
             return (
-              <div key={field.id} className="grid grid-cols-12 items-start gap-3">
+              <div
+                key={field.id}
+                className="grid grid-cols-12 items-start gap-3"
+              >
                 <div className="col-span-5">
                   <Input
                     placeholder="Item description"
-                    error={lineErrors?.description?.message}
+                    aria-invalid={!!lineErrors?.description}
                     {...register(`lineItems.${index}.description`)}
                   />
+                  {lineErrors?.description?.message && (
+                    <p className="mt-1 text-xs text-destructive">
+                      {lineErrors.description.message}
+                    </p>
+                  )}
                 </div>
                 <div className="col-span-2">
                   <Input
@@ -88,11 +98,16 @@ export function InvoiceLineItems() {
                     min="0"
                     step="1"
                     placeholder="1"
-                    error={lineErrors?.quantity?.message}
+                    aria-invalid={!!lineErrors?.quantity}
                     {...register(`lineItems.${index}.quantity`, {
                       valueAsNumber: true,
                     })}
                   />
+                  {lineErrors?.quantity?.message && (
+                    <p className="mt-1 text-xs text-destructive">
+                      {lineErrors.quantity.message}
+                    </p>
+                  )}
                 </div>
                 <div className="col-span-2">
                   <Input
@@ -100,24 +115,31 @@ export function InvoiceLineItems() {
                     min="0"
                     step="0.01"
                     placeholder="0.00"
-                    error={lineErrors?.unitPrice?.message}
+                    aria-invalid={!!lineErrors?.unitPrice}
                     {...register(`lineItems.${index}.unitPrice`, {
                       valueAsNumber: true,
                     })}
                   />
+                  {lineErrors?.unitPrice?.message && (
+                    <p className="mt-1 text-xs text-destructive">
+                      {lineErrors.unitPrice.message}
+                    </p>
+                  )}
                 </div>
-                <div className="col-span-2 flex h-10 items-center justify-end text-sm font-medium text-gray-700">
+                <div className="col-span-2 flex h-9 items-center justify-end text-sm font-medium">
                   {formatCurrency(amount, currency)}
                 </div>
-                <div className="col-span-1 flex h-10 items-center justify-center">
-                  <button
+                <div className="col-span-1 flex h-9 items-center justify-center">
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon-xs"
                     onClick={() => remove(index)}
-                    className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
                     aria-label="Remove item"
+                    className="text-muted-foreground hover:text-destructive"
                   >
                     <Trash2 className="h-4 w-4" />
-                  </button>
+                  </Button>
                 </div>
               </div>
             );
@@ -126,7 +148,7 @@ export function InvoiceLineItems() {
       )}
 
       {typeof errors.lineItems?.message === 'string' && (
-        <p className="mt-2 text-sm text-red-600" role="alert">
+        <p className="mt-2 text-sm text-destructive" role="alert">
           {errors.lineItems.message}
         </p>
       )}

@@ -48,14 +48,26 @@ async function processRecurringInvoices() {
   for (const recurring of dueRecurrings) {
     try {
       await db.transaction(async (tx) => {
-        // Get settings for invoice number
-        const [currentSettings] = await tx
-          .select()
-          .from(settings)
-          .limit(1);
+        const isTaxable = recurring.isTaxable;
 
-        const invoiceNumber = `${currentSettings.invoicePrefix}-${
-          String(currentSettings.nextInvoiceNumber).padStart(4, '0')
+        // Atomic increment on the correct sequence
+        const updateCol = isTaxable
+          ? { nextInvoiceNumber: sql`${settings.nextInvoiceNumber} + 1` }
+          : { nextExemptInvoiceNumber: sql`${settings.nextExemptInvoiceNumber} + 1` };
+
+        const [currentSettings] = await tx
+          .update(settings)
+          .set(updateCol)
+          .returning();
+
+        const prefix = isTaxable
+          ? currentSettings.invoicePrefix
+          : currentSettings.exemptInvoicePrefix;
+        const currentNum = isTaxable
+          ? currentSettings.nextInvoiceNumber - 1
+          : currentSettings.nextExemptInvoiceNumber - 1;
+        const invoiceNumber = `${prefix}-${
+          String(currentNum).padStart(4, '0')
         }`;
 
         // Get line items
@@ -72,6 +84,12 @@ async function processRecurringInvoices() {
           dueDate.getDate() + (currentSettings.defaultPaymentTerms || 30),
         );
 
+        // Recalculate totals based on taxable status
+        const taxRate = isTaxable ? 16 : 0;
+        const subtotalNum = parseFloat(recurring.subtotal);
+        const taxAmountNum = subtotalNum * (taxRate / 100);
+        const totalNum = subtotalNum + taxAmountNum;
+
         // Create invoice
         const [newInvoice] = await tx
           .insert(invoices)
@@ -79,13 +97,14 @@ async function processRecurringInvoices() {
             invoiceNumber,
             clientId: recurring.clientId,
             status: 'draft',
+            isTaxable,
             issueDate: today,
             dueDate: dueDate.toISOString().split('T')[0],
             currency: recurring.currency,
             subtotal: recurring.subtotal,
-            taxRate: recurring.taxRate,
-            taxAmount: recurring.taxAmount,
-            total: recurring.total,
+            taxRate: String(taxRate),
+            taxAmount: taxAmountNum.toFixed(2),
+            total: totalNum.toFixed(2),
             notes: recurring.notes,
             terms: recurring.terms,
             isRecurring: true,
@@ -106,14 +125,6 @@ async function processRecurringInvoices() {
             })),
           );
         }
-
-        // Update settings counter
-        await tx
-          .update(settings)
-          .set({
-            nextInvoiceNumber: currentSettings.nextInvoiceNumber + 1,
-          })
-          .where(eq(settings.id, currentSettings.id));
 
         // Calculate next run date
         const nextRun = addToDate(

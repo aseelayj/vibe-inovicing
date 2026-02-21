@@ -20,7 +20,16 @@ router.get('/', async (req, res, next) => {
       settingsRow = created;
     }
 
-    res.json({ data: settingsRow });
+    // Mask secret before sending to client
+    const response = { ...settingsRow };
+    if (response.jofotaraClientSecret) {
+      const secret = response.jofotaraClientSecret;
+      response.jofotaraClientSecret = secret.length > 4
+        ? '****' + secret.slice(-4)
+        : '****';
+    }
+
+    res.json({ data: response });
   } catch (err) {
     next(err);
   }
@@ -49,13 +58,40 @@ router.put('/', validate(updateSettingsSchema), async (req, res, next) => {
     if (req.body.defaultTaxRate !== undefined) {
       updatePayload.defaultTaxRate = String(req.body.defaultTaxRate);
     }
+    if (req.body.personalExemption !== undefined) {
+      updatePayload.personalExemption = String(req.body.personalExemption);
+    }
+    if (req.body.familyExemption !== undefined) {
+      updatePayload.familyExemption = String(req.body.familyExemption);
+    }
+    if (req.body.additionalExemptions !== undefined) {
+      updatePayload.additionalExemptions = String(req.body.additionalExemptions);
+    }
+
+    // Don't overwrite secret with the masked value from the GET response
+    if (
+      updatePayload.jofotaraClientSecret &&
+      typeof updatePayload.jofotaraClientSecret === 'string' &&
+      (updatePayload.jofotaraClientSecret as string).startsWith('****')
+    ) {
+      delete updatePayload.jofotaraClientSecret;
+    }
 
     const [updated] = await db.update(settings)
       .set(updatePayload)
       .where(eq(settings.id, settingsRow.id))
       .returning();
 
-    res.json({ data: updated });
+    // Mask secret in response
+    const response = { ...updated };
+    if (response.jofotaraClientSecret) {
+      const secret = response.jofotaraClientSecret;
+      response.jofotaraClientSecret = secret.length > 4
+        ? '****' + secret.slice(-4)
+        : '****';
+    }
+
+    res.json({ data: response });
   } catch (err) {
     next(err);
   }

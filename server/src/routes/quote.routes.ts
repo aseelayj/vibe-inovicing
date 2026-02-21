@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { eq, desc, and, or, ilike, count } from 'drizzle-orm';
+import { eq, desc, and, or, ilike, count, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
   quotes,
@@ -9,9 +9,13 @@ import {
   clients,
   settings,
   activityLog,
+  emailLog,
 } from '../db/schema.js';
 import { validate } from '../middleware/validate.js';
 import { createQuoteSchema, updateQuoteSchema } from '@vibe/shared';
+import { generateQuotePdf } from '../services/pdf.service.js';
+import { sendQuoteEmail } from '../services/email.service.js';
+import { parseId } from '../utils/parse-id.js';
 
 const router = Router();
 
@@ -34,46 +38,50 @@ function calculateTotals(
   };
 }
 
-// Helper: generate quote number from settings
+// Helper: generate quote number from settings (atomic increment)
 async function generateQuoteNumber(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
 ) {
-  const [settingsRow] = await tx.select().from(settings).limit(1);
+  const [settingsRow] = await tx
+    .update(settings)
+    .set({ nextQuoteNumber: sql`${settings.nextQuoteNumber} + 1` })
+    .returning();
 
   if (!settingsRow) {
     throw new Error('Settings not found. Please configure settings first.');
   }
 
   const prefix = settingsRow.quotePrefix;
-  const nextNum = settingsRow.nextQuoteNumber;
-  const quoteNumber = `${prefix}-${String(nextNum).padStart(4, '0')}`;
-
-  await tx.update(settings)
-    .set({ nextQuoteNumber: nextNum + 1 })
-    .where(eq(settings.id, settingsRow.id));
-
-  return quoteNumber;
+  const currentNum = settingsRow.nextQuoteNumber - 1;
+  return `${prefix}-${String(currentNum).padStart(4, '0')}`;
 }
 
-// Helper: generate invoice number from settings (for conversion)
+// Helper: generate invoice number from settings (for conversion, atomic)
 async function generateInvoiceNumber(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  isTaxable: boolean,
 ) {
-  const [settingsRow] = await tx.select().from(settings).limit(1);
+  const updateCol = isTaxable
+    ? { nextInvoiceNumber: sql`${settings.nextInvoiceNumber} + 1` }
+    : { nextExemptInvoiceNumber: sql`${settings.nextExemptInvoiceNumber} + 1` };
+
+  const [settingsRow] = await tx
+    .update(settings)
+    .set(updateCol)
+    .returning();
 
   if (!settingsRow) {
     throw new Error('Settings not found. Please configure settings first.');
   }
 
-  const prefix = settingsRow.invoicePrefix;
-  const nextNum = settingsRow.nextInvoiceNumber;
-  const invoiceNumber = `${prefix}-${String(nextNum).padStart(4, '0')}`;
+  const prefix = isTaxable
+    ? settingsRow.invoicePrefix
+    : settingsRow.exemptInvoicePrefix;
+  const currentNum = isTaxable
+    ? settingsRow.nextInvoiceNumber - 1
+    : settingsRow.nextExemptInvoiceNumber - 1;
 
-  await tx.update(settings)
-    .set({ nextInvoiceNumber: nextNum + 1 })
-    .where(eq(settings.id, settingsRow.id));
-
-  return invoiceNumber;
+  return `${prefix}-${String(currentNum).padStart(4, '0')}`;
 }
 
 // GET / - List quotes with filters and pagination
@@ -155,7 +163,8 @@ router.get('/', async (req, res, next) => {
 // GET /:id - Get single quote with line items and client
 router.get('/:id', async (req, res, next) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseId(req, res);
+    if (id === null) return;
 
     const quote = await db.query.quotes.findFirst({
       where: eq(quotes.id, id),
@@ -239,7 +248,8 @@ router.post('/', validate(createQuoteSchema), async (req, res, next) => {
 // PUT /:id - Update quote and replace line items
 router.put('/:id', validate(updateQuoteSchema), async (req, res, next) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseId(req, res);
+    if (id === null) return;
     const {
       lineItems: lineItemsInput,
       taxRate,
@@ -333,7 +343,8 @@ router.put('/:id', validate(updateQuoteSchema), async (req, res, next) => {
 // DELETE /:id - Delete quote
 router.delete('/:id', async (req, res, next) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseId(req, res);
+    if (id === null) return;
 
     const [deleted] = await db.delete(quotes)
       .where(eq(quotes.id, id))
@@ -357,10 +368,122 @@ router.delete('/:id', async (req, res, next) => {
   }
 });
 
+// GET /:id/pdf - Download quote as PDF
+router.get('/:id/pdf', async (req, res, next) => {
+  try {
+    const id = parseId(req, res);
+    if (id === null) return;
+
+    const quote = await db.query.quotes.findFirst({
+      where: eq(quotes.id, id),
+      with: { client: true, lineItems: true },
+    });
+
+    if (!quote || !quote.client) {
+      res.status(404).json({ error: 'Quote not found' });
+      return;
+    }
+
+    const [settingsRow] = await db.select().from(settings).limit(1);
+
+    const pdfBuffer = await generateQuotePdf({
+      quote,
+      lineItems: quote.lineItems,
+      client: quote.client,
+      settings: settingsRow || {},
+    });
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${quote.quoteNumber}.pdf"`,
+      'Content-Length': pdfBuffer.length.toString(),
+    });
+
+    res.send(pdfBuffer);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /:id/send - Send quote via email
+router.post('/:id/send', async (req, res, next) => {
+  try {
+    const id = parseId(req, res);
+    if (id === null) return;
+    const { subject, body } = req.body;
+
+    const quote = await db.query.quotes.findFirst({
+      where: eq(quotes.id, id),
+      with: { client: true, lineItems: true },
+    });
+
+    if (!quote || !quote.client) {
+      res.status(404).json({ error: 'Quote not found' });
+      return;
+    }
+
+    if (!quote.client.email) {
+      res.status(400).json({ error: 'Client has no email address' });
+      return;
+    }
+
+    const [settingsRow] = await db.select().from(settings).limit(1);
+
+    // Generate PDF
+    const pdfBuffer = await generateQuotePdf({
+      quote,
+      lineItems: quote.lineItems,
+      client: quote.client,
+      settings: settingsRow || {},
+    });
+
+    // Send email
+    const emailResult = await sendQuoteEmail({
+      to: quote.client.email,
+      subject: subject || `Quote ${quote.quoteNumber}`,
+      body: body || `Please find your quote ${quote.quoteNumber} attached.`,
+      pdfBuffer,
+      quoteNumber: quote.quoteNumber,
+      businessName: settingsRow?.businessName || 'Our Company',
+      clientName: quote.client.name,
+      total: quote.total,
+      currency: quote.currency,
+      expiryDate: quote.expiryDate,
+    });
+
+    // Update quote status to sent
+    await db.update(quotes)
+      .set({ status: 'sent', sentAt: new Date(), updatedAt: new Date() })
+      .where(eq(quotes.id, id));
+
+    // Log email
+    await db.insert(emailLog).values({
+      quoteId: id,
+      recipientEmail: quote.client.email,
+      subject: subject || `Quote ${quote.quoteNumber}`,
+      status: 'sent',
+      resendId: emailResult.id,
+    });
+
+    // Log activity
+    await db.insert(activityLog).values({
+      entityType: 'quote',
+      entityId: id,
+      action: 'sent',
+      description: `Quote ${quote.quoteNumber} sent to ${quote.client.email}`,
+    });
+
+    res.json({ data: { message: 'Quote sent successfully', emailId: emailResult.id } });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /:id/convert - Convert quote to invoice
 router.post('/:id/convert', async (req, res, next) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseId(req, res);
+    if (id === null) return;
 
     const quote = await db.query.quotes.findFirst({
       where: eq(quotes.id, id),
@@ -377,8 +500,21 @@ router.post('/:id/convert', async (req, res, next) => {
       return;
     }
 
+    const isTaxable = req.body?.isTaxable === true;
+    const taxRate = isTaxable ? 16 : 0;
+
+    // Recalculate totals with the chosen tax rate
+    const quoteLineItemsList = quote.lineItems || [];
+    const subtotal = quoteLineItemsList.reduce(
+      (sum, item) => sum + parseFloat(item.quantity) * parseFloat(item.unitPrice),
+      0,
+    );
+    const discountAmt = parseFloat(quote.discountAmount);
+    const taxAmount = (subtotal - discountAmt) * (taxRate / 100);
+    const total = subtotal - discountAmt + taxAmount;
+
     const result = await db.transaction(async (tx) => {
-      const invoiceNumber = await generateInvoiceNumber(tx);
+      const invoiceNumber = await generateInvoiceNumber(tx, isTaxable);
 
       // Get settings for default payment terms
       const [settingsRow] = await tx.select().from(settings).limit(1);
@@ -392,14 +528,15 @@ router.post('/:id/convert', async (req, res, next) => {
         invoiceNumber,
         clientId: quote.clientId,
         status: 'draft',
+        isTaxable,
         issueDate: today.toISOString().split('T')[0],
         dueDate: dueDate.toISOString().split('T')[0],
         currency: quote.currency,
-        subtotal: quote.subtotal,
-        taxRate: quote.taxRate,
-        taxAmount: quote.taxAmount,
+        subtotal: subtotal.toFixed(2),
+        taxRate: String(taxRate),
+        taxAmount: taxAmount.toFixed(2),
         discountAmount: quote.discountAmount,
-        total: quote.total,
+        total: total.toFixed(2),
         notes: quote.notes,
         terms: quote.terms,
       }).returning();

@@ -9,6 +9,11 @@ import dashboardRoutes from './dashboard.routes.js';
 import settingsRoutes from './settings.routes.js';
 import recurringRoutes from './recurring.routes.js';
 import aiRoutes from './ai.routes.js';
+import bankAccountRoutes from './bank-account.routes.js';
+import transactionRoutes from './transaction.routes.js';
+import chatRoutes from './chat.routes.js';
+import jofotaraRoutes from './jofotara.routes.js';
+import reportRoutes from './report.routes.js';
 
 export function mountRoutes(app: Express) {
   app.use('/api/auth', authRoutes);
@@ -20,4 +25,9 @@ export function mountRoutes(app: Express) {
   app.use('/api/settings', authMiddleware, settingsRoutes);
   app.use('/api/recurring', authMiddleware, recurringRoutes);
   app.use('/api/ai', authMiddleware, aiRoutes);
+  app.use('/api/bank-accounts', authMiddleware, bankAccountRoutes);
+  app.use('/api/transactions', authMiddleware, transactionRoutes);
+  app.use('/api/chat', authMiddleware, chatRoutes);
+  app.use('/api/jofotara', authMiddleware, jofotaraRoutes);
+  app.use('/api/reports', authMiddleware, reportRoutes);
 }

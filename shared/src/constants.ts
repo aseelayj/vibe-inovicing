@@ -43,3 +43,166 @@ export type QuoteStatus = typeof QUOTE_STATUSES[number];
 export type PaymentMethod = typeof PAYMENT_METHODS[number];
 export type RecurringFrequency = typeof RECURRING_FREQUENCIES[number];
 export type Currency = typeof CURRENCIES[number];
+
+export const TRANSACTION_TYPES = ['income', 'expense'] as const;
+
+export const TRANSACTION_CATEGORIES = [
+  'office_supplies', 'rent', 'utilities', 'software', 'travel',
+  'meals', 'salary', 'marketing', 'insurance', 'professional_services',
+  'equipment', 'shipping', 'taxes', 'invoice_payment', 'other',
+] as const;
+
+export type TransactionType = typeof TRANSACTION_TYPES[number];
+export type TransactionCategory = typeof TRANSACTION_CATEGORIES[number];
+
+// ---- JoFotara E-Invoicing ----
+export const JOFOTARA_SUBMISSION_STATUSES = [
+  'not_submitted',
+  'pending',
+  'submitted',
+  'failed',
+  'validation_error',
+] as const;
+
+export const JOFOTARA_INVOICE_TYPES = [
+  'income',
+  'general_sales',
+  'special_sales',
+] as const;
+
+export const JOFOTARA_PAYMENT_CODES: Record<
+  JofotaraInvoiceType, { cash: string; receivable: string }
+> = {
+  income: { cash: '011', receivable: '021' },
+  general_sales: { cash: '012', receivable: '022' },
+  special_sales: { cash: '013', receivable: '023' },
+};
+
+export const JOFOTARA_TAX_CATEGORIES = ['S', 'Z', 'O'] as const;
+
+export const JORDAN_CITY_CODES = [
+  { code: 'JO-AM', name: 'Amman' },
+  { code: 'JO-IR', name: 'Irbid' },
+  { code: 'JO-AZ', name: 'Zarqa' },
+  { code: 'JO-BA', name: 'Balqa' },
+  { code: 'JO-MA', name: 'Mafraq' },
+  { code: 'JO-KA', name: 'Karak' },
+  { code: 'JO-JA', name: 'Jerash' },
+  { code: 'JO-AJ', name: 'Ajloun' },
+  { code: 'JO-AT', name: 'Tafilah' },
+  { code: 'JO-MN', name: "Ma'an" },
+  { code: 'JO-MD', name: 'Madaba' },
+  { code: 'JO-AQ', name: 'Aqaba' },
+] as const;
+
+export type JofotaraSubmissionStatus =
+  typeof JOFOTARA_SUBMISSION_STATUSES[number];
+export type JofotaraInvoiceType = typeof JOFOTARA_INVOICE_TYPES[number];
+export type JofotaraTaxCategory = typeof JOFOTARA_TAX_CATEGORIES[number];
+
+// ---- Tax Compliance (Jordan) ----
+export const FILING_STATUSES = ['single', 'married'] as const;
+export type FilingStatus = typeof FILING_STATUSES[number];
+
+export const TAX_PERIOD_STATUSES = [
+  'not_filed', 'filed', 'overdue',
+] as const;
+export type TaxPeriodStatus = typeof TAX_PERIOD_STATUSES[number];
+
+export const GST_RATE = 16; // Jordan General Sales Tax %
+
+export const INCOME_TAX_BRACKETS = [
+  { min: 0, max: 5000, rate: 5 },
+  { min: 5000, max: 10000, rate: 10 },
+  { min: 10000, max: 15000, rate: 15 },
+  { min: 15000, max: 20000, rate: 20 },
+  { min: 20000, max: Infinity, rate: 25 },
+] as const;
+
+export const NATIONAL_CONTRIBUTION_THRESHOLD = 200000;
+export const NATIONAL_CONTRIBUTION_RATE = 1;
+export const PERSONAL_EXEMPTION_DEFAULT = 9000;
+export const FAMILY_EXEMPTION_DEFAULT = 9000;
+export const MAX_ADDITIONAL_EXEMPTIONS = 3000;
+
+/** Bimonthly periods used for GST filing in Jordan */
+export const BIMONTHLY_PERIODS = [
+  { label: 'Jan–Feb', startMonth: 0, endMonth: 1 },
+  { label: 'Mar–Apr', startMonth: 2, endMonth: 3 },
+  { label: 'May–Jun', startMonth: 4, endMonth: 5 },
+  { label: 'Jul–Aug', startMonth: 6, endMonth: 7 },
+  { label: 'Sep–Oct', startMonth: 8, endMonth: 9 },
+  { label: 'Nov–Dec', startMonth: 10, endMonth: 11 },
+] as const;
+
+/**
+ * Get bimonthly period dates for a given year and period index (0-5).
+ */
+export function getBimonthlyPeriod(year: number, periodIndex: number) {
+  const period = BIMONTHLY_PERIODS[periodIndex];
+  const startDate = new Date(year, period.startMonth, 1);
+  const endDate = new Date(year, period.endMonth + 1, 0); // last day
+  // Filing deadline: end of month following the period
+  const deadlineDate = new Date(year, period.endMonth + 2, 0);
+  return {
+    ...period,
+    year,
+    periodIndex,
+    startDate: startDate.toISOString().split('T')[0],
+    endDate: endDate.toISOString().split('T')[0],
+    deadlineDate: deadlineDate.toISOString().split('T')[0],
+  };
+}
+
+/**
+ * Get the current bimonthly period based on today's date.
+ */
+export function getCurrentBimonthlyPeriod() {
+  const now = new Date();
+  const month = now.getMonth();
+  const periodIndex = Math.floor(month / 2);
+  return getBimonthlyPeriod(now.getFullYear(), periodIndex);
+}
+
+/**
+ * Get all bimonthly periods for a given year.
+ */
+export function getYearBimonthlyPeriods(year: number) {
+  return BIMONTHLY_PERIODS.map((_, i) => getBimonthlyPeriod(year, i));
+}
+
+/**
+ * Calculate Jordan income tax from taxable income (after exemptions).
+ */
+export function calculateIncomeTax(taxableIncome: number) {
+  if (taxableIncome <= 0) return { tax: 0, brackets: [], nationalContribution: 0 };
+
+  let remaining = taxableIncome;
+  let totalTax = 0;
+  const brackets: { range: string; income: number; rate: number; tax: number }[] = [];
+
+  for (const bracket of INCOME_TAX_BRACKETS) {
+    if (remaining <= 0) break;
+    const width = bracket.max === Infinity
+      ? remaining
+      : bracket.max - bracket.min;
+    const taxable = Math.min(remaining, width);
+    const tax = taxable * (bracket.rate / 100);
+    totalTax += tax;
+    brackets.push({
+      range: bracket.max === Infinity
+        ? `Over ${bracket.min.toLocaleString()} JOD`
+        : `${bracket.min.toLocaleString()} – ${bracket.max.toLocaleString()} JOD`,
+      income: taxable,
+      rate: bracket.rate,
+      tax,
+    });
+    remaining -= taxable;
+  }
+
+  const nationalContribution = taxableIncome > NATIONAL_CONTRIBUTION_THRESHOLD
+    ? taxableIncome * (NATIONAL_CONTRIBUTION_RATE / 100)
+    : 0;
+
+  return { tax: totalTax, brackets, nationalContribution };
+}

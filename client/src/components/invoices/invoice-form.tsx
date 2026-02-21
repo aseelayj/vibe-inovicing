@@ -1,23 +1,38 @@
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format, addDays } from 'date-fns';
-import { Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { createInvoiceSchema, CURRENCIES } from '@vibe/shared';
 import type { z } from 'zod';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { InvoiceLineItems } from '@/components/invoices/invoice-line-items';
 import { InvoicePreview } from '@/components/invoices/invoice-preview';
 import { ClientPicker } from '@/components/clients/client-picker';
-import { AiGenerateDialog } from '@/components/ai/ai-generate-dialog';
 
 type InvoiceFormValues = z.infer<typeof createInvoiceSchema>;
 
+export type InvoiceAction = 'draft' | 'publish' | 'send';
+
 export interface InvoiceFormProps {
   defaultValues?: Partial<InvoiceFormValues> & { clientName?: string };
-  onSubmit: (data: InvoiceFormValues, action: 'draft' | 'send') => void;
+  onSubmit: (data: InvoiceFormValues, action: InvoiceAction) => void;
   isLoading?: boolean;
 }
 
@@ -26,8 +41,7 @@ export function InvoiceForm({
   onSubmit,
   isLoading,
 }: InvoiceFormProps) {
-  const [showAi, setShowAi] = useState(false);
-  const [submitAction, setSubmitAction] = useState<'draft' | 'send'>('draft');
+  const [submitAction, setSubmitAction] = useState<InvoiceAction>('draft');
 
   const today = format(new Date(), 'yyyy-MM-dd');
   const defaultDue = format(addDays(new Date(), 30), 'yyyy-MM-dd');
@@ -41,6 +55,7 @@ export function InvoiceForm({
       currency: defaultValues?.currency ?? 'USD',
       taxRate: defaultValues?.taxRate ?? 0,
       discountAmount: defaultValues?.discountAmount ?? 0,
+      isTaxable: defaultValues?.isTaxable ?? false,
       notes: defaultValues?.notes ?? '',
       terms: defaultValues?.terms ?? '',
       lineItems: defaultValues?.lineItems ?? [
@@ -59,11 +74,13 @@ export function InvoiceForm({
 
   const watchedItems = watch('lineItems') || [];
   const currency = watch('currency') || 'USD';
-  const taxRate = Number(watch('taxRate')) || 0;
+  const isTaxable = watch('isTaxable') ?? false;
+  const taxRate = isTaxable ? 16 : 0;
   const discount = Number(watch('discountAmount')) || 0;
 
   const subtotal = watchedItems.reduce(
-    (sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0),
+    (sum, item) =>
+      sum + (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0),
     0,
   );
   const taxAmount = subtotal * (taxRate / 100);
@@ -73,221 +90,260 @@ export function InvoiceForm({
     onSubmit(data, submitAction);
   };
 
-  const handleAiResult = (result: {
-    clientId: number | null;
-    clientName: string;
-    lineItems: { description: string; quantity: number; unitPrice: number }[];
-    notes: string;
-    dueInDays: number;
-    currency: string;
-  }) => {
-    if (result.clientId) {
-      setValue('clientId', result.clientId);
-    }
-    if (result.lineItems?.length) {
-      setValue('lineItems', result.lineItems);
-    }
-    if (result.notes) {
-      setValue('notes', result.notes);
-    }
-    if (result.dueInDays) {
-      setValue('dueDate', format(addDays(new Date(), result.dueInDays), 'yyyy-MM-dd'));
-    }
-    if (result.currency) {
-      setValue('currency', result.currency as InvoiceFormValues['currency']);
-    }
-    setShowAi(false);
-  };
+  const formatCurrencyValue = (value: number) =>
+    new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+    }).format(value);
 
   return (
     <FormProvider {...methods}>
       <form onSubmit={handleSubmit(handleFormSubmit)}>
         <div className="grid grid-cols-1 gap-8 xl:grid-cols-5">
           <div className="space-y-6 xl:col-span-3">
-            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-              <div className="mb-6 flex items-center justify-between">
-                <h2 className="text-base font-semibold text-gray-900">
-                  Invoice Details
-                </h2>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowAi(true)}
-                >
-                  <Sparkles className="h-4 w-4 text-primary-500" />
-                  AI Generate
-                </Button>
-              </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Invoice Details</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <div>
+                    <Label htmlFor="isTaxable" className="text-sm font-medium">
+                      Subject to Tax
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      {isTaxable
+                        ? 'Taxable invoice (INV) — 16% GST, submittable to JoFotara'
+                        : 'Exempt invoice (EINV) — 0% tax, not submitted to JoFotara'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    id="isTaxable"
+                    aria-checked={isTaxable}
+                    onClick={() => {
+                      const next = !isTaxable;
+                      setValue('isTaxable', next, { shouldDirty: true });
+                      setValue('taxRate', next ? 16 : 0);
+                    }}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                      isTaxable ? 'bg-primary' : 'bg-muted'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm ring-0 transition-transform ${
+                        isTaxable ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
 
-              <div className="space-y-4">
                 <ClientPicker
                   value={watch('clientId') ?? null}
                   onChange={(clientId) => setValue('clientId', clientId)}
                 />
 
-                <div className="grid grid-cols-2 gap-4">
-                  <Input
-                    label="Issue Date"
-                    type="date"
-                    error={errors.issueDate?.message}
-                    {...register('issueDate')}
-                  />
-                  <Input
-                    label="Due Date"
-                    type="date"
-                    error={errors.dueDate?.message}
-                    {...register('dueDate')}
-                  />
-                </div>
-
-                <Select
-                  label="Currency"
-                  error={errors.currency?.message}
-                  {...register('currency')}
-                >
-                  {CURRENCIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-              <InvoiceLineItems />
-            </div>
-
-            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-              <h2 className="mb-4 text-base font-semibold text-gray-900">
-                Summary
-              </h2>
-              <div className="grid grid-cols-2 gap-4">
-                <Input
-                  label="Tax Rate (%)"
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  error={errors.taxRate?.message}
-                  {...register('taxRate', { valueAsNumber: true })}
-                />
-                <Input
-                  label="Discount Amount"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  error={errors.discountAmount?.message}
-                  {...register('discountAmount', { valueAsNumber: true })}
-                />
-              </div>
-              <div className="mt-4 space-y-2 border-t border-gray-100 pt-4">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Subtotal</span>
-                  <span className="text-gray-700">
-                    {new Intl.NumberFormat('en-US', {
-                      style: 'currency',
-                      currency,
-                    }).format(subtotal)}
-                  </span>
-                </div>
-                {taxRate > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Tax ({taxRate}%)</span>
-                    <span className="text-gray-700">
-                      {new Intl.NumberFormat('en-US', {
-                        style: 'currency',
-                        currency,
-                      }).format(taxAmount)}
-                    </span>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="issueDate">Issue Date</Label>
+                    <Input
+                      id="issueDate"
+                      type="date"
+                      aria-invalid={!!errors.issueDate}
+                      {...register('issueDate')}
+                    />
+                    {errors.issueDate && (
+                      <p className="text-sm text-destructive">
+                        {errors.issueDate.message}
+                      </p>
+                    )}
                   </div>
-                )}
-                {discount > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Discount</span>
-                    <span className="text-red-600">
-                      -{new Intl.NumberFormat('en-US', {
-                        style: 'currency',
-                        currency,
-                      }).format(discount)}
-                    </span>
+                  <div className="space-y-2">
+                    <Label htmlFor="dueDate">Due Date</Label>
+                    <Input
+                      id="dueDate"
+                      type="date"
+                      aria-invalid={!!errors.dueDate}
+                      {...register('dueDate')}
+                    />
+                    {errors.dueDate && (
+                      <p className="text-sm text-destructive">
+                        {errors.dueDate.message}
+                      </p>
+                    )}
                   </div>
-                )}
-                <div className="flex justify-between border-t border-gray-200 pt-2 text-base font-bold">
-                  <span>Total</span>
-                  <span>
-                    {new Intl.NumberFormat('en-US', {
-                      style: 'currency',
-                      currency,
-                    }).format(total)}
-                  </span>
                 </div>
-              </div>
-            </div>
 
-            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-              <h2 className="mb-4 text-base font-semibold text-gray-900">
-                Additional Info
-              </h2>
-              <div className="space-y-4">
-                <div>
-                  <label
-                    htmlFor="notes"
-                    className="mb-1.5 block text-sm font-medium text-gray-700"
+                <div className="space-y-2">
+                  <Label>Currency</Label>
+                  <Select
+                    value={currency}
+                    onValueChange={(val) =>
+                      setValue(
+                        'currency',
+                        val as InvoiceFormValues['currency'],
+                      )
+                    }
                   >
-                    Notes
-                  </label>
-                  <textarea
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select currency" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CURRENCIES.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.currency && (
+                    <p className="text-sm text-destructive">
+                      {errors.currency.message}
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent>
+                <InvoiceLineItems />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Summary</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="taxRate">Tax Rate (%)</Label>
+                    <Input
+                      id="taxRate"
+                      type="number"
+                      value={taxRate}
+                      readOnly
+                      disabled
+                      className="bg-muted"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Controlled by the tax toggle above
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="discountAmount">Discount Amount</Label>
+                    <Input
+                      id="discountAmount"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      aria-invalid={!!errors.discountAmount}
+                      {...register('discountAmount', {
+                        valueAsNumber: true,
+                      })}
+                    />
+                    {errors.discountAmount && (
+                      <p className="text-sm text-destructive">
+                        {errors.discountAmount.message}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-4 space-y-2 pt-4">
+                  <Separator />
+                  <div className="flex justify-between pt-2 text-sm">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span>{formatCurrencyValue(subtotal)}</span>
+                  </div>
+                  {isTaxable && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        Tax ({taxRate}%)
+                      </span>
+                      <span>{formatCurrencyValue(taxAmount)}</span>
+                    </div>
+                  )}
+                  {discount > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Discount</span>
+                      <span className="text-destructive">
+                        -{formatCurrencyValue(discount)}
+                      </span>
+                    </div>
+                  )}
+                  <Separator />
+                  <div className="flex justify-between pt-2 text-base font-bold">
+                    <span>Total</span>
+                    <span>{formatCurrencyValue(total)}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Additional Info</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea
                     id="notes"
                     rows={3}
                     placeholder="Notes visible to the client..."
-                    className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                     {...register('notes')}
                   />
                 </div>
-                <div>
-                  <label
-                    htmlFor="terms"
-                    className="mb-1.5 block text-sm font-medium text-gray-700"
-                  >
-                    Terms & Conditions
-                  </label>
-                  <textarea
+                <div className="space-y-2">
+                  <Label htmlFor="terms">Terms & Conditions</Label>
+                  <Textarea
                     id="terms"
                     rows={3}
                     placeholder="Payment terms, late fees, etc..."
-                    className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                     {...register('terms')}
                   />
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
             <div className="flex gap-3">
               <Button
                 type="submit"
                 variant="secondary"
-                loading={isLoading && submitAction === 'draft'}
                 disabled={isLoading}
                 onClick={() => setSubmitAction('draft')}
               >
-                Save as Draft
+                {isLoading && submitAction === 'draft'
+                  ? 'Saving...'
+                  : 'Save as Draft'}
               </Button>
               <Button
                 type="submit"
-                loading={isLoading && submitAction === 'send'}
+                disabled={isLoading}
+                onClick={() => setSubmitAction('publish')}
+              >
+                {isLoading && submitAction === 'publish'
+                  ? 'Publishing...'
+                  : 'Save & Publish'}
+              </Button>
+              <Button
+                type="submit"
+                variant="outline"
                 disabled={isLoading}
                 onClick={() => setSubmitAction('send')}
               >
-                Save & Send
+                {isLoading && submitAction === 'send'
+                  ? 'Sending...'
+                  : 'Save & Send Email'}
               </Button>
             </div>
           </div>
 
           <div className="hidden xl:col-span-2 xl:block">
             <div className="sticky top-24">
-              <h3 className="mb-3 text-sm font-semibold text-gray-500">
+              <h3 className="mb-3 text-sm font-semibold text-muted-foreground">
                 Live Preview
               </h3>
               <InvoicePreview />
@@ -295,12 +351,6 @@ export function InvoiceForm({
           </div>
         </div>
       </form>
-
-      <AiGenerateDialog
-        isOpen={showAi}
-        onClose={() => setShowAi(false)}
-        onResult={handleAiResult}
-      />
     </FormProvider>
   );
 }
