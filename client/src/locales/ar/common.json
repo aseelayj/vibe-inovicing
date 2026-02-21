@@ -82,6 +82,7 @@
   "password": "كلمة المرور",
   "enterYourPassword": "أدخل كلمة المرور",
   "passwordRequired": "كلمة المرور مطلوبة",
+  "rememberMe": "تذكرني",
   "welcomeBack": "مرحبًا بعودتك!",
   "invalidPassword": "كلمة مرور غير صحيحة",
   "signingIn": "جارٍ تسجيل الدخول...",

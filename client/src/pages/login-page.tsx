@@ -19,6 +19,7 @@ export function LoginPage() {
   const { t } = useTranslation('common');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const { login } = useAuth();
@@ -35,7 +36,7 @@ export function LoginPage() {
     setError('');
 
     try {
-      await login(email, password);
+      await login(email, password, rememberMe);
       toast.success(t('welcomeBack'));
       navigate('/');
     } catch (err) {
@@ -107,6 +108,18 @@ export function LoginPage() {
                   {error && (
                     <p className="text-sm text-destructive">{error}</p>
                   )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="rememberMe"
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-gray-300"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                  />
+                  <Label htmlFor="rememberMe" className="text-sm font-normal">
+                    {t('rememberMe')}
+                  </Label>
                 </div>
                 <Button
                   type="submit"

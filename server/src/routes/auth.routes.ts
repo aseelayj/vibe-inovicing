@@ -12,7 +12,7 @@ const router = Router();
 
 router.post('/login', validate(loginSchema), async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, rememberMe } = req.body;
 
     const [user] = await db.select().from(users)
       .where(eq(users.email, email.toLowerCase()))
@@ -34,10 +34,13 @@ router.post('/login', validate(loginSchema), async (req, res, next) => {
       .set({ lastLoginAt: new Date() })
       .where(eq(users.id, user.id));
 
+    const jwtOptions: jwt.SignOptions = rememberMe
+      ? {}
+      : { expiresIn: '90d' };
     const token = jwt.sign(
       { sub: user.id, role: user.role },
       env.JWT_SECRET,
-      { expiresIn: '90d' },
+      jwtOptions,
     );
 
     res.json({

@@ -82,6 +82,7 @@
   "password": "Password",
   "enterYourPassword": "Enter your password",
   "passwordRequired": "Password is required",
+  "rememberMe": "Remember me",
   "welcomeBack": "Welcome back!",
   "invalidPassword": "Invalid password",
   "signingIn": "Signing in...",

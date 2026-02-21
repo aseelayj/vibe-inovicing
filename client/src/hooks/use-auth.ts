@@ -11,7 +11,8 @@ export function useAuth() {
   const [user, setUser] = useState<AuthUser | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token')
+      || sessionStorage.getItem('token');
     if (!token) {
       setIsAuthenticated(false);
       return;
@@ -24,22 +25,33 @@ export function useAuth() {
       })
       .catch(() => {
         localStorage.removeItem('token');
+        sessionStorage.removeItem('token');
         setIsAuthenticated(false);
       });
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const { token, user: u } = await api.post<{
-      token: string;
-      user: AuthUser;
-    }>('/auth/login', { email, password });
-    localStorage.setItem('token', token);
-    setUser(u);
-    setIsAuthenticated(true);
-  }, []);
+  const login = useCallback(
+    async (email: string, password: string, rememberMe = false) => {
+      const { token, user: u } = await api.post<{
+        token: string;
+        user: AuthUser;
+      }>('/auth/login', { email, password, rememberMe });
+      if (rememberMe) {
+        localStorage.setItem('token', token);
+        sessionStorage.removeItem('token');
+      } else {
+        sessionStorage.setItem('token', token);
+        localStorage.removeItem('token');
+      }
+      setUser(u);
+      setIsAuthenticated(true);
+    },
+    [],
+  );
 
   const logout = useCallback(() => {
     localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
     setUser(null);
     setIsAuthenticated(false);
   }, []);

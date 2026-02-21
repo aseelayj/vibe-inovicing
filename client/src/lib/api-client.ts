@@ -14,7 +14,7 @@ async function request<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...((options.headers as Record<string, string>) || {}),
@@ -31,6 +31,7 @@ async function request<T>(
 
   if (res.status === 401) {
     localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
     window.location.href = '/login';
     throw new ApiError(401, 'Unauthorized');
   }
