@@ -3,7 +3,8 @@ import jwt from 'jsonwebtoken';
 import { env } from '../env.js';
 
 export interface AuthRequest extends Request {
-  userId?: string;
+  userId?: number;
+  userRole?: string;
 }
 
 export function authMiddleware(
@@ -19,10 +20,26 @@ export function authMiddleware(
 
   const token = header.slice(7);
   try {
-    const payload = jwt.verify(token, env.JWT_SECRET) as { sub: string };
+    const payload = jwt.verify(token, env.JWT_SECRET) as unknown as {
+      sub: number;
+      role: string;
+    };
     req.userId = payload.sub;
+    req.userRole = payload.role;
     next();
   } catch {
     res.status(401).json({ error: 'Invalid or expired token' });
   }
+}
+
+export function ownerOnly(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  if (req.userRole !== 'owner') {
+    res.status(403).json({ error: 'Owner access required' });
+    return;
+  }
+  next();
 }

@@ -10,12 +10,17 @@ import {
   settings,
   activityLog,
   emailLog,
+  emailTemplates,
 } from '../db/schema.js';
 import { validate } from '../middleware/validate.js';
 import { createQuoteSchema, updateQuoteSchema } from '@vibe/shared';
 import { generateQuotePdf } from '../services/pdf.service.js';
 import { sendQuoteEmail } from '../services/email.service.js';
 import { parseId } from '../utils/parse-id.js';
+import { replaceTemplateVariables, sanitizeHeaderColor } from '../utils/template-renderer.js';
+import { EMAIL_TEMPLATE_DEFAULTS } from './email-template.routes.js';
+import { env } from '../env.js';
+import { type AuthRequest } from '../middleware/auth.middleware.js';
 
 const router = Router();
 
@@ -229,6 +234,7 @@ router.post('/', validate(createQuoteSchema), async (req, res, next) => {
         entityId: quote.id,
         action: 'created',
         description: `Quote ${quote.quoteNumber} created`,
+        userId: (req as AuthRequest).userId,
       });
 
       return quote;
@@ -320,6 +326,7 @@ router.put('/:id', validate(updateQuoteSchema), async (req, res, next) => {
         entityId: id,
         action: 'updated',
         description: `Quote ${updated.quoteNumber} updated`,
+        userId: (req as AuthRequest).userId,
       });
 
       return updated;
@@ -360,6 +367,7 @@ router.delete('/:id', async (req, res, next) => {
       entityId: deleted.id,
       action: 'deleted',
       description: `Quote ${deleted.quoteNumber} deleted`,
+      userId: (req as AuthRequest).userId,
     });
 
     res.json({ data: { message: 'Quote deleted' } });
@@ -410,7 +418,7 @@ router.post('/:id/send', async (req, res, next) => {
   try {
     const id = parseId(req, res);
     if (id === null) return;
-    const { subject, body } = req.body;
+    const { subject: userSubject, body: userBody } = req.body;
 
     const quote = await db.query.quotes.findFirst({
       where: eq(quotes.id, id),
@@ -428,6 +436,27 @@ router.post('/:id/send', async (req, res, next) => {
     }
 
     const [settingsRow] = await db.select().from(settings).limit(1);
+    const businessName = settingsRow?.businessName || 'Our Company';
+
+    // Fetch email template
+    const template = await db.query.emailTemplates.findFirst({
+      where: eq(emailTemplates.type, 'quote'),
+    });
+    const defaults = EMAIL_TEMPLATE_DEFAULTS.quote;
+    const tplVars: Record<string, string> = {
+      quoteNumber: quote.quoteNumber,
+      businessName,
+      clientName: quote.client.name,
+      total: `${quote.total} ${quote.currency}`,
+      currency: quote.currency,
+      expiryDate: quote.expiryDate || '',
+    };
+
+    const finalSubject = userSubject
+      || replaceTemplateVariables(template?.subject || defaults.subject, tplVars);
+    const finalBody = userBody
+      || replaceTemplateVariables(template?.body || defaults.body, tplVars);
+    const headerColor = sanitizeHeaderColor(template?.headerColor, defaults.headerColor);
 
     // Generate PDF
     const pdfBuffer = await generateQuotePdf({
@@ -437,33 +466,50 @@ router.post('/:id/send', async (req, res, next) => {
       settings: settingsRow || {},
     });
 
-    // Send email
-    const emailResult = await sendQuoteEmail({
-      to: quote.client.email,
-      subject: subject || `Quote ${quote.quoteNumber}`,
-      body: body || `Please find your quote ${quote.quoteNumber} attached.`,
-      pdfBuffer,
-      quoteNumber: quote.quoteNumber,
-      businessName: settingsRow?.businessName || 'Our Company',
-      clientName: quote.client.name,
-      total: quote.total,
-      currency: quote.currency,
-      expiryDate: quote.expiryDate,
-    });
+    // Insert emailLog first (pending) for tracking
+    const [logEntry] = await db.insert(emailLog).values({
+      quoteId: id,
+      recipientEmail: quote.client.email,
+      subject: finalSubject,
+      status: 'pending',
+    }).returning();
+
+    const trackingPixelUrl = `${env.SERVER_BASE_URL}/api/tracking/open/${logEntry.id}`;
+
+    // Send email with template + tracking
+    let emailResult: { id: string };
+    try {
+      emailResult = await sendQuoteEmail({
+        to: quote.client.email,
+        subject: finalSubject,
+        body: finalBody,
+        pdfBuffer,
+        quoteNumber: quote.quoteNumber,
+        businessName,
+        clientName: quote.client.name,
+        total: quote.total,
+        currency: quote.currency,
+        expiryDate: quote.expiryDate,
+        headerColor,
+        trackingPixelUrl,
+        emailLogId: logEntry.id,
+      });
+    } catch (sendErr) {
+      await db.update(emailLog)
+        .set({ status: 'failed' })
+        .where(eq(emailLog.id, logEntry.id));
+      throw sendErr;
+    }
+
+    // Update emailLog to sent
+    await db.update(emailLog)
+      .set({ status: 'sent', resendId: emailResult.id })
+      .where(eq(emailLog.id, logEntry.id));
 
     // Update quote status to sent
     await db.update(quotes)
       .set({ status: 'sent', sentAt: new Date(), updatedAt: new Date() })
       .where(eq(quotes.id, id));
-
-    // Log email
-    await db.insert(emailLog).values({
-      quoteId: id,
-      recipientEmail: quote.client.email,
-      subject: subject || `Quote ${quote.quoteNumber}`,
-      status: 'sent',
-      resendId: emailResult.id,
-    });
 
     // Log activity
     await db.insert(activityLog).values({
@@ -471,6 +517,7 @@ router.post('/:id/send', async (req, res, next) => {
       entityId: id,
       action: 'sent',
       description: `Quote ${quote.quoteNumber} sent to ${quote.client.email}`,
+      userId: (req as AuthRequest).userId,
     });
 
     res.json({ data: { message: 'Quote sent successfully', emailId: emailResult.id } });
@@ -569,6 +616,7 @@ router.post('/:id/convert', async (req, res, next) => {
         entityId: id,
         action: 'converted',
         description: `Quote ${quote.quoteNumber} converted to invoice ${invoiceNumber}`,
+        userId: (req as AuthRequest).userId,
       });
 
       await tx.insert(activityLog).values({
@@ -576,6 +624,7 @@ router.post('/:id/convert', async (req, res, next) => {
         entityId: invoice.id,
         action: 'created',
         description: `Invoice ${invoiceNumber} created from quote ${quote.quoteNumber}`,
+        userId: (req as AuthRequest).userId,
       });
 
       return invoice;

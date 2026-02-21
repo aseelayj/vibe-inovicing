@@ -1,0 +1,20 @@
+{
+  "title": "الفريق",
+  "subtitle": "إدارة أعضاء الفريق وأدوارهم",
+  "addMember": "إضافة عضو",
+  "addMemberDescription": "إضافة عضو جديد يمكنه الوصول إلى النظام",
+  "editMember": "تعديل العضو",
+  "teamMembers": "أعضاء الفريق",
+  "noMembers": "لا يوجد أعضاء في الفريق بعد",
+  "role": "الدور",
+  "owner": "مالك",
+  "accountant": "محاسب",
+  "lastLogin": "آخر تسجيل دخول",
+  "never": "أبدًا",
+  "you": "أنت",
+  "deactivate": "تعطيل",
+  "reactivate": "إعادة تفعيل",
+  "namePlaceholder": "الاسم الكامل",
+  "emailPlaceholder": "email@example.com",
+  "passwordPlaceholder": "8 أحرف على الأقل"
+}

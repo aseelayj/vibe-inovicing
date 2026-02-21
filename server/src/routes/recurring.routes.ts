@@ -8,6 +8,7 @@ import {
 } from '../db/schema.js';
 import { validate } from '../middleware/validate.js';
 import { createRecurringSchema } from '@vibe/shared';
+import { type AuthRequest } from '../middleware/auth.middleware.js';
 
 const router = Router();
 
@@ -106,6 +107,7 @@ router.post('/', validate(createRecurringSchema), async (req, res, next) => {
         entityId: recurring.id,
         action: 'created',
         description: `Recurring invoice created (${recurring.frequency})`,
+        userId: (req as AuthRequest).userId,
       });
 
       return recurring;
@@ -180,6 +182,7 @@ router.put('/:id', validate(createRecurringSchema), async (req, res, next) => {
         entityId: id,
         action: 'updated',
         description: `Recurring invoice updated`,
+        userId: (req as AuthRequest).userId,
       });
 
       return updated;
@@ -219,6 +222,7 @@ router.delete('/:id', async (req, res, next) => {
       entityId: deleted.id,
       action: 'deleted',
       description: `Recurring invoice deleted`,
+      userId: (req as AuthRequest).userId,
     });
 
     res.json({ data: { message: 'Recurring invoice deleted' } });
@@ -254,6 +258,7 @@ router.patch('/:id/toggle', async (req, res, next) => {
       entityId: id,
       action: activeStatus,
       description: `Recurring invoice ${activeStatus}`,
+      userId: (req as AuthRequest).userId,
     });
 
     res.json({ data: updated });

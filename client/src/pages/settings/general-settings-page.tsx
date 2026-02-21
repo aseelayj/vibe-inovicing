@@ -1,0 +1,244 @@
+import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useForm } from 'react-hook-form';
+import { Loader2 } from 'lucide-react';
+import { CURRENCIES } from '@vibe/shared';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { useSettings, useUpdateSettings } from '@/hooks/use-settings';
+
+interface GeneralFormValues {
+  businessName: string;
+  businessEmail: string;
+  businessPhone: string;
+  businessAddress: string;
+  taxId: string;
+  defaultCurrency: string;
+  defaultTaxRate: number;
+  defaultPaymentTerms: number;
+  invoicePrefix: string;
+  exemptInvoicePrefix: string;
+  quotePrefix: string;
+}
+
+export function GeneralSettingsPage() {
+  const { t } = useTranslation('settings');
+  const { data: settings, isLoading } = useSettings();
+  const updateSettings = useUpdateSettings();
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    watch,
+    formState: { errors, isDirty },
+  } = useForm<GeneralFormValues>();
+
+  useEffect(() => {
+    if (settings) {
+      reset({
+        businessName: settings.businessName || '',
+        businessEmail: settings.businessEmail || '',
+        businessPhone: settings.businessPhone || '',
+        businessAddress: settings.businessAddress || '',
+        taxId: settings.taxId || '',
+        defaultCurrency: settings.defaultCurrency || 'USD',
+        defaultTaxRate: settings.defaultTaxRate || 0,
+        defaultPaymentTerms: settings.defaultPaymentTerms || 30,
+        invoicePrefix: settings.invoicePrefix || 'INV',
+        exemptInvoicePrefix: settings.exemptInvoicePrefix || 'EINV',
+        quotePrefix: settings.quotePrefix || 'QTE',
+      });
+    }
+  }, [settings, reset]);
+
+  if (isLoading) return <LoadingSpinner />;
+
+  const onSubmit = (data: GeneralFormValues) => {
+    updateSettings.mutate(data as Record<string, unknown>);
+  };
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="max-w-2xl space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('businessInfo')}</CardTitle>
+          <CardDescription>{t('businessInfoDesc')}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="businessName">{t('businessName')}</Label>
+            <Input
+              id="businessName"
+              placeholder={t('businessNamePlaceholder')}
+              {...register('businessName', {
+                required: t('businessNameRequired'),
+              })}
+            />
+            {errors.businessName?.message && (
+              <p className="text-sm text-destructive">
+                {errors.businessName.message}
+              </p>
+            )}
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="businessEmail">{t('email')}</Label>
+              <Input
+                id="businessEmail"
+                type="email"
+                placeholder={t('emailPlaceholder')}
+                {...register('businessEmail', {
+                  required: t('emailRequired'),
+                })}
+              />
+              {errors.businessEmail?.message && (
+                <p className="text-sm text-destructive">
+                  {errors.businessEmail.message}
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="businessPhone">{t('phone')}</Label>
+              <Input
+                id="businessPhone"
+                type="tel"
+                placeholder={t('phonePlaceholder')}
+                {...register('businessPhone')}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="businessAddress">{t('address')}</Label>
+            <Textarea
+              id="businessAddress"
+              rows={3}
+              placeholder={t('addressPlaceholder')}
+              {...register('businessAddress')}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="taxId">{t('taxIdVat')}</Label>
+            <Input
+              id="taxId"
+              placeholder={t('taxIdPlaceholder')}
+              {...register('taxId')}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('invoiceDefaults')}</CardTitle>
+          <CardDescription>{t('invoiceDefaultsDesc')}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>{t('defaultCurrency')}</Label>
+              <Select
+                value={watch('defaultCurrency') || 'USD'}
+                onValueChange={(val) =>
+                  setValue('defaultCurrency', val, { shouldDirty: true })
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={t('selectCurrency')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {CURRENCIES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="defaultTaxRate">{t('defaultTaxRate')}</Label>
+              <Input
+                id="defaultTaxRate"
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                {...register('defaultTaxRate', { valueAsNumber: true })}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="defaultPaymentTerms">
+              {t('defaultPaymentTerms')}
+            </Label>
+            <Input
+              id="defaultPaymentTerms"
+              type="number"
+              min="1"
+              {...register('defaultPaymentTerms', { valueAsNumber: true })}
+            />
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="invoicePrefix">{t('taxableInvoicePrefix')}</Label>
+              <Input
+                id="invoicePrefix"
+                placeholder="INV"
+                maxLength={10}
+                {...register('invoicePrefix')}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="exemptInvoicePrefix">
+                {t('exemptInvoicePrefix')}
+              </Label>
+              <Input
+                id="exemptInvoicePrefix"
+                placeholder="EINV"
+                maxLength={10}
+                {...register('exemptInvoicePrefix')}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="quotePrefix">{t('quotePrefix')}</Label>
+              <Input
+                id="quotePrefix"
+                placeholder="QTE"
+                maxLength={10}
+                {...register('quotePrefix')}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Button
+        type="submit"
+        disabled={!isDirty || updateSettings.isPending}
+      >
+        {updateSettings.isPending && (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        )}
+        {t('saveSettings')}
+      </Button>
+    </form>
+  );
+}

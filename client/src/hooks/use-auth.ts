@@ -1,10 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api-client';
+import type { User } from '@vibe/shared';
+
+type AuthUser = Pick<User, 'id' | 'name' | 'email' | 'role'>;
 
 export function useAuth() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(
     null,
   );
+  const [user, setUser] = useState<AuthUser | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -13,27 +17,34 @@ export function useAuth() {
       return;
     }
 
-    api.post<{ valid: boolean }>('/auth/verify')
-      .then(() => setIsAuthenticated(true))
+    api.post<{ valid: boolean; user: AuthUser }>('/auth/verify')
+      .then((res) => {
+        setUser(res.user);
+        setIsAuthenticated(true);
+      })
       .catch(() => {
         localStorage.removeItem('token');
         setIsAuthenticated(false);
       });
   }, []);
 
-  const login = useCallback(async (password: string) => {
-    const { token } = await api.post<{ token: string }>(
-      '/auth/login',
-      { password },
-    );
+  const login = useCallback(async (email: string, password: string) => {
+    const { token, user: u } = await api.post<{
+      token: string;
+      user: AuthUser;
+    }>('/auth/login', { email, password });
     localStorage.setItem('token', token);
+    setUser(u);
     setIsAuthenticated(true);
   }, []);
 
   const logout = useCallback(() => {
     localStorage.removeItem('token');
+    setUser(null);
     setIsAuthenticated(false);
   }, []);
 
-  return { isAuthenticated, login, logout };
+  const isOwner = user?.role === 'owner';
+
+  return { isAuthenticated, user, isOwner, login, logout };
 }

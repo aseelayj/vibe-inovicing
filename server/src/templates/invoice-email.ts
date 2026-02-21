@@ -15,6 +15,8 @@ export function renderInvoiceEmailHtml(data: {
   currency: string;
   dueDate: string;
   body: string;
+  headerColor?: string;
+  trackingPixelUrl?: string;
 }): string {
   const bn = escapeHtml(data.businessName);
   const cn = escapeHtml(data.clientName);
@@ -22,6 +24,10 @@ export function renderInvoiceEmailHtml(data: {
   const tot = escapeHtml(data.total);
   const dd = escapeHtml(data.dueDate);
   const bd = escapeHtml(data.body);
+  const color = data.headerColor || '#2563eb';
+  const pixel = data.trackingPixelUrl
+    ? `<img src="${data.trackingPixelUrl}" width="1" height="1" alt="" style="display:none;" />`
+    : '';
 
   return `<!DOCTYPE html>
 <html>
@@ -39,7 +45,7 @@ export function renderInvoiceEmailHtml(data: {
           overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
           <!-- Header -->
           <tr>
-            <td style="background: #2563eb; padding: 24px 32px;">
+            <td style="background: ${color}; padding: 24px 32px;">
               <h1 style="color: white; margin: 0; font-size: 20px;
                 font-weight: 600;">${bn}</h1>
             </td>
@@ -81,7 +87,7 @@ export function renderInvoiceEmailHtml(data: {
                           border-top: 1px solid #e5e7eb;
                           padding-top: 12px;">Total Amount</td>
                         <td style="text-align: right; font-weight: 700;
-                          color: #2563eb; font-size: 18px;
+                          color: ${color}; font-size: 18px;
                           border-top: 1px solid #e5e7eb;
                           padding-top: 12px;">${tot}</td>
                       </tr>
@@ -109,6 +115,7 @@ export function renderInvoiceEmailHtml(data: {
       </td>
     </tr>
   </table>
+  ${pixel}
 </body>
 </html>`;
 }
@@ -121,6 +128,8 @@ export function renderReminderEmailHtml(data: {
   dueDate: string;
   daysOverdue: number;
   body: string;
+  headerColor?: string;
+  trackingPixelUrl?: string;
 }): string {
   const bn = escapeHtml(data.businessName);
   const cn = escapeHtml(data.clientName);
@@ -129,6 +138,10 @@ export function renderReminderEmailHtml(data: {
   const dd = escapeHtml(data.dueDate);
   const bd = escapeHtml(data.body);
   const { daysOverdue } = data;
+  const color = data.headerColor || '#dc2626';
+  const pixel = data.trackingPixelUrl
+    ? `<img src="${data.trackingPixelUrl}" width="1" height="1" alt="" style="display:none;" />`
+    : '';
 
   return `<!DOCTYPE html>
 <html>
@@ -144,7 +157,7 @@ export function renderReminderEmailHtml(data: {
           style="background: white; border-radius: 8px;
           overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
           <tr>
-            <td style="background: #dc2626; padding: 24px 32px;">
+            <td style="background: ${color}; padding: 24px 32px;">
               <h1 style="color: white; margin: 0; font-size: 20px;">
                 Payment Reminder
               </h1>
@@ -196,6 +209,7 @@ export function renderReminderEmailHtml(data: {
       </td>
     </tr>
   </table>
+  ${pixel}
 </body>
 </html>`;
 }

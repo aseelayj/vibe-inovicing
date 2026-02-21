@@ -8,6 +8,7 @@ import {
   activityLog,
   bankAccounts,
   transactions,
+  users,
 } from '../db/schema.js';
 
 const router = Router();
@@ -154,7 +155,17 @@ router.get('/revenue-chart', async (req, res, next) => {
 // GET /recent-activity - Last 20 activity log entries
 router.get('/recent-activity', async (req, res, next) => {
   try {
-    const result = await db.select().from(activityLog)
+    const result = await db.select({
+      id: activityLog.id,
+      entityType: activityLog.entityType,
+      entityId: activityLog.entityId,
+      action: activityLog.action,
+      description: activityLog.description,
+      userId: activityLog.userId,
+      createdAt: activityLog.createdAt,
+      userName: users.name,
+    }).from(activityLog)
+      .leftJoin(users, eq(activityLog.userId, users.id))
       .orderBy(desc(activityLog.createdAt))
       .limit(20);
 

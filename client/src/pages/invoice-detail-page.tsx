@@ -17,6 +17,7 @@ import {
   ChevronUp,
   Bell,
 } from 'lucide-react';
+import { EmailTrackingCard } from '@/components/email/email-tracking-card';
 import { useForm } from 'react-hook-form';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -903,6 +904,8 @@ export function InvoiceDetailPage() {
                 </CardContent>
               </Card>
             )}
+
+            <EmailTrackingCard invoiceId={invoice.id} />
         </div>
       </div>
 

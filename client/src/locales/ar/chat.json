@@ -50,5 +50,11 @@
   "removeAttachment": "إزالة {{name}}",
   "closeChat": "إغلاق المحادثة",
   "confirmDelete": "تأكيد حذف \"{{title}}\"",
-  "renameConversation": "إعادة تسمية \"{{title}}\""
+  "renameConversation": "إعادة تسمية \"{{title}}\"",
+  "editing": "تعديل",
+  "subject": "الموضوع",
+  "message": "الرسالة",
+  "confirm": "تأكيد",
+  "cancel": "إلغاء",
+  "edit": "تعديل"
 }

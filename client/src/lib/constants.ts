@@ -11,6 +11,10 @@ export const STATUS_COLORS: Record<string, string> = {
   rejected: 'bg-red-100 text-red-700',
   expired: 'bg-gray-100 text-gray-500',
   converted: 'bg-blue-100 text-blue-700',
+  finalized: 'bg-blue-100 text-blue-700',
+  on_hold: 'bg-orange-100 text-orange-700',
+  active: 'bg-green-100 text-green-700',
+  inactive: 'bg-gray-100 text-gray-500',
 };
 
 export const JOFOTARA_STATUS_COLORS: Record<string, string> = {
@@ -60,6 +64,9 @@ export const NAV_ITEMS = [
   { labelKey: 'recurring', path: '/recurring', icon: 'RefreshCw' },
   { labelKey: 'bankAccounts', path: '/bank-accounts', icon: 'Landmark' },
   { labelKey: 'transactions', path: '/transactions', icon: 'ArrowLeftRight' },
+  { labelKey: 'payroll', path: '/payroll', icon: 'Wallet' },
   { labelKey: 'taxReports', path: '/tax-reports', icon: 'FileSpreadsheet' },
+  { labelKey: 'team', path: '/team', icon: 'UsersRound' },
+  { labelKey: 'teamActivity', path: '/team-activity', icon: 'Activity' },
   { labelKey: 'settings', path: '/settings', icon: 'Settings' },
 ] as const;

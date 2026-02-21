@@ -15,12 +15,22 @@ import { QuotesPage } from '@/pages/quotes-page';
 import { QuoteCreatePage } from '@/pages/quote-create-page';
 import { QuoteDetailPage } from '@/pages/quote-detail-page';
 import { PaymentsPage } from '@/pages/payments-page';
-import { SettingsPage } from '@/pages/settings-page';
+import { SettingsLayout } from '@/pages/settings/settings-layout';
+import { GeneralSettingsPage } from '@/pages/settings/general-settings-page';
+import { EmailSettingsPage } from '@/pages/settings/email-settings-page';
+import { IntegrationsSettingsPage } from '@/pages/settings/integrations-settings-page';
+import { TaxSettingsPage } from '@/pages/settings/tax-settings-page';
 import { RecurringPage } from '@/pages/recurring-page';
 import { QuoteEditPage } from '@/pages/quote-edit-page';
 import { BankAccountsPage } from '@/pages/bank-accounts-page';
 import { TransactionsPage } from '@/pages/transactions-page';
 import { TaxReportsPage } from '@/pages/tax-reports-page';
+import { TeamPage } from '@/pages/team-page';
+import { TeamActivityPage } from '@/pages/team-activity-page';
+import { PayrollPage } from '@/pages/payroll-page';
+import { PayrollRunDetailPage } from '@/pages/payroll-run-detail-page';
+import { EmployeesPage } from '@/pages/employees-page';
+import { EmployeeDetailPage } from '@/pages/employee-detail-page';
 import { NotFoundPage } from '@/pages/not-found-page';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -69,8 +79,19 @@ export function App() {
         <Route path="recurring" element={<RecurringPage />} />
         <Route path="bank-accounts" element={<BankAccountsPage />} />
         <Route path="transactions" element={<TransactionsPage />} />
+        <Route path="payroll" element={<PayrollPage />} />
+        <Route path="payroll/:id" element={<PayrollRunDetailPage />} />
+        <Route path="payroll/employees" element={<EmployeesPage />} />
+        <Route path="payroll/employees/:id" element={<EmployeeDetailPage />} />
         <Route path="tax-reports" element={<TaxReportsPage />} />
-        <Route path="settings" element={<SettingsPage />} />
+        <Route path="team" element={<TeamPage />} />
+        <Route path="team-activity" element={<TeamActivityPage />} />
+        <Route path="settings" element={<SettingsLayout />}>
+          <Route index element={<GeneralSettingsPage />} />
+          <Route path="email" element={<EmailSettingsPage />} />
+          <Route path="integrations" element={<IntegrationsSettingsPage />} />
+          <Route path="tax" element={<TaxSettingsPage />} />
+        </Route>
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

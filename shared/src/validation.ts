@@ -10,6 +10,10 @@ import {
   JOFOTARA_INVOICE_TYPES,
   FILING_STATUSES,
   BANK_ACCOUNT_PROVIDERS,
+  USER_ROLES,
+  EMAIL_TEMPLATE_TYPES,
+  PAYROLL_RUN_STATUSES,
+  PAYROLL_PAYMENT_STATUSES,
 } from './constants';
 
 // Helper: transform empty strings to null for optional fields
@@ -134,15 +138,47 @@ export const updateSettingsSchema = z.object({
   paypalClientSecret: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
   paypalEnvironment: z.enum(['sandbox', 'live']).optional(),
   paypalEnabled: z.boolean().optional(),
+  emailProvider: z.enum(['resend', 'smtp']).optional(),
+  resendApiKey: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
+  smtpHost: optionalString(255),
+  smtpPort: z.number().int().min(1).max(65535).nullable().optional(),
+  smtpUsername: optionalString(255),
+  smtpPassword: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
+  smtpSecure: z.boolean().optional(),
   filingStatus: z.enum(FILING_STATUSES).optional(),
   personalExemption: z.number().min(0).optional(),
   familyExemption: z.number().min(0).optional(),
   additionalExemptions: z.number().min(0).max(3000).optional(),
 });
 
+export const sendTestEmailSchema = z.object({
+  to: z.string().email('Valid email is required'),
+});
+
 // ---- Auth ----
 export const loginSchema = z.object({
+  email: z.string().email('Valid email is required'),
   password: z.string().min(1, 'Password is required'),
+});
+
+// ---- User Management ----
+export const createUserSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(255),
+  email: z.string().email('Valid email is required').max(255),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  role: z.enum(USER_ROLES).default('accountant'),
+});
+
+export const updateUserSchema = z.object({
+  name: z.string().min(1).max(255).optional(),
+  email: z.string().email().max(255).optional(),
+  role: z.enum(USER_ROLES).optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required'),
+  newPassword: z.string().min(8, 'New password must be at least 8 characters'),
 });
 
 // ---- AI ----
@@ -224,6 +260,63 @@ export const batchCreateTransactionsSchema = z.object({
     supplierName: optionalString(255),
     invoiceReference: optionalString(255),
   })).min(1, 'At least one transaction required'),
+});
+
+// ---- Employee ----
+export const createEmployeeSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(255),
+  email: optionalEmail(),
+  phone: optionalString(50),
+  role: z.string().min(1, 'Role is required').max(100),
+  baseSalary: z.number().min(0, 'Salary must be non-negative'),
+  transportAllowance: z.number().min(0).default(0),
+  sskEnrolled: z.boolean().default(false),
+  hireDate: z.string().min(1, 'Hire date is required'),
+  endDate: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
+  bankAccountName: optionalString(255),
+  bankIban: optionalString(50),
+  notes: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
+});
+
+export const updateEmployeeSchema = createEmployeeSchema.partial();
+
+// ---- Payroll Run ----
+export const createPayrollRunSchema = z.object({
+  year: z.number().int().min(2020).max(2100),
+  month: z.number().int().min(1).max(12),
+  standardWorkingDays: z.number().int().min(1).max(31).default(26),
+  notes: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
+  duplicateFromRunId: z.number().int().positive().optional(),
+});
+
+// ---- Payroll Entry ----
+export const updatePayrollEntrySchema = z.object({
+  workingDays: z.number().int().min(0).max(31).optional(),
+  weekdayOvertimeHours: z.number().min(0).optional(),
+  weekendOvertimeHours: z.number().min(0).optional(),
+  bonus: z.number().min(0).optional(),
+  salaryDifference: z.number().optional(),
+  salaryAdvance: z.number().min(0).optional(),
+  otherDeductions: z.number().min(0).optional(),
+  otherDeductionsNote: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
+});
+
+// ---- Payroll Payment ----
+export const updatePayrollPaymentSchema = z.object({
+  paymentStatus: z.enum(PAYROLL_PAYMENT_STATUSES),
+  paymentDate: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
+  bankTrxReference: optionalString(255),
+  bankAccountId: z.number().int().positive().nullable().optional(),
+});
+
+// ---- Email Template ----
+export const updateEmailTemplateSchema = z.object({
+  subject: z.string().min(1, 'Subject is required').max(500),
+  body: z.string().min(1, 'Body is required'),
+  headerColor: z.string()
+    .regex(/^#[0-9a-fA-F]{6}$/, 'Must be a valid hex color')
+    .nullable()
+    .optional(),
 });
 
 // ---- Bank Sync ----

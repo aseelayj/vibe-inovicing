@@ -8,6 +8,7 @@ import {
   settings,
   activityLog,
   emailLog,
+  emailTemplates,
 } from '../db/schema.js';
 import { validate } from '../middleware/validate.js';
 import {
@@ -18,6 +19,10 @@ import {
 import { generateInvoicePdf } from '../services/pdf.service.js';
 import { sendInvoiceEmail, sendPaymentReminder } from '../services/email.service.js';
 import { parseId } from '../utils/parse-id.js';
+import { replaceTemplateVariables, sanitizeHeaderColor } from '../utils/template-renderer.js';
+import { EMAIL_TEMPLATE_DEFAULTS } from './email-template.routes.js';
+import { env } from '../env.js';
+import { type AuthRequest } from '../middleware/auth.middleware.js';
 
 const router = Router();
 
@@ -248,6 +253,7 @@ router.post('/', validate(createInvoiceSchema), async (req, res, next) => {
         description: isWriteOff
           ? `Write-off invoice ${invoice.invoiceNumber} created`
           : `Invoice ${invoice.invoiceNumber} created`,
+        userId: (req as AuthRequest).userId,
       });
 
       return invoice;
@@ -348,6 +354,7 @@ router.put('/:id', validate(updateInvoiceSchema), async (req, res, next) => {
         entityId: id,
         action: 'updated',
         description: `Invoice ${updated.invoiceNumber} updated`,
+        userId: (req as AuthRequest).userId,
       });
 
       return updated;
@@ -388,6 +395,7 @@ router.delete('/:id', async (req, res, next) => {
       entityId: deleted.id,
       action: 'deleted',
       description: `Invoice ${deleted.invoiceNumber} deleted`,
+      userId: (req as AuthRequest).userId,
     });
 
     res.json({ data: { message: 'Invoice deleted' } });
@@ -452,6 +460,7 @@ router.post('/:id/duplicate', async (req, res, next) => {
         entityId: duplicate.id,
         action: 'duplicated',
         description: `Invoice ${duplicate.invoiceNumber} duplicated from ${original.invoiceNumber}`,
+        userId: (req as AuthRequest).userId,
       });
 
       return duplicate;
@@ -515,6 +524,7 @@ router.patch(
         entityId: id,
         action: 'status_changed',
         description: `Invoice ${updated.invoiceNumber} status changed to "${status}"`,
+        userId: (req as AuthRequest).userId,
       });
 
       res.json({ data: updated });
@@ -566,7 +576,7 @@ router.post('/:id/send', async (req, res, next) => {
   try {
     const id = parseId(req, res);
     if (id === null) return;
-    const { subject, body } = req.body;
+    const { subject: userSubject, body: userBody } = req.body;
 
     const invoice = await db.query.invoices.findFirst({
       where: eq(invoices.id, id),
@@ -584,6 +594,27 @@ router.post('/:id/send', async (req, res, next) => {
     }
 
     const [settingsRow] = await db.select().from(settings).limit(1);
+    const businessName = settingsRow?.businessName || 'Our Company';
+
+    // Fetch email template
+    const template = await db.query.emailTemplates.findFirst({
+      where: eq(emailTemplates.type, 'invoice'),
+    });
+    const defaults = EMAIL_TEMPLATE_DEFAULTS.invoice;
+    const tplVars: Record<string, string> = {
+      invoiceNumber: invoice.invoiceNumber,
+      businessName,
+      clientName: invoice.client.name,
+      total: `${invoice.total} ${invoice.currency}`,
+      currency: invoice.currency,
+      dueDate: invoice.dueDate,
+    };
+
+    const finalSubject = userSubject
+      || replaceTemplateVariables(template?.subject || defaults.subject, tplVars);
+    const finalBody = userBody
+      || replaceTemplateVariables(template?.body || defaults.body, tplVars);
+    const headerColor = sanitizeHeaderColor(template?.headerColor, defaults.headerColor);
 
     // Generate PDF
     const pdfBuffer = await generateInvoicePdf({
@@ -593,33 +624,50 @@ router.post('/:id/send', async (req, res, next) => {
       settings: settingsRow || {},
     });
 
-    // Send email
-    const emailResult = await sendInvoiceEmail({
-      to: invoice.client.email,
-      subject: subject || `Invoice ${invoice.invoiceNumber}`,
-      body: body || `Please find your invoice ${invoice.invoiceNumber} attached.`,
-      pdfBuffer,
-      invoiceNumber: invoice.invoiceNumber,
-      businessName: settingsRow?.businessName || 'Our Company',
-      clientName: invoice.client.name,
-      total: invoice.total,
-      currency: invoice.currency,
-      dueDate: invoice.dueDate,
-    });
+    // Insert emailLog first (pending) to get the ID for tracking
+    const [logEntry] = await db.insert(emailLog).values({
+      invoiceId: id,
+      recipientEmail: invoice.client.email,
+      subject: finalSubject,
+      status: 'pending',
+    }).returning();
+
+    const trackingPixelUrl = `${env.SERVER_BASE_URL}/api/tracking/open/${logEntry.id}`;
+
+    // Send email with template + tracking
+    let emailResult: { id: string };
+    try {
+      emailResult = await sendInvoiceEmail({
+        to: invoice.client.email,
+        subject: finalSubject,
+        body: finalBody,
+        pdfBuffer,
+        invoiceNumber: invoice.invoiceNumber,
+        businessName,
+        clientName: invoice.client.name,
+        total: invoice.total,
+        currency: invoice.currency,
+        dueDate: invoice.dueDate,
+        headerColor,
+        trackingPixelUrl,
+        emailLogId: logEntry.id,
+      });
+    } catch (sendErr) {
+      await db.update(emailLog)
+        .set({ status: 'failed' })
+        .where(eq(emailLog.id, logEntry.id));
+      throw sendErr;
+    }
+
+    // Update emailLog to sent
+    await db.update(emailLog)
+      .set({ status: 'sent', resendId: emailResult.id })
+      .where(eq(emailLog.id, logEntry.id));
 
     // Update invoice status to sent
     await db.update(invoices)
       .set({ status: 'sent', sentAt: new Date(), updatedAt: new Date() })
       .where(eq(invoices.id, id));
-
-    // Log email
-    await db.insert(emailLog).values({
-      invoiceId: id,
-      recipientEmail: invoice.client.email,
-      subject: subject || `Invoice ${invoice.invoiceNumber}`,
-      status: 'sent',
-      resendId: emailResult.id,
-    });
 
     // Log activity
     await db.insert(activityLog).values({
@@ -627,6 +675,7 @@ router.post('/:id/send', async (req, res, next) => {
       entityId: id,
       action: 'sent',
       description: `Invoice ${invoice.invoiceNumber} sent to ${invoice.client.email}`,
+      userId: (req as AuthRequest).userId,
     });
 
     res.json({ data: { message: 'Invoice sent successfully', emailId: emailResult.id } });
@@ -640,7 +689,7 @@ router.post('/:id/remind', async (req, res, next) => {
   try {
     const id = parseId(req, res);
     if (id === null) return;
-    const { subject, body } = req.body;
+    const { subject: userSubject, body: userBody } = req.body;
 
     const invoice = await db.query.invoices.findFirst({
       where: eq(invoices.id, id),
@@ -658,6 +707,7 @@ router.post('/:id/remind', async (req, res, next) => {
     }
 
     const [settingsRow] = await db.select().from(settings).limit(1);
+    const businessName = settingsRow?.businessName || 'Our Company';
 
     const now = new Date();
     const dueDate = new Date(invoice.dueDate);
@@ -666,26 +716,64 @@ router.post('/:id/remind', async (req, res, next) => {
       Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)),
     );
 
-    const emailResult = await sendPaymentReminder({
-      to: invoice.client.email,
-      subject: subject || `Payment Reminder: ${invoice.invoiceNumber}`,
-      body: body || `This is a friendly reminder about invoice ${invoice.invoiceNumber}.`,
-      businessName: settingsRow?.businessName || 'Our Company',
-      clientName: invoice.client.name,
-      invoiceNumber: invoice.invoiceNumber,
-      total: invoice.total,
-      dueDate: invoice.dueDate,
-      daysOverdue,
+    // Fetch email template
+    const template = await db.query.emailTemplates.findFirst({
+      where: eq(emailTemplates.type, 'reminder'),
     });
+    const defaults = EMAIL_TEMPLATE_DEFAULTS.reminder;
+    const tplVars: Record<string, string> = {
+      invoiceNumber: invoice.invoiceNumber,
+      businessName,
+      clientName: invoice.client.name,
+      total: `${invoice.total} ${invoice.currency}`,
+      currency: invoice.currency,
+      dueDate: invoice.dueDate,
+      daysOverdue: String(daysOverdue),
+    };
 
-    // Log email
-    await db.insert(emailLog).values({
+    const finalSubject = userSubject
+      || replaceTemplateVariables(template?.subject || defaults.subject, tplVars);
+    const finalBody = userBody
+      || replaceTemplateVariables(template?.body || defaults.body, tplVars);
+    const headerColor = sanitizeHeaderColor(template?.headerColor, defaults.headerColor);
+
+    // Insert emailLog first (pending) for tracking
+    const [logEntry] = await db.insert(emailLog).values({
       invoiceId: id,
       recipientEmail: invoice.client.email,
-      subject: subject || `Payment Reminder: ${invoice.invoiceNumber}`,
-      status: 'sent',
-      resendId: emailResult.id,
-    });
+      subject: finalSubject,
+      status: 'pending',
+    }).returning();
+
+    const trackingPixelUrl = `${env.SERVER_BASE_URL}/api/tracking/open/${logEntry.id}`;
+
+    let emailResult: { id: string };
+    try {
+      emailResult = await sendPaymentReminder({
+        to: invoice.client.email,
+        subject: finalSubject,
+        body: finalBody,
+        businessName,
+        clientName: invoice.client.name,
+        invoiceNumber: invoice.invoiceNumber,
+        total: invoice.total,
+        dueDate: invoice.dueDate,
+        daysOverdue,
+        headerColor,
+        trackingPixelUrl,
+        emailLogId: logEntry.id,
+      });
+    } catch (sendErr) {
+      await db.update(emailLog)
+        .set({ status: 'failed' })
+        .where(eq(emailLog.id, logEntry.id));
+      throw sendErr;
+    }
+
+    // Update emailLog to sent
+    await db.update(emailLog)
+      .set({ status: 'sent', resendId: emailResult.id })
+      .where(eq(emailLog.id, logEntry.id));
 
     // Log activity
     await db.insert(activityLog).values({
@@ -693,6 +781,7 @@ router.post('/:id/remind', async (req, res, next) => {
       entityId: id,
       action: 'reminder_sent',
       description: `Payment reminder sent for ${invoice.invoiceNumber} to ${invoice.client.email}`,
+      userId: (req as AuthRequest).userId,
     });
 
     res.json({ data: { message: 'Reminder sent successfully', emailId: emailResult.id } });

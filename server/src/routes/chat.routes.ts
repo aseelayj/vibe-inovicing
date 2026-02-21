@@ -14,6 +14,7 @@ import {
   generateActionSummary,
 } from '../services/chat-tools.js';
 import type { ChatMessage, ChatToolCall, PageContext } from '@vibe/shared';
+import { type AuthRequest } from '../middleware/auth.middleware.js';
 
 const router = Router();
 const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
@@ -267,6 +268,7 @@ router.post('/:id/messages', async (req, res, next) => {
     // Stream response from Gemini
     await streamGeminiResponse(
       res, conversationId, geminiContents, systemPrompt,
+      (req as AuthRequest).userId,
     );
 
   } catch (err) {
@@ -285,6 +287,7 @@ async function streamGeminiResponse(
   conversationId: number,
   contents: any[],
   systemPrompt: string,
+  userId?: number,
   depth = 0,
 ) {
   if (depth > 10) {
@@ -340,7 +343,7 @@ async function streamGeminiResponse(
           }, 5000);
           let result: unknown;
           try {
-            result = await executor(toolArgs);
+            result = await executor(toolArgs, { userId });
           } finally {
             clearInterval(keepalive);
           }
@@ -367,7 +370,7 @@ async function streamGeminiResponse(
           );
 
           await streamGeminiResponse(
-            res, conversationId, updatedContents, systemPrompt, depth + 1,
+            res, conversationId, updatedContents, systemPrompt, userId, depth + 1,
           );
           return;
         } catch (err: any) {
@@ -383,7 +386,7 @@ async function streamGeminiResponse(
               parts: [{ functionResponse: { name: toolName, response: { error: err.message, advice: 'Please fix the arguments and try again.' } } }],
             });
 
-            await streamGeminiResponse(res, conversationId, contents, systemPrompt, depth + 1);
+            await streamGeminiResponse(res, conversationId, contents, systemPrompt, userId, depth + 1);
             return;
           }
 
@@ -489,7 +492,7 @@ router.post('/:id/confirm/:msgId', async (req, res, next) => {
       }, 5000);
       let result: unknown;
       try {
-        result = await executor(toolCall.args);
+        result = await executor(toolCall.args, { userId: (req as AuthRequest).userId });
       } finally {
         clearInterval(keepalive);
       }
@@ -516,6 +519,7 @@ router.post('/:id/confirm/:msgId', async (req, res, next) => {
 
       await streamGeminiResponse(
         res, conversationId, geminiContents, systemPrompt,
+        (req as AuthRequest).userId,
       );
     } catch (err: any) {
       await db.update(chatMessages).set({ actionStatus: 'rejected' })

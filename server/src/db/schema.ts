@@ -10,6 +10,7 @@ import {
   timestamp,
   jsonb,
   index,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
@@ -63,6 +64,14 @@ export const settings = pgTable('settings', {
   paypalEnvironment: varchar('paypal_environment', { length: 10 })
     .notNull().default('sandbox'),
   paypalEnabled: boolean('paypal_enabled').notNull().default(false),
+  emailProvider: varchar('email_provider', { length: 10 })
+    .notNull().default('resend'),
+  resendApiKey: text('resend_api_key'),
+  smtpHost: varchar('smtp_host', { length: 255 }),
+  smtpPort: integer('smtp_port'),
+  smtpUsername: varchar('smtp_username', { length: 255 }),
+  smtpPassword: text('smtp_password'),
+  smtpSecure: boolean('smtp_secure').notNull().default(true),
   filingStatus: varchar('filing_status', { length: 20 })
     .notNull().default('single'),
   personalExemption: decimal('personal_exemption', {
@@ -283,8 +292,38 @@ export const emailLog = pgTable('email_log', {
   body: text('body'),
   status: varchar('status', { length: 20 }).notNull().default('sent'),
   resendId: varchar('resend_id', { length: 255 }),
+  openedAt: timestamp('opened_at'),
+  clickedAt: timestamp('clicked_at'),
+  openCount: integer('open_count').notNull().default(0),
+  clickCount: integer('click_count').notNull().default(0),
   sentAt: timestamp('sent_at').notNull().defaultNow(),
 });
+
+// ---- Email Templates ----
+export const emailTemplates = pgTable('email_templates', {
+  id: serial('id').primaryKey(),
+  type: varchar('type', { length: 20 }).notNull().unique(),
+  subject: varchar('subject', { length: 500 }).notNull(),
+  body: text('body').notNull(),
+  headerColor: varchar('header_color', { length: 7 }),
+  isCustomized: boolean('is_customized').notNull().default(false),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// ---- Email Tracking Events ----
+export const emailTrackingEvents = pgTable('email_tracking_events', {
+  id: serial('id').primaryKey(),
+  emailLogId: integer('email_log_id').notNull()
+    .references(() => emailLog.id, { onDelete: 'cascade' }),
+  eventType: varchar('event_type', { length: 20 }).notNull(),
+  url: text('url'),
+  ipAddress: varchar('ip_address', { length: 45 }),
+  userAgent: text('user_agent'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [
+  index('idx_tracking_events_email_log').on(table.emailLogId),
+]);
 
 // ---- Bank Accounts ----
 export const bankAccounts = pgTable('bank_accounts', {
@@ -393,6 +432,21 @@ export const jofotaraSubmissions = pgTable('jofotara_submissions', {
   index('idx_jofotara_submissions_invoice').on(table.invoiceId),
 ]);
 
+// ---- Users ----
+export const users = pgTable('users', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 255 }).notNull(),
+  email: varchar('email', { length: 255 }).notNull().unique(),
+  passwordHash: text('password_hash').notNull(),
+  role: varchar('role', { length: 20 }).notNull().default('accountant'),
+  isActive: boolean('is_active').notNull().default(true),
+  lastLoginAt: timestamp('last_login_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => [
+  index('idx_users_email').on(table.email),
+]);
+
 // ---- Activity Log ----
 export const activityLog = pgTable('activity_log', {
   id: serial('id').primaryKey(),
@@ -401,10 +455,126 @@ export const activityLog = pgTable('activity_log', {
   action: varchar('action', { length: 50 }).notNull(),
   description: text('description'),
   metadata: jsonb('metadata'),
+  userId: integer('user_id').references(() => users.id, {
+    onDelete: 'set null',
+  }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => [
   index('idx_activity_entity').on(table.entityType, table.entityId),
   index('idx_activity_created').on(table.createdAt),
+  index('idx_activity_user').on(table.userId),
+]);
+
+// ---- Employees ----
+export const employees = pgTable('employees', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 255 }).notNull(),
+  email: varchar('email', { length: 255 }),
+  phone: varchar('phone', { length: 50 }),
+  role: varchar('role', { length: 100 }).notNull(),
+  baseSalary: decimal('base_salary', { precision: 12, scale: 2 })
+    .notNull().default('0'),
+  transportAllowance: decimal('transport_allowance', { precision: 12, scale: 2 })
+    .notNull().default('0'),
+  sskEnrolled: boolean('ssk_enrolled').notNull().default(false),
+  hireDate: date('hire_date').notNull(),
+  endDate: date('end_date'),
+  bankAccountName: varchar('bank_account_name', { length: 255 }),
+  bankIban: varchar('bank_iban', { length: 50 }),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => [
+  index('idx_employees_name').on(table.name),
+  index('idx_employees_role').on(table.role),
+]);
+
+// ---- Payroll Runs ----
+export const payrollRuns = pgTable('payroll_runs', {
+  id: serial('id').primaryKey(),
+  year: integer('year').notNull(),
+  month: integer('month').notNull(),
+  status: varchar('status', { length: 20 }).notNull().default('draft'),
+  standardWorkingDays: integer('standard_working_days').notNull().default(26),
+  totalGross: decimal('total_gross', { precision: 12, scale: 2 })
+    .notNull().default('0'),
+  totalDeductions: decimal('total_deductions', { precision: 12, scale: 2 })
+    .notNull().default('0'),
+  totalNet: decimal('total_net', { precision: 12, scale: 2 })
+    .notNull().default('0'),
+  totalSskEmployee: decimal('total_ssk_employee', { precision: 12, scale: 2 })
+    .notNull().default('0'),
+  totalSskEmployer: decimal('total_ssk_employer', { precision: 12, scale: 2 })
+    .notNull().default('0'),
+  totalCompanyCost: decimal('total_company_cost', { precision: 12, scale: 2 })
+    .notNull().default('0'),
+  notes: text('notes'),
+  finalizedAt: timestamp('finalized_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  entryCount: integer('entry_count').notNull().default(0),
+}, (table) => [
+  uniqueIndex('uq_payroll_year_month').on(table.year, table.month),
+  index('idx_payroll_runs_status').on(table.status),
+]);
+
+// ---- Payroll Entries ----
+export const payrollEntries = pgTable('payroll_entries', {
+  id: serial('id').primaryKey(),
+  payrollRunId: integer('payroll_run_id').notNull()
+    .references(() => payrollRuns.id, { onDelete: 'cascade' }),
+  employeeId: integer('employee_id').notNull()
+    .references(() => employees.id, { onDelete: 'restrict' }),
+  employeeName: varchar('employee_name', { length: 255 }).notNull(),
+  employeeRole: varchar('employee_role', { length: 100 }).notNull(),
+  baseSalary: decimal('base_salary', { precision: 12, scale: 2 })
+    .notNull().default('0'),
+  sskEnrolled: boolean('ssk_enrolled').notNull().default(false),
+  workingDays: integer('working_days').notNull().default(26),
+  standardWorkingDays: integer('standard_working_days').notNull().default(26),
+  basicSalary: decimal('basic_salary', { precision: 12, scale: 2 })
+    .notNull().default('0'),
+  weekdayOvertimeHours: decimal('weekday_overtime_hours', { precision: 8, scale: 2 })
+    .notNull().default('0'),
+  weekdayOvertimeAmount: decimal('weekday_overtime_amount', { precision: 12, scale: 2 })
+    .notNull().default('0'),
+  weekendOvertimeHours: decimal('weekend_overtime_hours', { precision: 8, scale: 2 })
+    .notNull().default('0'),
+  weekendOvertimeAmount: decimal('weekend_overtime_amount', { precision: 12, scale: 2 })
+    .notNull().default('0'),
+  transportAllowance: decimal('transport_allowance', { precision: 12, scale: 2 })
+    .notNull().default('0'),
+  bonus: decimal('bonus', { precision: 12, scale: 2 })
+    .notNull().default('0'),
+  salaryDifference: decimal('salary_difference', { precision: 12, scale: 2 })
+    .notNull().default('0'),
+  grossSalary: decimal('gross_salary', { precision: 12, scale: 2 })
+    .notNull().default('0'),
+  salaryAdvance: decimal('salary_advance', { precision: 12, scale: 2 })
+    .notNull().default('0'),
+  otherDeductions: decimal('other_deductions', { precision: 12, scale: 2 })
+    .notNull().default('0'),
+  otherDeductionsNote: text('other_deductions_note'),
+  sskEmployee: decimal('ssk_employee', { precision: 12, scale: 2 })
+    .notNull().default('0'),
+  totalDeductions: decimal('total_deductions', { precision: 12, scale: 2 })
+    .notNull().default('0'),
+  netSalary: decimal('net_salary', { precision: 12, scale: 2 })
+    .notNull().default('0'),
+  sskEmployer: decimal('ssk_employer', { precision: 12, scale: 2 })
+    .notNull().default('0'),
+  paymentStatus: varchar('payment_status', { length: 20 })
+    .notNull().default('pending'),
+  paymentDate: date('payment_date'),
+  bankTrxReference: varchar('bank_trx_reference', { length: 255 }),
+  bankAccountId: integer('bank_account_id')
+    .references(() => bankAccounts.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => [
+  index('idx_payroll_entries_run').on(table.payrollRunId),
+  index('idx_payroll_entries_employee').on(table.employeeId),
+  index('idx_payroll_entries_payment').on(table.paymentStatus),
 ]);
 
 // ---- Relations ----
@@ -523,6 +693,60 @@ export const transactionsRelations = relations(
   ({ one }) => ({
     bankAccount: one(bankAccounts, {
       fields: [transactions.bankAccountId],
+      references: [bankAccounts.id],
+    }),
+  }),
+);
+
+export const emailLogRelations = relations(emailLog, ({ many }) => ({
+  trackingEvents: many(emailTrackingEvents),
+}));
+
+export const emailTrackingEventsRelations = relations(
+  emailTrackingEvents,
+  ({ one }) => ({
+    emailLog: one(emailLog, {
+      fields: [emailTrackingEvents.emailLogId],
+      references: [emailLog.id],
+    }),
+  }),
+);
+
+export const usersRelations = relations(users, ({ many }) => ({
+  activityLogs: many(activityLog),
+}));
+
+export const activityLogRelations = relations(activityLog, ({ one }) => ({
+  user: one(users, {
+    fields: [activityLog.userId],
+    references: [users.id],
+  }),
+}));
+
+export const employeesRelations = relations(employees, ({ many }) => ({
+  payrollEntries: many(payrollEntries),
+}));
+
+export const payrollRunsRelations = relations(
+  payrollRuns,
+  ({ many }) => ({
+    entries: many(payrollEntries),
+  }),
+);
+
+export const payrollEntriesRelations = relations(
+  payrollEntries,
+  ({ one }) => ({
+    payrollRun: one(payrollRuns, {
+      fields: [payrollEntries.payrollRunId],
+      references: [payrollRuns.id],
+    }),
+    employee: one(employees, {
+      fields: [payrollEntries.employeeId],
+      references: [employees.id],
+    }),
+    bankAccount: one(bankAccounts, {
+      fields: [payrollEntries.bankAccountId],
       references: [bankAccounts.id],
     }),
   }),

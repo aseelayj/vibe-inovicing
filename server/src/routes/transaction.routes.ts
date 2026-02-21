@@ -19,6 +19,7 @@ import {
 import { recalculateBalance } from './bank-account.routes.js';
 import { parseTransactionsFromText } from '../services/ai.service.js';
 import { parseId } from '../utils/parse-id.js';
+import { type AuthRequest } from '../middleware/auth.middleware.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -141,6 +142,7 @@ router.post(
           entityId: txn.id,
           action: 'created',
           description: `${type} transaction of ${amount} - ${description}`,
+          userId: (req as AuthRequest).userId,
         });
 
         return txn;
@@ -225,6 +227,7 @@ router.delete('/:id', async (req, res, next) => {
         entityId: id,
         action: 'deleted',
         description: `${txn.type} transaction of ${txn.amount} deleted`,
+        userId: (req as AuthRequest).userId,
       });
     });
 
@@ -316,6 +319,7 @@ router.post(
           entityId: created[0].id,
           action: 'batch_imported',
           description: `Imported ${created.length} transactions into ${account.name}`,
+          userId: (req as AuthRequest).userId,
         });
 
         return created;

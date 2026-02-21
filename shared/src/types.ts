@@ -10,7 +10,23 @@ import type {
   JofotaraInvoiceType,
   FilingStatus,
   BankAccountProvider,
+  UserRole,
+  EmailTemplateType,
+  PayrollRunStatus,
+  PayrollPaymentStatus,
 } from './constants';
+
+// ---- User ----
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  role: UserRole;
+  isActive: boolean;
+  lastLoginAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 // ---- Client ----
 export interface Client {
@@ -175,6 +191,13 @@ export interface Settings {
   paypalClientSecret: string | null;
   paypalEnvironment: 'sandbox' | 'live';
   paypalEnabled: boolean;
+  emailProvider: string;
+  resendApiKey: string | null;
+  smtpHost: string | null;
+  smtpPort: number | null;
+  smtpUsername: string | null;
+  smtpPassword: string | null;
+  smtpSecure: boolean;
   filingStatus: FilingStatus;
   personalExemption: number;
   familyExemption: number;
@@ -259,6 +282,81 @@ export interface BankLoginResult {
   message?: string;
 }
 
+// ---- Employee ----
+export interface Employee {
+  id: number;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  role: string;
+  baseSalary: number;
+  transportAllowance: number;
+  sskEnrolled: boolean;
+  hireDate: string;
+  endDate: string | null;
+  bankAccountName: string | null;
+  bankIban: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ---- Payroll Run ----
+export interface PayrollRun {
+  id: number;
+  year: number;
+  month: number;
+  status: PayrollRunStatus;
+  standardWorkingDays: number;
+  entryCount: number;
+  totalGross: number;
+  totalDeductions: number;
+  totalNet: number;
+  totalSskEmployee: number;
+  totalSskEmployer: number;
+  totalCompanyCost: number;
+  notes: string | null;
+  finalizedAt: string | null;
+  entries?: PayrollEntry[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ---- Payroll Entry ----
+export interface PayrollEntry {
+  id: number;
+  payrollRunId: number;
+  employeeId: number;
+  employeeName: string;
+  employeeRole: string;
+  baseSalary: number;
+  sskEnrolled: boolean;
+  workingDays: number;
+  standardWorkingDays: number;
+  basicSalary: number;
+  weekdayOvertimeHours: number;
+  weekdayOvertimeAmount: number;
+  weekendOvertimeHours: number;
+  weekendOvertimeAmount: number;
+  transportAllowance: number;
+  bonus: number;
+  salaryDifference: number;
+  grossSalary: number;
+  salaryAdvance: number;
+  otherDeductions: number;
+  otherDeductionsNote: string | null;
+  sskEmployee: number;
+  totalDeductions: number;
+  netSalary: number;
+  sskEmployer: number;
+  paymentStatus: PayrollPaymentStatus;
+  paymentDate: string | null;
+  bankTrxReference: string | null;
+  bankAccountId: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ---- Dashboard ----
 export interface DashboardStats {
   totalRevenue: number;
@@ -283,7 +381,37 @@ export interface ActivityLogEntry {
   entityId: number;
   action: string;
   description: string | null;
+  userId: number | null;
+  user?: { id: number; name: string } | null;
   createdAt: string;
+}
+
+// ---- Daily Summary ----
+export interface DailyUserSummary {
+  userId: number;
+  userName: string;
+  userRole: UserRole;
+  activityCount: number;
+  stats: {
+    invoicesCreated: number;
+    paymentsRecorded: number;
+    clientsAdded: number;
+    quotesCreated: number;
+    otherActions: number;
+  };
+  activities: ActivityLogEntry[];
+}
+
+export interface DailySummary {
+  date: string;
+  totalActivities: number;
+  users: DailyUserSummary[];
+}
+
+export interface AiDailySummaryResponse {
+  date: string;
+  summary: string;
+  userSummaries: { userName: string; summary: string }[];
 }
 
 // ---- Chat ----
@@ -344,6 +472,46 @@ export type ChatSSEEvent =
   | { type: 'action_proposal'; messageId: number; toolCall: ChatToolCall; summary: string }
   | { type: 'done'; messageId: number }
   | { type: 'error'; message: string };
+
+// ---- Email Template ----
+export interface EmailTemplate {
+  id: number;
+  type: EmailTemplateType;
+  subject: string;
+  body: string;
+  headerColor: string | null;
+  isCustomized: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ---- Email Tracking ----
+export interface EmailTrackingEvent {
+  id: number;
+  emailLogId: number;
+  eventType: 'open' | 'click';
+  url: string | null;
+  ipAddress: string | null;
+  userAgent: string | null;
+  createdAt: string;
+}
+
+export interface EmailLogEntry {
+  id: number;
+  invoiceId: number | null;
+  quoteId: number | null;
+  recipientEmail: string;
+  subject: string;
+  body: string | null;
+  status: string;
+  resendId: string | null;
+  openedAt: string | null;
+  clickedAt: string | null;
+  openCount: number;
+  clickCount: number;
+  sentAt: string;
+  trackingEvents?: EmailTrackingEvent[];
+}
 
 // ---- API Response ----
 export interface ApiResponse<T> {

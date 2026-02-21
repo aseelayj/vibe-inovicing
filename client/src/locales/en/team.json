@@ -1,0 +1,20 @@
+{
+  "title": "Team",
+  "subtitle": "Manage your team members and their roles",
+  "addMember": "Add Member",
+  "addMemberDescription": "Add a new team member who can access the system",
+  "editMember": "Edit Member",
+  "teamMembers": "Team Members",
+  "noMembers": "No team members yet",
+  "role": "Role",
+  "owner": "Owner",
+  "accountant": "Accountant",
+  "lastLogin": "Last Login",
+  "never": "Never",
+  "you": "you",
+  "deactivate": "Deactivate",
+  "reactivate": "Reactivate",
+  "namePlaceholder": "Full name",
+  "emailPlaceholder": "email@example.com",
+  "passwordPlaceholder": "Min. 8 characters"
+}

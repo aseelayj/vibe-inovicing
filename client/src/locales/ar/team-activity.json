@@ -1,0 +1,9 @@
+{
+  "title": "نشاط الفريق",
+  "subtitle": "تتبع النشاط اليومي عبر فريقك",
+  "aiSummary": "ملخص ذكي",
+  "generatingSummary": "جارٍ إنشاء الملخص الذكي...",
+  "noActivityForDate": "لا يوجد نشاط مسجل لهذا التاريخ",
+  "totalActivities": "{{count}} نشاط مسجل",
+  "actions": "{{count}} إجراء"
+}

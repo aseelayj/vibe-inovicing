@@ -69,6 +69,7 @@ function ActionArgsDisplay({
   editedArgs?: Record<string, string>;
   onFieldChange?: (key: string, value: string) => void;
 }) {
+  const { t } = useTranslation('common');
   if (!args || Object.keys(args).length === 0) return null;
   const editableFields = getEditableFields(toolName);
 

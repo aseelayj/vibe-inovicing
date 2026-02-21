@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 
 export function LoginPage() {
   const { t } = useTranslation('common');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -25,8 +26,8 @@ export function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!password.trim()) {
-      setError(t('passwordRequired'));
+    if (!email.trim() || !password.trim()) {
+      setError(t('emailAndPasswordRequired'));
       return;
     }
 
@@ -34,12 +35,12 @@ export function LoginPage() {
     setError('');
 
     try {
-      await login(password);
+      await login(email, password);
       toast.success(t('welcomeBack'));
       navigate('/');
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : t('invalidPassword'),
+        err instanceof Error ? err.message : t('invalidCredentials'),
       );
     } finally {
       setIsLoading(false);
@@ -60,7 +61,7 @@ export function LoginPage() {
             {t('appName')}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {t('enterPasswordToContinue')}
+            {t('signInToContinue')}
           </p>
         </div>
 
@@ -75,6 +76,21 @@ export function LoginPage() {
             <form onSubmit={handleSubmit}>
               <div className="space-y-4">
                 <div className="space-y-2">
+                  <Label htmlFor="email">{t('email')}</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder={t('enterYourEmail')}
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setError('');
+                    }}
+                    autoComplete="email"
+                    autoFocus
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="password">{t('password')}</Label>
                   <Input
                     id="password"
@@ -85,8 +101,8 @@ export function LoginPage() {
                       setPassword(e.target.value);
                       setError('');
                     }}
+                    autoComplete="current-password"
                     aria-invalid={!!error}
-                    autoFocus
                   />
                   {error && (
                     <p className="text-sm text-destructive">{error}</p>

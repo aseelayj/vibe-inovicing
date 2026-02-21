@@ -15,6 +15,7 @@ import {
   syncBankAccountSchema,
 } from '@vibe/shared';
 import { parseId } from '../utils/parse-id.js';
+import { type AuthRequest } from '../middleware/auth.middleware.js';
 import {
   getPayPalAccessToken,
   fetchPayPalTransactions,
@@ -181,6 +182,7 @@ router.post(
         entityId: account.id,
         action: 'created',
         description: `Bank account "${name}" created`,
+        userId: (req as AuthRequest).userId,
       });
 
       res.status(201).json({ data: account });
@@ -260,6 +262,7 @@ router.delete('/:id', async (req, res, next) => {
       entityId: id,
       action: 'deleted',
       description: `Bank account "${account.name}" deleted`,
+      userId: (req as AuthRequest).userId,
     });
 
     res.json({ data: { message: 'Bank account deleted' } });
@@ -316,6 +319,7 @@ router.post('/:id/connect-paypal', async (req, res, next) => {
       entityId: id,
       action: 'paypal_connected',
       description: `PayPal connected to "${account.name}" (${config.environment})`,
+      userId: (req as AuthRequest).userId,
     });
 
     res.json({ data: { message: 'PayPal connected successfully' } });
@@ -368,6 +372,7 @@ router.post('/:id/disconnect', async (req, res, next) => {
       entityId: id,
       action: 'provider_disconnected',
       description: `Provider disconnected from "${account.name}"`,
+      userId: (req as AuthRequest).userId,
     });
 
     res.json({ data: { message: 'Provider disconnected' } });
@@ -481,6 +486,7 @@ router.post(
         action: 'synced',
         description: `Synced ${imported} transactions (${skipped} skipped)`,
         metadata: { imported, skipped, errors, fromDate, toDate },
+        userId: (req as AuthRequest).userId,
       });
 
       res.json({ data: { imported, skipped, errors, bankAccountId: id } });

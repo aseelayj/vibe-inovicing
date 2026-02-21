@@ -1,35 +1,59 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import { eq } from 'drizzle-orm';
 import { env } from '../env.js';
+import { db } from '../db/index.js';
+import { users } from '../db/schema.js';
 import { validate } from '../middleware/validate.js';
 import { loginSchema } from '@vibe/shared';
 
 const router = Router();
 
-// Hash the password on first startup for comparison
-let passwordHash: string | null = null;
+router.post('/login', validate(loginSchema), async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
 
-async function getPasswordHash() {
-  if (!passwordHash) {
-    passwordHash = await bcrypt.hash(env.AUTH_PASSWORD, 10);
+    const [user] = await db.select().from(users)
+      .where(eq(users.email, email.toLowerCase()))
+      .limit(1);
+
+    if (!user || !user.isActive) {
+      res.status(401).json({ error: 'Invalid email or password' });
+      return;
+    }
+
+    const valid = await bcrypt.compare(password, user.passwordHash);
+    if (!valid) {
+      res.status(401).json({ error: 'Invalid email or password' });
+      return;
+    }
+
+    // Update last login
+    await db.update(users)
+      .set({ lastLoginAt: new Date() })
+      .where(eq(users.id, user.id));
+
+    const token = jwt.sign(
+      { sub: user.id, role: user.role },
+      env.JWT_SECRET,
+      { expiresIn: '90d' },
+    );
+
+    res.json({
+      data: {
+        token,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+        },
+      },
+    });
+  } catch (err) {
+    next(err);
   }
-  return passwordHash;
-}
-
-router.post('/login', validate(loginSchema), async (req, res) => {
-  const { password } = req.body;
-
-  if (password !== env.AUTH_PASSWORD) {
-    res.status(401).json({ error: 'Invalid password' });
-    return;
-  }
-
-  const token = jwt.sign({ sub: 'admin' }, env.JWT_SECRET, {
-    expiresIn: '7d',
-  });
-
-  res.json({ data: { token } });
 });
 
 router.post('/verify', (req, res) => {
@@ -40,8 +64,27 @@ router.post('/verify', (req, res) => {
   }
 
   try {
-    jwt.verify(header.slice(7), env.JWT_SECRET);
-    res.json({ data: { valid: true } });
+    const payload = jwt.verify(header.slice(7), env.JWT_SECRET) as unknown as {
+      sub: number;
+      role: string;
+    };
+
+    // Fetch user from DB to return fresh data
+    db.select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      role: users.role,
+    }).from(users)
+      .where(eq(users.id, payload.sub))
+      .limit(1)
+      .then(([user]) => {
+        if (!user) {
+          res.status(401).json({ error: 'User not found' });
+          return;
+        }
+        res.json({ data: { valid: true, user } });
+      });
   } catch {
     res.status(401).json({ error: 'Invalid token' });
   }

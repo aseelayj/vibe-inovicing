@@ -7,6 +7,8 @@ import {
   FileCheck,
   FileSpreadsheet,
   Users,
+  UsersRound,
+  Activity,
   CreditCard,
   RefreshCw,
   Landmark,
@@ -14,6 +16,7 @@ import {
   Settings,
   LogOut,
   Zap,
+  Wallet,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -33,10 +36,13 @@ const iconMap: Record<string, LucideIcon> = {
   FileCheck,
   FileSpreadsheet,
   Users,
+  UsersRound,
+  Activity,
   CreditCard,
   RefreshCw,
   Landmark,
   ArrowLeftRight,
+  Wallet,
   Settings,
 };
 

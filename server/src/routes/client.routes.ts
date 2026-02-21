@@ -5,6 +5,7 @@ import { clients, invoices, quotes, activityLog } from '../db/schema.js';
 import { validate } from '../middleware/validate.js';
 import { createClientSchema, updateClientSchema } from '@vibe/shared';
 import { parseId } from '../utils/parse-id.js';
+import { type AuthRequest } from '../middleware/auth.middleware.js';
 
 const router = Router();
 
@@ -69,6 +70,7 @@ router.post('/', validate(createClientSchema), async (req, res, next) => {
       entityId: client.id,
       action: 'created',
       description: `Client "${client.name}" created`,
+      userId: (req as AuthRequest).userId,
     });
 
     res.status(201).json({ data: client });
@@ -98,6 +100,7 @@ router.put('/:id', validate(updateClientSchema), async (req, res, next) => {
       entityId: updated.id,
       action: 'updated',
       description: `Client "${updated.name}" updated`,
+      userId: (req as AuthRequest).userId,
     });
 
     res.json({ data: updated });
@@ -126,6 +129,7 @@ router.delete('/:id', async (req, res, next) => {
       entityId: deleted.id,
       action: 'deleted',
       description: `Client "${deleted.name}" deleted`,
+      userId: (req as AuthRequest).userId,
     });
 
     res.json({ data: { message: 'Client deleted' } });

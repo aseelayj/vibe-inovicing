@@ -15,6 +15,9 @@ import recurringEn from '@/locales/en/recurring.json';
 import bankAccountsEn from '@/locales/en/bank-accounts.json';
 import transactionsEn from '@/locales/en/transactions.json';
 import taxReportsEn from '@/locales/en/tax-reports.json';
+import teamEn from '@/locales/en/team.json';
+import teamActivityEn from '@/locales/en/team-activity.json';
+import payrollEn from '@/locales/en/payroll.json';
 
 import commonAr from '@/locales/ar/common.json';
 import navAr from '@/locales/ar/nav.json';
@@ -29,6 +32,9 @@ import recurringAr from '@/locales/ar/recurring.json';
 import bankAccountsAr from '@/locales/ar/bank-accounts.json';
 import transactionsAr from '@/locales/ar/transactions.json';
 import taxReportsAr from '@/locales/ar/tax-reports.json';
+import teamAr from '@/locales/ar/team.json';
+import teamActivityAr from '@/locales/ar/team-activity.json';
+import payrollAr from '@/locales/ar/payroll.json';
 
 i18n
   .use(LanguageDetector)
@@ -49,6 +55,9 @@ i18n
         'bank-accounts': bankAccountsEn,
         transactions: transactionsEn,
         'tax-reports': taxReportsEn,
+        team: teamEn,
+        'team-activity': teamActivityEn,
+        payroll: payrollEn,
       },
       ar: {
         common: commonAr,
@@ -64,6 +73,9 @@ i18n
         'bank-accounts': bankAccountsAr,
         transactions: transactionsAr,
         'tax-reports': taxReportsAr,
+        team: teamAr,
+        'team-activity': teamActivityAr,
+        payroll: payrollAr,
       },
     },
     fallbackLng: 'en',

@@ -1,3 +1,50 @@
+export const EMAIL_PROVIDERS = ['resend', 'smtp'] as const;
+export type EmailProvider = typeof EMAIL_PROVIDERS[number];
+
+export const USER_ROLES = ['owner', 'accountant'] as const;
+
+// ---- Payroll ----
+export const EMPLOYEE_ROLES = [
+  'Owner', 'Web Developer', 'QA Engineer', 'Mobile Developer',
+  'UI/UX Designer', 'Project Manager', 'DevOps Engineer',
+  'Content Writer', 'Marketing', 'Sales', 'Support', 'Intern', 'Other',
+] as const;
+export type EmployeeRole = typeof EMPLOYEE_ROLES[number];
+
+export const PAYROLL_RUN_STATUSES = ['draft', 'finalized', 'paid'] as const;
+export type PayrollRunStatus = typeof PAYROLL_RUN_STATUSES[number];
+
+export const PAYROLL_PAYMENT_STATUSES = ['pending', 'paid', 'on_hold'] as const;
+export type PayrollPaymentStatus = typeof PAYROLL_PAYMENT_STATUSES[number];
+
+export const SSK_EMPLOYEE_RATE = 7.5;
+export const SSK_EMPLOYER_RATE = 14.25;
+export const STANDARD_WORKING_DAYS = 26;
+export const WEEKDAY_OT_MULTIPLIER = 1.25;
+export const WEEKEND_OT_MULTIPLIER = 1.5;
+export type UserRole = typeof USER_ROLES[number];
+
+// ---- Email Templates ----
+export const EMAIL_TEMPLATE_TYPES = ['invoice', 'quote', 'reminder'] as const;
+export type EmailTemplateType = typeof EMAIL_TEMPLATE_TYPES[number];
+
+export const EMAIL_TEMPLATE_VARIABLES: Record<
+  EmailTemplateType, readonly string[]
+> = {
+  invoice: [
+    'invoiceNumber', 'businessName', 'clientName',
+    'total', 'currency', 'dueDate',
+  ],
+  quote: [
+    'quoteNumber', 'businessName', 'clientName',
+    'total', 'currency', 'expiryDate',
+  ],
+  reminder: [
+    'invoiceNumber', 'businessName', 'clientName',
+    'total', 'currency', 'dueDate', 'daysOverdue',
+  ],
+} as const;
+
 export const INVOICE_STATUSES = [
   'draft',
   'sent',

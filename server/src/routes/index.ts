@@ -1,6 +1,7 @@
 import type { Express } from 'express';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import authRoutes from './auth.routes.js';
+import userRoutes from './user.routes.js';
 import clientRoutes from './client.routes.js';
 import invoiceRoutes from './invoice.routes.js';
 import quoteRoutes from './quote.routes.js';
@@ -14,9 +15,16 @@ import transactionRoutes from './transaction.routes.js';
 import chatRoutes from './chat.routes.js';
 import jofotaraRoutes from './jofotara.routes.js';
 import reportRoutes from './report.routes.js';
+import dailySummaryRoutes from './daily-summary.routes.js';
+import emailTemplateRoutes from './email-template.routes.js';
+import trackingRoutes from './tracking.routes.js';
+import emailLogRoutes from './email-log.routes.js';
+import employeeRoutes from './employee.routes.js';
+import payrollRoutes from './payroll.routes.js';
 
 export function mountRoutes(app: Express) {
   app.use('/api/auth', authRoutes);
+  app.use('/api/users', authMiddleware, userRoutes);
   app.use('/api/clients', authMiddleware, clientRoutes);
   app.use('/api/invoices', authMiddleware, invoiceRoutes);
   app.use('/api/quotes', authMiddleware, quoteRoutes);
@@ -30,4 +38,10 @@ export function mountRoutes(app: Express) {
   app.use('/api/chat', authMiddleware, chatRoutes);
   app.use('/api/jofotara', authMiddleware, jofotaraRoutes);
   app.use('/api/reports', authMiddleware, reportRoutes);
+  app.use('/api/daily-summary', authMiddleware, dailySummaryRoutes);
+  app.use('/api/email-templates', authMiddleware, emailTemplateRoutes);
+  app.use('/api/tracking', trackingRoutes); // Public — no auth
+  app.use('/api/email-log', authMiddleware, emailLogRoutes);
+  app.use('/api/employees', authMiddleware, employeeRoutes);
+  app.use('/api/payroll', authMiddleware, payrollRoutes);
 }

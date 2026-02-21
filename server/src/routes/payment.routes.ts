@@ -11,6 +11,7 @@ import {
 import { validate } from '../middleware/validate.js';
 import { createPaymentSchema } from '@vibe/shared';
 import { parseId } from '../utils/parse-id.js';
+import { type AuthRequest } from '../middleware/auth.middleware.js';
 
 const router = Router();
 
@@ -162,6 +163,7 @@ router.post('/', validate(createPaymentSchema), async (req, res, next) => {
         entityId: payment.id,
         action: 'created',
         description: `Payment of ${amount} recorded for invoice ${invoice.invoiceNumber}`,
+        userId: (req as AuthRequest).userId,
       });
 
       return payment;
@@ -207,6 +209,7 @@ router.delete('/:id', async (req, res, next) => {
         entityId: id,
         action: 'deleted',
         description: `Payment of ${payment.amount} deleted`,
+        userId: (req as AuthRequest).userId,
       });
     });
 

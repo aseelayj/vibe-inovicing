@@ -1,0 +1,9 @@
+{
+  "title": "Team Activity",
+  "subtitle": "Track daily activity across your team",
+  "aiSummary": "AI Summary",
+  "generatingSummary": "Generating AI summary...",
+  "noActivityForDate": "No activity recorded for this date",
+  "totalActivities": "{{count}} activities recorded",
+  "actions": "{{count}} actions"
+}

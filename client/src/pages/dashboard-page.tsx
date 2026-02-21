@@ -82,27 +82,27 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6 lg:space-y-8">
-      {/* Stat Cards — 2-col on mobile, scales up */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5 xl:gap-6">
+    <div className="space-y-4 sm:space-y-6">
+      {/* Stat Cards — 2-col mobile, 3-col tablet, 5-col wide desktop */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 2xl:grid-cols-5">
         {statCards.map((card) => {
           const Icon = card.icon;
           const value = stats?.[card.key] ?? 0;
 
           return (
-            <Card key={card.key} className="py-4 sm:py-6">
-              <CardContent className="px-3 pt-0 sm:px-6">
+            <Card key={card.key} className="py-3.5 sm:py-5">
+              <CardContent className="px-3 pt-0 sm:px-4 md:px-5">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="truncate text-xs font-medium text-muted-foreground sm:text-sm">
+                    <p className="truncate text-[11px] font-medium text-muted-foreground sm:text-xs md:text-sm">
                       {t(card.label)}
                     </p>
-                    <p className="mt-1 text-lg font-bold tracking-tight sm:text-2xl">
+                    <p className="mt-1 text-base font-bold tracking-tight sm:text-lg md:text-xl">
                       {formatCurrency(value, currency)}
                     </p>
                   </div>
-                  <div className={`shrink-0 rounded-lg p-2 sm:p-3 ${card.color}`}>
-                    <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <div className={`shrink-0 rounded-lg p-1.5 sm:p-2 md:p-2.5 ${card.color}`}>
+                    <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-5 md:w-5" />
                   </div>
                 </div>
               </CardContent>
@@ -112,7 +112,7 @@ export function DashboardPage() {
       </div>
 
       {/* Revenue Chart + Recent Activity */}
-      <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:gap-5 xl:grid-cols-3">
         <Card className="xl:col-span-2">
           <CardHeader>
             <CardTitle>{t('revenueOverview')}</CardTitle>
@@ -121,7 +121,7 @@ export function DashboardPage() {
             {chartLoading ? (
               <LoadingSpinner size="sm" />
             ) : (
-              <div className="h-48 sm:h-64 lg:h-72">
+              <div className="h-52 sm:h-64 lg:h-72">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart
                     data={chartData || []}
@@ -208,7 +208,7 @@ export function DashboardPage() {
                 {t('noRecentActivity')}
               </p>
             ) : (
-              <ul className="space-y-1">
+              <ul className="max-h-80 space-y-1 overflow-y-auto xl:max-h-[280px]">
                 {activity.slice(0, 8).map((entry) => (
                   <li
                     key={entry.id}
@@ -224,6 +224,12 @@ export function DashboardPage() {
                           || `${entry.action} on ${entry.entityType}`}
                       </p>
                       <p className="mt-0.5 text-xs text-muted-foreground">
+                        {(entry as any).userName && (
+                          <span className="font-medium">
+                            {(entry as any).userName}
+                            {' \u00b7 '}
+                          </span>
+                        )}
                         {formatTimeAgo(entry.createdAt)}
                       </p>
                     </div>
@@ -236,7 +242,7 @@ export function DashboardPage() {
       </div>
 
       {/* Tax Compliance Widgets */}
-      <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:gap-5 xl:grid-cols-3">
         {/* Upcoming Tax Deadlines */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">

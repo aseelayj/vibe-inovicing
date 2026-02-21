@@ -50,5 +50,11 @@
   "removeAttachment": "Remove {{name}}",
   "closeChat": "Close chat",
   "confirmDelete": "Confirm delete \"{{title}}\"",
-  "renameConversation": "Rename \"{{title}}\""
+  "renameConversation": "Rename \"{{title}}\"",
+  "editing": "Editing",
+  "subject": "Subject",
+  "message": "Message",
+  "confirm": "Confirm",
+  "cancel": "Cancel",
+  "edit": "Edit"
 }

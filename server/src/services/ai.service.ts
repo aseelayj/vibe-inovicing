@@ -221,3 +221,56 @@ If you cannot parse any transactions, return an empty array [].`;
 
   return parseJsonResponse(response.text || '[]');
 }
+
+// ---- Daily Summary ----
+export async function generateDailySummary(
+  date: string,
+  activities: {
+    description: string | null;
+    action: string;
+    entityType: string;
+    userName: string | null;
+    createdAt: Date;
+  }[],
+) {
+  const byUser = new Map<string, string[]>();
+  for (const a of activities) {
+    const name = a.userName || 'System';
+    if (!byUser.has(name)) byUser.set(name, []);
+    byUser.get(name)!.push(
+      a.description || `${a.action} on ${a.entityType}`,
+    );
+  }
+
+  let activityText = '';
+  for (const [name, items] of byUser) {
+    activityText += `\n${name}:\n`;
+    for (const item of items) {
+      activityText += `  - ${item}\n`;
+    }
+  }
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: `Summarize the following team activity for ${date}:\n${activityText}`,
+    config: {
+      systemInstruction: `You are a business activity summarizer. Given a list of activities grouped by team member, provide:
+1. A brief overall summary (2-3 sentences) of the day's work
+2. A per-user summary (1-2 sentences each) highlighting key accomplishments
+
+Respond with ONLY valid JSON:
+{
+  "summary": "Overall team summary...",
+  "userSummaries": [{"userName": "Name", "summary": "What they did..."}]
+}`,
+      temperature: 0.5,
+    },
+  });
+
+  const parsed = parseJsonResponse(response.text || '{}');
+  return {
+    date,
+    summary: parsed.summary || 'No summary available.',
+    userSummaries: parsed.userSummaries || [],
+  };
+}

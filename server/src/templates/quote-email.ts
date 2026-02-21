@@ -15,6 +15,8 @@ export function renderQuoteEmailHtml(data: {
   currency: string;
   expiryDate: string | null;
   body: string;
+  headerColor?: string;
+  trackingPixelUrl?: string;
 }): string {
   const bn = escapeHtml(data.businessName);
   const cn = escapeHtml(data.clientName);
@@ -22,6 +24,10 @@ export function renderQuoteEmailHtml(data: {
   const tot = escapeHtml(data.total);
   const exp = data.expiryDate ? escapeHtml(data.expiryDate) : null;
   const bd = escapeHtml(data.body);
+  const color = data.headerColor || '#7c3aed';
+  const pixel = data.trackingPixelUrl
+    ? `<img src="${data.trackingPixelUrl}" width="1" height="1" alt="" style="display:none;" />`
+    : '';
 
   return `<!DOCTYPE html>
 <html>
@@ -39,7 +45,7 @@ export function renderQuoteEmailHtml(data: {
           overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
           <!-- Header -->
           <tr>
-            <td style="background: #7c3aed; padding: 24px 32px;">
+            <td style="background: ${color}; padding: 24px 32px;">
               <h1 style="color: white; margin: 0; font-size: 20px;
                 font-weight: 600;">${bn}</h1>
             </td>
@@ -82,7 +88,7 @@ export function renderQuoteEmailHtml(data: {
                           border-top: 1px solid #e5e7eb;
                           padding-top: 12px;">Total Amount</td>
                         <td style="text-align: right; font-weight: 700;
-                          color: #7c3aed; font-size: 18px;
+                          color: ${color}; font-size: 18px;
                           border-top: 1px solid #e5e7eb;
                           padding-top: 12px;">${tot}</td>
                       </tr>
@@ -110,6 +116,7 @@ export function renderQuoteEmailHtml(data: {
       </td>
     </tr>
   </table>
+  ${pixel}
 </body>
 </html>`;
 }

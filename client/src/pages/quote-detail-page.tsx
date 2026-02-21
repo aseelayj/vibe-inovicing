@@ -10,6 +10,7 @@ import {
   Download,
   Loader2,
 } from 'lucide-react';
+import { EmailTrackingCard } from '@/components/email/email-tracking-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -397,6 +398,8 @@ export function QuoteDetailPage() {
               </CardContent>
             </Card>
           )}
+
+          <EmailTrackingCard quoteId={quote.id} />
         </div>
       </div>
 

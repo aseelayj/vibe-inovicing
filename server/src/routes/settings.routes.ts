@@ -7,33 +7,28 @@ import { updateSettingsSchema } from '@vibe/shared';
 
 const router = Router();
 
+function maskSecret(secret: string | null): string | null {
+  if (!secret) return null;
+  return secret.length > 4 ? '****' + secret.slice(-4) : '****';
+}
+
 // GET / - Get settings (first row, create default if none exists)
 router.get('/', async (req, res, next) => {
   try {
     let [settingsRow] = await db.select().from(settings).limit(1);
 
     if (!settingsRow) {
-      // Create default settings row
       const [created] = await db.insert(settings)
         .values({})
         .returning();
       settingsRow = created;
     }
 
-    // Mask secrets before sending to client
     const response = { ...settingsRow };
-    if (response.jofotaraClientSecret) {
-      const secret = response.jofotaraClientSecret;
-      response.jofotaraClientSecret = secret.length > 4
-        ? '****' + secret.slice(-4)
-        : '****';
-    }
-    if (response.paypalClientSecret) {
-      const secret = response.paypalClientSecret;
-      response.paypalClientSecret = secret.length > 4
-        ? '****' + secret.slice(-4)
-        : '****';
-    }
+    response.jofotaraClientSecret = maskSecret(response.jofotaraClientSecret);
+    response.paypalClientSecret = maskSecret(response.paypalClientSecret);
+    response.resendApiKey = maskSecret(response.resendApiKey);
+    response.smtpPassword = maskSecret(response.smtpPassword);
 
     res.json({ data: response });
   } catch (err) {
@@ -47,7 +42,6 @@ router.put('/', validate(updateSettingsSchema), async (req, res, next) => {
     let [settingsRow] = await db.select().from(settings).limit(1);
 
     if (!settingsRow) {
-      // Create with provided values
       const [created] = await db.insert(settings)
         .values(req.body)
         .returning();
@@ -75,19 +69,19 @@ router.put('/', validate(updateSettingsSchema), async (req, res, next) => {
     }
 
     // Don't overwrite secrets with the masked values from the GET response
-    if (
-      updatePayload.jofotaraClientSecret &&
-      typeof updatePayload.jofotaraClientSecret === 'string' &&
-      (updatePayload.jofotaraClientSecret as string).startsWith('****')
-    ) {
-      delete updatePayload.jofotaraClientSecret;
-    }
-    if (
-      updatePayload.paypalClientSecret &&
-      typeof updatePayload.paypalClientSecret === 'string' &&
-      (updatePayload.paypalClientSecret as string).startsWith('****')
-    ) {
-      delete updatePayload.paypalClientSecret;
+    for (const key of [
+      'jofotaraClientSecret',
+      'paypalClientSecret',
+      'resendApiKey',
+      'smtpPassword',
+    ]) {
+      if (
+        updatePayload[key] &&
+        typeof updatePayload[key] === 'string' &&
+        (updatePayload[key] as string).startsWith('****')
+      ) {
+        delete updatePayload[key];
+      }
     }
 
     const [updated] = await db.update(settings)
@@ -95,20 +89,11 @@ router.put('/', validate(updateSettingsSchema), async (req, res, next) => {
       .where(eq(settings.id, settingsRow.id))
       .returning();
 
-    // Mask secrets in response
     const response = { ...updated };
-    if (response.jofotaraClientSecret) {
-      const secret = response.jofotaraClientSecret;
-      response.jofotaraClientSecret = secret.length > 4
-        ? '****' + secret.slice(-4)
-        : '****';
-    }
-    if (response.paypalClientSecret) {
-      const secret = response.paypalClientSecret;
-      response.paypalClientSecret = secret.length > 4
-        ? '****' + secret.slice(-4)
-        : '****';
-    }
+    response.jofotaraClientSecret = maskSecret(response.jofotaraClientSecret);
+    response.paypalClientSecret = maskSecret(response.paypalClientSecret);
+    response.resendApiKey = maskSecret(response.resendApiKey);
+    response.smtpPassword = maskSecret(response.smtpPassword);
 
     res.json({ data: response });
   } catch (err) {

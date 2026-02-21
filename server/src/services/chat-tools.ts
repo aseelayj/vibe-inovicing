@@ -1,5 +1,5 @@
 import type { FunctionDeclaration, Type } from '@google/genai';
-import { eq, desc, and, or, ilike, sql, count, sum } from 'drizzle-orm';
+import { eq, ne, desc, and, or, ilike, sql, count, sum } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
   clients,
@@ -17,6 +17,9 @@ import {
   activityLog,
   emailLog,
   jofotaraSubmissions,
+  employees,
+  payrollRuns,
+  payrollEntries,
 } from '../db/schema.js';
 import { generateInvoicePdf } from './pdf.service.js';
 import { sendInvoiceEmail, sendPaymentReminder } from './email.service.js';
@@ -41,7 +44,12 @@ import {
   getCurrentBimonthlyPeriod,
   getYearBimonthlyPeriods,
   calculateIncomeTax,
+  STANDARD_WORKING_DAYS,
 } from '@vibe/shared';
+import {
+  calculatePayrollEntry,
+  recalculatePayrollRunTotals,
+} from './payroll.service.js';
 import * as XLSX from 'xlsx';
 
 // ---- Read-only tool names (auto-execute, no confirmation needed) ----
@@ -75,6 +83,11 @@ export const READ_ONLY_TOOLS = new Set([
   'get_tax_deadlines',
   'generate_export_link',
   'generate_quote_template',
+  'list_employees',
+  'get_employee',
+  'list_payroll_runs',
+  'get_payroll_run',
+  'get_payroll_summary',
 ]);
 
 // ---- Gemini function declarations ----
@@ -896,7 +909,7 @@ export const chatToolDeclarations: FunctionDeclaration[] = [
       properties: {
         path: {
           type: 'STRING' as Type,
-          description: 'The route path. Valid: /, /invoices, /invoices/:id, /invoices/new, /quotes, /quotes/:id, /quotes/new, /clients, /clients/:id, /clients/new, /payments, /recurring, /bank-accounts, /transactions, /settings',
+          description: 'The route path. Valid: /, /invoices, /invoices/:id, /invoices/new, /quotes, /quotes/:id, /quotes/new, /clients, /clients/:id, /clients/new, /payments, /recurring, /bank-accounts, /transactions, /settings, /payroll, /payroll/:id, /payroll/employees, /payroll/employees/:id',
         },
       },
       required: ['path'],
@@ -1056,6 +1069,223 @@ export const chatToolDeclarations: FunctionDeclaration[] = [
       required: ['serviceType'],
     },
   },
+  // -- Employees --
+  {
+    name: 'list_employees',
+    description: 'List employees with optional filters (search, active, role)',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        search: { type: 'STRING' as Type, description: 'Search by name or email' },
+        active: { type: 'STRING' as Type, description: '"true" for active only, "false" for inactive only' },
+        role: { type: 'STRING' as Type, description: 'Filter by role' },
+      },
+    },
+  },
+  {
+    name: 'get_employee',
+    description: 'Get a single employee by ID with payroll history',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        id: { type: 'INTEGER' as Type, description: 'Employee ID' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'create_employee',
+    description: 'Create a new employee for payroll tracking',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        name: { type: 'STRING' as Type, description: 'Employee name (required)' },
+        role: { type: 'STRING' as Type, description: 'Job role (e.g. Web Developer, QA Engineer)' },
+        baseSalary: { type: 'NUMBER' as Type, description: 'Monthly base salary in JOD' },
+        transportAllowance: { type: 'NUMBER' as Type, description: 'Monthly transport allowance in JOD (default 0)' },
+        sskEnrolled: { type: 'BOOLEAN' as Type, description: 'Whether enrolled in SSK social security' },
+        hireDate: { type: 'STRING' as Type, description: 'Hire date YYYY-MM-DD' },
+        email: { type: 'STRING' as Type, description: 'Email address' },
+        phone: { type: 'STRING' as Type, description: 'Phone number' },
+        bankAccountName: { type: 'STRING' as Type, description: 'Bank account name' },
+        bankIban: { type: 'STRING' as Type, description: 'Bank IBAN' },
+        notes: { type: 'STRING' as Type, description: 'Notes' },
+      },
+      required: ['name', 'role', 'baseSalary', 'hireDate'],
+    },
+  },
+  {
+    name: 'update_employee',
+    description: 'Update an existing employee',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        id: { type: 'INTEGER' as Type, description: 'Employee ID' },
+        name: { type: 'STRING' as Type },
+        role: { type: 'STRING' as Type },
+        baseSalary: { type: 'NUMBER' as Type },
+        transportAllowance: { type: 'NUMBER' as Type },
+        sskEnrolled: { type: 'BOOLEAN' as Type },
+        endDate: { type: 'STRING' as Type, description: 'End date YYYY-MM-DD (set to deactivate)' },
+        email: { type: 'STRING' as Type },
+        phone: { type: 'STRING' as Type },
+        notes: { type: 'STRING' as Type },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'delete_employee',
+    description: 'Delete an employee (only if no payroll entries exist)',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        id: { type: 'INTEGER' as Type, description: 'Employee ID' },
+      },
+      required: ['id'],
+    },
+  },
+  // -- Payroll --
+  {
+    name: 'list_payroll_runs',
+    description: 'List payroll runs with optional filters (year, status)',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        year: { type: 'INTEGER' as Type, description: 'Filter by year' },
+        status: { type: 'STRING' as Type, description: 'Filter by status (draft, finalized, paid)' },
+      },
+    },
+  },
+  {
+    name: 'get_payroll_run',
+    description: 'Get a payroll run by ID with all employee entries',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        id: { type: 'INTEGER' as Type, description: 'Payroll run ID' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'get_payroll_summary',
+    description: 'Get a summary of payroll costs for a given year — total gross, net, SSK, and company cost per month',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        year: { type: 'INTEGER' as Type, description: 'Year to summarize (default: current year)' },
+      },
+    },
+  },
+  {
+    name: 'create_payroll_run',
+    description: 'Create a new monthly payroll run. Auto-populates entries for all active employees. Use duplicateFromRunId to copy overtime, bonus, deductions from a previous run.',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        year: { type: 'INTEGER' as Type, description: 'Year' },
+        month: { type: 'INTEGER' as Type, description: 'Month (1-12)' },
+        standardWorkingDays: { type: 'INTEGER' as Type, description: 'Standard working days (default 26)' },
+        duplicateFromRunId: { type: 'INTEGER' as Type, description: 'Optional: ID of a previous payroll run to copy entry data from' },
+      },
+      required: ['year', 'month'],
+    },
+  },
+  {
+    name: 'update_payroll_entry',
+    description: 'Update a single payroll entry (overtime, bonus, deductions). Run must be in draft status.',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        runId: { type: 'INTEGER' as Type, description: 'Payroll run ID' },
+        entryId: { type: 'INTEGER' as Type, description: 'Payroll entry ID' },
+        workingDays: { type: 'INTEGER' as Type },
+        weekdayOvertimeHours: { type: 'NUMBER' as Type },
+        weekendOvertimeHours: { type: 'NUMBER' as Type },
+        bonus: { type: 'NUMBER' as Type },
+        salaryDifference: { type: 'NUMBER' as Type },
+        salaryAdvance: { type: 'NUMBER' as Type },
+        otherDeductions: { type: 'NUMBER' as Type },
+        otherDeductionsNote: { type: 'STRING' as Type },
+      },
+      required: ['runId', 'entryId'],
+    },
+  },
+  {
+    name: 'finalize_payroll_run',
+    description: 'Finalize a payroll run (locks all entries from editing)',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        id: { type: 'INTEGER' as Type, description: 'Payroll run ID' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'update_payroll_payment',
+    description: 'Update payment status for a payroll entry',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        runId: { type: 'INTEGER' as Type, description: 'Payroll run ID' },
+        entryId: { type: 'INTEGER' as Type, description: 'Payroll entry ID' },
+        paymentStatus: { type: 'STRING' as Type, description: 'pending, paid, or on_hold' },
+        paymentDate: { type: 'STRING' as Type, description: 'Payment date YYYY-MM-DD' },
+        bankTrxReference: { type: 'STRING' as Type, description: 'Bank transaction reference' },
+        bankAccountId: { type: 'INTEGER' as Type, description: 'Bank account ID' },
+      },
+      required: ['runId', 'entryId', 'paymentStatus'],
+    },
+  },
+  {
+    name: 'update_payroll_run',
+    description: 'Update payroll run metadata (notes or standard working days). Only works on draft runs.',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        id: { type: 'INTEGER' as Type, description: 'Payroll run ID' },
+        standardWorkingDays: { type: 'INTEGER' as Type, description: 'Standard working days for the month' },
+        notes: { type: 'STRING' as Type, description: 'Notes for the payroll run' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'delete_payroll_run',
+    description: 'Delete a payroll run. Only draft runs can be deleted.',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        id: { type: 'INTEGER' as Type, description: 'Payroll run ID' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'reopen_payroll_run',
+    description: 'Reopen a finalized payroll run back to draft status for editing.',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        id: { type: 'INTEGER' as Type, description: 'Payroll run ID' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'mark_all_paid',
+    description: 'Mark all pending entries in a finalized payroll run as paid. Optionally create bank expense transactions.',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        id: { type: 'INTEGER' as Type, description: 'Payroll run ID' },
+        bankAccountId: { type: 'INTEGER' as Type, description: 'Optional bank account ID to create expense transactions' },
+      },
+      required: ['id'],
+    },
+  },
 ];
 
 // ---- Helper: calculate line item totals ----
@@ -1121,7 +1351,7 @@ async function generateQuoteNumber(
 // ---- Tool executor map ----
 export const toolExecutors: Record<
   string,
-  (args: Record<string, any>) => Promise<unknown>
+  (args: Record<string, any>, ctx?: { userId?: number }) => Promise<unknown>
 > = {
   // -- Clients --
   async list_clients(args) {
@@ -1142,7 +1372,7 @@ export const toolExecutors: Record<
     return client;
   },
 
-  async create_client(args) {
+  async create_client(args, ctx) {
     const [client] = await db.insert(clients).values({
       name: args.name,
       email: args.email || null,
@@ -1160,11 +1390,12 @@ export const toolExecutors: Record<
     await db.insert(activityLog).values({
       entityType: 'client', entityId: client.id,
       action: 'created', description: `Client "${client.name}" created via AI chat`,
+      userId: ctx?.userId,
     });
     return client;
   },
 
-  async update_client(args) {
+  async update_client(args, ctx) {
     const { id, ...data } = args;
     const [updated] = await db.update(clients)
       .set({ ...data, updatedAt: new Date() })
@@ -1173,11 +1404,12 @@ export const toolExecutors: Record<
     await db.insert(activityLog).values({
       entityType: 'client', entityId: id,
       action: 'updated', description: `Client "${updated.name}" updated via AI chat`,
+      userId: ctx?.userId,
     });
     return updated;
   },
 
-  async delete_client(args) {
+  async delete_client(args, ctx) {
     // Check for related entities before deletion
     const [client] = await db.select().from(clients).where(eq(clients.id, args.id));
     if (!client) throw new Error(`Client #${args.id} not found`);
@@ -1200,6 +1432,7 @@ export const toolExecutors: Record<
     await db.insert(activityLog).values({
       entityType: 'client', entityId: deleted.id,
       action: 'deleted', description: `Client "${deleted.name}" deleted via AI chat`,
+      userId: ctx?.userId,
     });
     return { message: `Client "${deleted.name}" deleted` };
   },
@@ -1238,7 +1471,7 @@ export const toolExecutors: Record<
     return invoice;
   },
 
-  async create_invoice(args) {
+  async create_invoice(args, ctx) {
     const isTaxable = args.isTaxable === true;
     const isWriteOff = args.isWriteOff === true;
     const defaultTaxRate = isTaxable ? 16 : 0;
@@ -1291,6 +1524,7 @@ export const toolExecutors: Record<
         description: isWriteOff
           ? `Write-off invoice ${inv.invoiceNumber} created via AI chat`
           : `Invoice ${inv.invoiceNumber} created via AI chat`,
+        userId: ctx?.userId,
       });
       return inv;
     });
@@ -1301,7 +1535,7 @@ export const toolExecutors: Record<
     });
   },
 
-  async update_invoice(args) {
+  async update_invoice(args, ctx) {
     const { id, lineItems: items, taxRate, discountAmount, ...data } = args;
 
     const result = await db.transaction(async (tx) => {
@@ -1334,6 +1568,7 @@ export const toolExecutors: Record<
       await tx.insert(activityLog).values({
         entityType: 'invoice', entityId: id,
         action: 'updated', description: `Invoice ${updated.invoiceNumber} updated via AI chat`,
+        userId: ctx?.userId,
       });
       return updated;
     });
@@ -1344,17 +1579,18 @@ export const toolExecutors: Record<
     });
   },
 
-  async delete_invoice(args) {
+  async delete_invoice(args, ctx) {
     const [deleted] = await db.delete(invoices).where(eq(invoices.id, args.id)).returning();
     if (!deleted) throw new Error(`Invoice #${args.id} not found`);
     await db.insert(activityLog).values({
       entityType: 'invoice', entityId: deleted.id,
       action: 'deleted', description: `Invoice ${deleted.invoiceNumber} deleted via AI chat`,
+      userId: ctx?.userId,
     });
     return { message: `Invoice ${deleted.invoiceNumber} deleted` };
   },
 
-  async update_invoice_status(args) {
+  async update_invoice_status(args, ctx) {
     // Block status changes on written-off invoices
     const [existing] = await db.select({ status: invoices.status })
       .from(invoices).where(eq(invoices.id, args.id));
@@ -1376,11 +1612,12 @@ export const toolExecutors: Record<
       entityType: 'invoice', entityId: args.id,
       action: 'status_changed',
       description: `Invoice ${updated.invoiceNumber} status changed to "${args.status}" via AI chat`,
+      userId: ctx?.userId,
     });
     return updated;
   },
 
-  async send_invoice_email(args) {
+  async send_invoice_email(args, ctx) {
     const invoice = await db.query.invoices.findFirst({
       where: eq(invoices.id, args.id),
       with: { client: true, lineItems: true },
@@ -1418,11 +1655,12 @@ export const toolExecutors: Record<
     await db.insert(activityLog).values({
       entityType: 'invoice', entityId: args.id, action: 'sent',
       description: `Invoice ${invoice.invoiceNumber} sent to ${invoice.client.email} via AI chat`,
+      userId: ctx?.userId,
     });
     return { message: `Invoice ${invoice.invoiceNumber} sent to ${invoice.client.email}` };
   },
 
-  async send_invoice_reminder(args) {
+  async send_invoice_reminder(args, ctx) {
     const invoice = await db.query.invoices.findFirst({
       where: eq(invoices.id, args.id),
       with: { client: true },
@@ -1451,11 +1689,12 @@ export const toolExecutors: Record<
     await db.insert(activityLog).values({
       entityType: 'invoice', entityId: args.id, action: 'reminder_sent',
       description: `Payment reminder sent for ${invoice.invoiceNumber} via AI chat`,
+      userId: ctx?.userId,
     });
     return { message: `Reminder sent for invoice ${invoice.invoiceNumber}` };
   },
 
-  async duplicate_invoice(args) {
+  async duplicate_invoice(args, ctx) {
     const original = await db.query.invoices.findFirst({
       where: eq(invoices.id, args.id),
       with: { lineItems: true },
@@ -1498,6 +1737,7 @@ export const toolExecutors: Record<
       await tx.insert(activityLog).values({
         entityType: 'invoice', entityId: dup.id, action: 'duplicated',
         description: `Invoice ${dup.invoiceNumber} duplicated from ${original.invoiceNumber} via AI chat`,
+        userId: ctx?.userId,
       });
       return dup;
     });
@@ -1536,7 +1776,7 @@ export const toolExecutors: Record<
     return quote;
   },
 
-  async create_quote(args) {
+  async create_quote(args, ctx) {
     const { lineItems: items, taxRate = 0, discountAmount = 0, ...data } = args;
     const totals = calculateTotals(items, taxRate, discountAmount);
 
@@ -1566,6 +1806,7 @@ export const toolExecutors: Record<
       await tx.insert(activityLog).values({
         entityType: 'quote', entityId: q.id,
         action: 'created', description: `Quote ${q.quoteNumber} created via AI chat`,
+        userId: ctx?.userId,
       });
       return q;
     });
@@ -1576,7 +1817,7 @@ export const toolExecutors: Record<
     });
   },
 
-  async update_quote(args) {
+  async update_quote(args, ctx) {
     const { id, lineItems: items, taxRate, discountAmount, ...data } = args;
 
     const result = await db.transaction(async (tx) => {
@@ -1609,6 +1850,7 @@ export const toolExecutors: Record<
       await tx.insert(activityLog).values({
         entityType: 'quote', entityId: id,
         action: 'updated', description: `Quote ${updated.quoteNumber} updated via AI chat`,
+        userId: ctx?.userId,
       });
       return updated;
     });
@@ -1619,7 +1861,7 @@ export const toolExecutors: Record<
     });
   },
 
-  async update_quote_status(args) {
+  async update_quote_status(args, ctx) {
     const updateData: Record<string, unknown> = {
       status: args.status, updatedAt: new Date(),
     };
@@ -1632,21 +1874,23 @@ export const toolExecutors: Record<
       entityType: 'quote', entityId: args.id,
       action: 'status_changed',
       description: `Quote ${updated.quoteNumber} status changed to "${args.status}" via AI chat`,
+      userId: ctx?.userId,
     });
     return updated;
   },
 
-  async delete_quote(args) {
+  async delete_quote(args, ctx) {
     const [deleted] = await db.delete(quotes).where(eq(quotes.id, args.id)).returning();
     if (!deleted) throw new Error(`Quote #${args.id} not found`);
     await db.insert(activityLog).values({
       entityType: 'quote', entityId: deleted.id,
       action: 'deleted', description: `Quote ${deleted.quoteNumber} deleted via AI chat`,
+      userId: ctx?.userId,
     });
     return { message: `Quote ${deleted.quoteNumber} deleted` };
   },
 
-  async send_quote_email(args) {
+  async send_quote_email(args, ctx) {
     const quote = await db.query.quotes.findFirst({
       where: eq(quotes.id, args.id),
       with: { client: true, lineItems: true },
@@ -1679,11 +1923,12 @@ export const toolExecutors: Record<
     await db.insert(activityLog).values({
       entityType: 'quote', entityId: args.id, action: 'sent',
       description: `Quote ${quote.quoteNumber} sent to ${quote.client.email} via AI chat`,
+      userId: ctx?.userId,
     });
     return { message: `Quote ${quote.quoteNumber} sent to ${quote.client.email}` };
   },
 
-  async convert_quote_to_invoice(args) {
+  async convert_quote_to_invoice(args, ctx) {
     const quote = await db.query.quotes.findFirst({
       where: eq(quotes.id, args.id),
       with: { lineItems: true },
@@ -1737,6 +1982,7 @@ export const toolExecutors: Record<
       await tx.insert(activityLog).values({
         entityType: 'quote', entityId: args.id, action: 'converted',
         description: `Quote ${quote.quoteNumber} converted to invoice ${invoiceNumber} via AI chat`,
+        userId: ctx?.userId,
       });
       return inv;
     });
@@ -1761,7 +2007,7 @@ export const toolExecutors: Record<
     });
   },
 
-  async create_payment(args) {
+  async create_payment(args, ctx) {
     const { invoiceId, amount, paymentDate, paymentMethod, reference, notes } = args;
     const [invoice] = await db.select().from(invoices).where(eq(invoices.id, invoiceId));
     if (!invoice) throw new Error(`Invoice #${invoiceId} not found`);
@@ -1785,11 +2031,12 @@ export const toolExecutors: Record<
     await db.insert(activityLog).values({
       entityType: 'payment', entityId: payment.id, action: 'created',
       description: `Payment of ${amount} recorded for invoice ${invoice.invoiceNumber} via AI chat`,
+      userId: ctx?.userId,
     });
     return payment;
   },
 
-  async delete_payment(args) {
+  async delete_payment(args, ctx) {
     const [payment] = await db.select().from(payments).where(eq(payments.id, args.id));
     if (!payment) throw new Error(`Payment #${args.id} not found`);
 
@@ -1817,6 +2064,7 @@ export const toolExecutors: Record<
     await db.insert(activityLog).values({
       entityType: 'payment', entityId: args.id, action: 'deleted',
       description: `Payment deleted via AI chat`,
+      userId: ctx?.userId,
     });
     return { message: 'Payment deleted' };
   },
@@ -1838,7 +2086,7 @@ export const toolExecutors: Record<
     return recurring;
   },
 
-  async create_recurring(args) {
+  async create_recurring(args, ctx) {
     const { lineItems: items, taxRate = 0 } = args;
     const totals = calculateTotals(items, taxRate, 0);
 
@@ -1872,6 +2120,7 @@ export const toolExecutors: Record<
       await tx.insert(activityLog).values({
         entityType: 'recurring_invoice', entityId: rec.id,
         action: 'created', description: `Recurring invoice (${rec.frequency}) created via AI chat`,
+        userId: ctx?.userId,
       });
       return rec;
     });
@@ -1882,7 +2131,7 @@ export const toolExecutors: Record<
     });
   },
 
-  async update_recurring(args) {
+  async update_recurring(args, ctx) {
     const { id, lineItems: items, taxRate, ...data } = args;
 
     const result = await db.transaction(async (tx) => {
@@ -1915,6 +2164,7 @@ export const toolExecutors: Record<
       await tx.insert(activityLog).values({
         entityType: 'recurring_invoice', entityId: id,
         action: 'updated', description: `Recurring invoice updated via AI chat`,
+        userId: ctx?.userId,
       });
       return updated;
     });
@@ -1925,18 +2175,19 @@ export const toolExecutors: Record<
     });
   },
 
-  async delete_recurring(args) {
+  async delete_recurring(args, ctx) {
     const [deleted] = await db.delete(recurringInvoices)
       .where(eq(recurringInvoices.id, args.id)).returning();
     if (!deleted) throw new Error(`Recurring invoice #${args.id} not found`);
     await db.insert(activityLog).values({
       entityType: 'recurring_invoice', entityId: deleted.id,
       action: 'deleted', description: `Recurring invoice deleted via AI chat`,
+      userId: ctx?.userId,
     });
     return { message: 'Recurring invoice deleted' };
   },
 
-  async toggle_recurring(args) {
+  async toggle_recurring(args, ctx) {
     const [existing] = await db.select().from(recurringInvoices)
       .where(eq(recurringInvoices.id, args.id));
     if (!existing) throw new Error(`Recurring invoice #${args.id} not found`);
@@ -1948,6 +2199,7 @@ export const toolExecutors: Record<
     await db.insert(activityLog).values({
       entityType: 'recurring_invoice', entityId: args.id,
       action: status, description: `Recurring invoice ${status} via AI chat`,
+      userId: ctx?.userId,
     });
     return updated;
   },
@@ -1967,7 +2219,7 @@ export const toolExecutors: Record<
     return result;
   },
 
-  async create_bank_account(args) {
+  async create_bank_account(args, ctx) {
     const balance = args.initialBalance ?? 0;
     const [account] = await db.insert(bankAccounts).values({
       name: args.name, bankName: args.bankName, accountNumber: args.accountNumber,
@@ -1979,6 +2231,7 @@ export const toolExecutors: Record<
     await db.insert(activityLog).values({
       entityType: 'bank_account', entityId: account.id,
       action: 'created', description: `Bank account "${args.name}" created via AI chat`,
+      userId: ctx?.userId,
     });
     return account;
   },
@@ -1999,18 +2252,19 @@ export const toolExecutors: Record<
     return result;
   },
 
-  async delete_bank_account(args) {
+  async delete_bank_account(args, ctx) {
     const [account] = await db.select().from(bankAccounts).where(eq(bankAccounts.id, args.id));
     if (!account) throw new Error(`Bank account #${args.id} not found`);
     await db.delete(bankAccounts).where(eq(bankAccounts.id, args.id));
     await db.insert(activityLog).values({
       entityType: 'bank_account', entityId: args.id,
       action: 'deleted', description: `Bank account "${account.name}" deleted via AI chat`,
+      userId: ctx?.userId,
     });
     return { message: `Bank account "${account.name}" deleted` };
   },
 
-  async connect_paypal(args) {
+  async connect_paypal(args, ctx) {
     const [account] = await db.select().from(bankAccounts)
       .where(eq(bankAccounts.id, args.bankAccountId));
     if (!account) throw new Error(`Bank account #${args.bankAccountId} not found`);
@@ -2049,11 +2303,12 @@ export const toolExecutors: Record<
       entityType: 'bank_account', entityId: args.bankAccountId,
       action: 'paypal_connected',
       description: `PayPal connected to "${account.name}" via AI chat`,
+      userId: ctx?.userId,
     });
     return { message: `PayPal connected to "${account.name}"` };
   },
 
-  async sync_bank_account(args) {
+  async sync_bank_account(args, ctx) {
     const [account] = await db.select().from(bankAccounts)
       .where(eq(bankAccounts.id, args.bankAccountId));
     if (!account) throw new Error(`Bank account #${args.bankAccountId} not found`);
@@ -2151,6 +2406,7 @@ export const toolExecutors: Record<
       entityType: 'bank_account', entityId: args.bankAccountId,
       action: 'synced',
       description: `Synced ${imported} transactions (${skipped} skipped) via AI chat`,
+      userId: ctx?.userId,
     });
     return { imported, skipped, errors, bankAccountId: args.bankAccountId };
   },
@@ -2181,7 +2437,7 @@ export const toolExecutors: Record<
     return result;
   },
 
-  async create_transaction(args) {
+  async create_transaction(args, ctx) {
     const [account] = await db.select().from(bankAccounts)
       .where(eq(bankAccounts.id, args.bankAccountId));
     if (!account) throw new Error(`Bank account #${args.bankAccountId} not found`);
@@ -2196,6 +2452,7 @@ export const toolExecutors: Record<
       await tx.insert(activityLog).values({
         entityType: 'transaction', entityId: txn.id, action: 'created',
         description: `${args.type} transaction of ${args.amount} created via AI chat`,
+        userId: ctx?.userId,
       });
       return txn;
     });
@@ -2219,7 +2476,7 @@ export const toolExecutors: Record<
     return result;
   },
 
-  async delete_transaction(args) {
+  async delete_transaction(args, ctx) {
     const [txn] = await db.select().from(transactions).where(eq(transactions.id, args.id));
     if (!txn) throw new Error(`Transaction #${args.id} not found`);
 
@@ -2229,6 +2486,7 @@ export const toolExecutors: Record<
       await tx.insert(activityLog).values({
         entityType: 'transaction', entityId: args.id, action: 'deleted',
         description: `Transaction deleted via AI chat`,
+        userId: ctx?.userId,
       });
     });
     return { message: 'Transaction deleted' };
@@ -2280,7 +2538,7 @@ export const toolExecutors: Record<
   },
 
   // -- Batch Operations --
-  async batch_update_invoice_status(args) {
+  async batch_update_invoice_status(args, ctx) {
     const { invoiceIds, status } = args;
     if (!Array.isArray(invoiceIds) || invoiceIds.length === 0) {
       throw new Error('No invoice IDs provided');
@@ -2317,6 +2575,7 @@ export const toolExecutors: Record<
         await db.insert(activityLog).values({
           entityType: 'invoice', entityId: id, action: 'status_changed',
           description: `Invoice ${updated.invoiceNumber} batch status changed to "${status}" via AI chat`,
+          userId: ctx?.userId,
         });
       }
     }
@@ -2327,7 +2586,7 @@ export const toolExecutors: Record<
   },
 
   // -- Import --
-  async import_invoices_from_data(args) {
+  async import_invoices_from_data(args, ctx) {
     const { invoices: invoiceList } = args;
     if (!Array.isArray(invoiceList) || invoiceList.length === 0) {
       throw new Error('No invoices to import');
@@ -2362,6 +2621,7 @@ export const toolExecutors: Record<
             entityType: 'client', entityId: newClient.id,
             action: 'created',
             description: `Client "${newClient.name}" auto-created during invoice import`,
+            userId: ctx?.userId,
           });
         }
       }
@@ -2414,6 +2674,7 @@ export const toolExecutors: Record<
           entityType: 'invoice', entityId: newInv.id,
           action: 'created',
           description: `Invoice ${newInv.invoiceNumber} imported via AI chat`,
+          userId: ctx?.userId,
         });
         return newInv;
       });
@@ -2432,7 +2693,7 @@ export const toolExecutors: Record<
     };
   },
 
-  async import_transactions_from_text(args) {
+  async import_transactions_from_text(args, ctx) {
     const { bankAccountId, transactions: txns } = args;
     if (!Array.isArray(txns) || txns.length === 0) {
       throw new Error('No transactions to import');
@@ -2463,6 +2724,7 @@ export const toolExecutors: Record<
       await tx.insert(activityLog).values({
         entityType: 'bank_account', entityId: bankAccountId,
         action: 'import', description: `${imported.length} transactions imported via AI chat`,
+        userId: ctx?.userId,
       });
       return imported;
     });
@@ -2942,6 +3204,438 @@ export const toolExecutors: Record<
     };
   },
 
+  // -- Employees --
+  async list_employees(args) {
+    const conditions = [];
+    if (args.search) {
+      const pattern = `%${args.search}%`;
+      conditions.push(or(ilike(employees.name, pattern), ilike(employees.email, pattern)));
+    }
+    if (args.active === 'true') {
+      const { isNull: isNullFn } = await import('drizzle-orm');
+      conditions.push(isNullFn(employees.endDate));
+    } else if (args.active === 'false') {
+      const { isNotNull: isNotNullFn } = await import('drizzle-orm');
+      conditions.push(isNotNullFn(employees.endDate));
+    }
+    if (args.role) {
+      conditions.push(eq(employees.role, args.role));
+    }
+    let query = db.select().from(employees).orderBy(desc(employees.createdAt));
+    if (conditions.length === 1) {
+      query = query.where(conditions[0]!) as typeof query;
+    } else if (conditions.length > 1) {
+      query = query.where(and(...conditions)) as typeof query;
+    }
+    return await query;
+  },
+
+  async get_employee(args) {
+    const emp = await db.query.employees.findFirst({
+      where: eq(employees.id, args.id),
+      with: { payrollEntries: true },
+    });
+    if (!emp) throw new Error(`Employee #${args.id} not found`);
+    return emp;
+  },
+
+  async create_employee(args, ctx) {
+    const [emp] = await db.insert(employees).values({
+      name: args.name,
+      role: args.role,
+      baseSalary: String(args.baseSalary),
+      transportAllowance: String(args.transportAllowance || 0),
+      sskEnrolled: args.sskEnrolled ?? false,
+      hireDate: args.hireDate,
+      email: args.email || null,
+      phone: args.phone || null,
+      bankAccountName: args.bankAccountName || null,
+      bankIban: args.bankIban || null,
+      notes: args.notes || null,
+    }).returning();
+    await db.insert(activityLog).values({
+      entityType: 'employee', entityId: emp.id,
+      action: 'created', description: `Employee "${emp.name}" created via AI chat`,
+      userId: ctx?.userId,
+    });
+    return emp;
+  },
+
+  async update_employee(args, ctx) {
+    const { id, ...data } = args;
+    const updateData: Record<string, unknown> = { updatedAt: new Date() };
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.role !== undefined) updateData.role = data.role;
+    if (data.baseSalary !== undefined) updateData.baseSalary = String(data.baseSalary);
+    if (data.transportAllowance !== undefined) updateData.transportAllowance = String(data.transportAllowance);
+    if (data.sskEnrolled !== undefined) updateData.sskEnrolled = data.sskEnrolled;
+    if (data.endDate !== undefined) updateData.endDate = data.endDate || null;
+    if (data.email !== undefined) updateData.email = data.email || null;
+    if (data.phone !== undefined) updateData.phone = data.phone || null;
+    if (data.notes !== undefined) updateData.notes = data.notes || null;
+    const [updated] = await db.update(employees).set(updateData)
+      .where(eq(employees.id, id)).returning();
+    if (!updated) throw new Error(`Employee #${id} not found`);
+    await db.insert(activityLog).values({
+      entityType: 'employee', entityId: id,
+      action: 'updated', description: `Employee "${updated.name}" updated via AI chat`,
+      userId: ctx?.userId,
+    });
+    return updated;
+  },
+
+  async delete_employee(args, ctx) {
+    const entries = await db.select({ id: payrollEntries.id })
+      .from(payrollEntries).where(eq(payrollEntries.employeeId, args.id)).limit(1);
+    if (entries.length > 0) throw new Error('Cannot delete employee with payroll entries');
+    const [deleted] = await db.delete(employees).where(eq(employees.id, args.id)).returning();
+    if (!deleted) throw new Error(`Employee #${args.id} not found`);
+    await db.insert(activityLog).values({
+      entityType: 'employee', entityId: args.id,
+      action: 'deleted', description: `Employee "${deleted.name}" deleted via AI chat`,
+      userId: ctx?.userId,
+    });
+    return { message: `Employee "${deleted.name}" deleted` };
+  },
+
+  // -- Payroll --
+  async list_payroll_runs(args) {
+    const conditions = [];
+    if (args.year) conditions.push(eq(payrollRuns.year, args.year));
+    if (args.status) conditions.push(eq(payrollRuns.status, args.status));
+    let query = db.select().from(payrollRuns)
+      .orderBy(desc(payrollRuns.year), desc(payrollRuns.month));
+    if (conditions.length === 1) {
+      query = query.where(conditions[0]) as typeof query;
+    } else if (conditions.length > 1) {
+      query = query.where(and(...conditions)) as typeof query;
+    }
+    return await query;
+  },
+
+  async get_payroll_run(args) {
+    const run = await db.query.payrollRuns.findFirst({
+      where: eq(payrollRuns.id, args.id),
+      with: { entries: true },
+    });
+    if (!run) throw new Error(`Payroll run #${args.id} not found`);
+    return run;
+  },
+
+  async get_payroll_summary(args) {
+    const year = args.year || new Date().getFullYear();
+    const runs = await db.select().from(payrollRuns)
+      .where(eq(payrollRuns.year, year))
+      .orderBy(payrollRuns.month);
+    return {
+      year,
+      months: runs.map((r) => ({
+        month: r.month,
+        status: r.status,
+        totalGross: parseFloat(r.totalGross || '0'),
+        totalNet: parseFloat(r.totalNet || '0'),
+        totalSskEmployer: parseFloat(r.totalSskEmployer || '0'),
+        totalCompanyCost: parseFloat(r.totalCompanyCost || '0'),
+      })),
+      totals: {
+        totalGross: runs.reduce((s, r) => s + parseFloat(r.totalGross || '0'), 0),
+        totalNet: runs.reduce((s, r) => s + parseFloat(r.totalNet || '0'), 0),
+        totalSskEmployer: runs.reduce((s, r) => s + parseFloat(r.totalSskEmployer || '0'), 0),
+        totalCompanyCost: runs.reduce((s, r) => s + parseFloat(r.totalCompanyCost || '0'), 0),
+      },
+    };
+  },
+
+  async create_payroll_run(args, ctx) {
+    const { year, month, standardWorkingDays: stdDaysArg, duplicateFromRunId } = args;
+    const stdDays = stdDaysArg || STANDARD_WORKING_DAYS;
+
+    const fullRun = await db.transaction(async (tx) => {
+      const existing = await tx.select({ id: payrollRuns.id }).from(payrollRuns)
+        .where(and(eq(payrollRuns.year, year), eq(payrollRuns.month, month))).limit(1);
+      if (existing.length > 0) {
+        throw new Error(`Payroll run for ${year}-${String(month).padStart(2, '0')} already exists`);
+      }
+
+      const { isNull: isNullFn } = await import('drizzle-orm');
+      const activeEmps = await tx.select().from(employees)
+        .where(isNullFn(employees.endDate));
+
+      // If duplicating, fetch source entries
+      let sourceEntries: typeof payrollEntries.$inferSelect[] = [];
+      if (duplicateFromRunId) {
+        sourceEntries = await tx.select().from(payrollEntries)
+          .where(eq(payrollEntries.payrollRunId, duplicateFromRunId));
+      }
+      const sourceMap = new Map(sourceEntries.map((e) => [e.employeeId, e]));
+
+      const [run] = await tx.insert(payrollRuns).values({
+        year, month, standardWorkingDays: stdDays,
+        entryCount: activeEmps.length,
+      }).returning();
+
+      if (activeEmps.length > 0) {
+        const values = activeEmps.map((emp) => {
+          const src = sourceMap.get(emp.id);
+          const baseSalary = parseFloat(emp.baseSalary || '0');
+          const transportAllowance = parseFloat(emp.transportAllowance || '0');
+          const wdOT = src ? parseFloat(src.weekdayOvertimeHours || '0') : 0;
+          const weOT = src ? parseFloat(src.weekendOvertimeHours || '0') : 0;
+          const bonus = src ? parseFloat(src.bonus || '0') : 0;
+          const salDiff = src ? parseFloat(src.salaryDifference || '0') : 0;
+          const advance = src ? parseFloat(src.salaryAdvance || '0') : 0;
+          const otherDed = src ? parseFloat(src.otherDeductions || '0') : 0;
+          const workDays = src ? src.workingDays : stdDays;
+
+          const calc = calculatePayrollEntry({
+            baseSalary, workingDays: workDays, standardWorkingDays: stdDays,
+            weekdayOvertimeHours: wdOT, weekendOvertimeHours: weOT,
+            transportAllowance, bonus, salaryDifference: salDiff,
+            salaryAdvance: advance, otherDeductions: otherDed,
+            sskEnrolled: emp.sskEnrolled,
+          });
+          return {
+            payrollRunId: run.id, employeeId: emp.id,
+            employeeName: emp.name, employeeRole: emp.role,
+            baseSalary: String(baseSalary), sskEnrolled: emp.sskEnrolled,
+            workingDays: workDays, standardWorkingDays: stdDays,
+            basicSalary: String(calc.basicSalary),
+            weekdayOvertimeHours: String(wdOT),
+            weekdayOvertimeAmount: String(calc.weekdayOvertimeAmount),
+            weekendOvertimeHours: String(weOT),
+            weekendOvertimeAmount: String(calc.weekendOvertimeAmount),
+            transportAllowance: String(transportAllowance),
+            bonus: String(bonus), salaryDifference: String(salDiff),
+            grossSalary: String(calc.grossSalary),
+            salaryAdvance: String(advance), otherDeductions: String(otherDed),
+            otherDeductionsNote: src?.otherDeductionsNote ?? null,
+            sskEmployee: String(calc.sskEmployee),
+            totalDeductions: String(calc.totalDeductions),
+            netSalary: String(calc.netSalary), sskEmployer: String(calc.sskEmployer),
+          };
+        });
+        await tx.insert(payrollEntries).values(values);
+      }
+
+      await recalculatePayrollRunTotals(db, run.id);
+      return await db.query.payrollRuns.findFirst({
+        where: eq(payrollRuns.id, run.id), with: { entries: true },
+      });
+    });
+
+    if (fullRun) {
+      const src = duplicateFromRunId ? ` (duplicated from run #${duplicateFromRunId})` : '';
+      await db.insert(activityLog).values({
+        entityType: 'payroll_run', entityId: fullRun.id,
+        action: 'created',
+        description: `Payroll ${year}-${String(month).padStart(2, '0')} created via AI chat (${fullRun.entryCount} employees)${src}`,
+        userId: ctx?.userId,
+      });
+    }
+    return fullRun;
+  },
+
+  async update_payroll_entry(args, ctx) {
+    const { runId, entryId, ...data } = args;
+    const run = await db.query.payrollRuns.findFirst({ where: eq(payrollRuns.id, runId) });
+    if (!run) throw new Error(`Payroll run #${runId} not found`);
+    if (run.status !== 'draft') throw new Error('Can only edit entries in draft runs');
+    const entry = await db.query.payrollEntries.findFirst({
+      where: and(eq(payrollEntries.id, entryId), eq(payrollEntries.payrollRunId, runId)),
+    });
+    if (!entry) throw new Error(`Entry #${entryId} not found in run #${runId}`);
+    const merged = {
+      baseSalary: parseFloat(entry.baseSalary || '0'),
+      workingDays: data.workingDays ?? entry.workingDays,
+      standardWorkingDays: entry.standardWorkingDays,
+      weekdayOvertimeHours: data.weekdayOvertimeHours ?? parseFloat(entry.weekdayOvertimeHours || '0'),
+      weekendOvertimeHours: data.weekendOvertimeHours ?? parseFloat(entry.weekendOvertimeHours || '0'),
+      transportAllowance: parseFloat(entry.transportAllowance || '0'),
+      bonus: data.bonus ?? parseFloat(entry.bonus || '0'),
+      salaryDifference: data.salaryDifference ?? parseFloat(entry.salaryDifference || '0'),
+      salaryAdvance: data.salaryAdvance ?? parseFloat(entry.salaryAdvance || '0'),
+      otherDeductions: data.otherDeductions ?? parseFloat(entry.otherDeductions || '0'),
+      sskEnrolled: entry.sskEnrolled,
+    };
+    const calc = calculatePayrollEntry(merged);
+    const [updated] = await db.update(payrollEntries).set({
+      workingDays: merged.workingDays,
+      weekdayOvertimeHours: String(merged.weekdayOvertimeHours),
+      weekendOvertimeHours: String(merged.weekendOvertimeHours),
+      bonus: String(merged.bonus), salaryDifference: String(merged.salaryDifference),
+      salaryAdvance: String(merged.salaryAdvance), otherDeductions: String(merged.otherDeductions),
+      otherDeductionsNote: data.otherDeductionsNote !== undefined ? data.otherDeductionsNote : entry.otherDeductionsNote,
+      basicSalary: String(calc.basicSalary), weekdayOvertimeAmount: String(calc.weekdayOvertimeAmount),
+      weekendOvertimeAmount: String(calc.weekendOvertimeAmount), grossSalary: String(calc.grossSalary),
+      sskEmployee: String(calc.sskEmployee), totalDeductions: String(calc.totalDeductions),
+      netSalary: String(calc.netSalary), sskEmployer: String(calc.sskEmployer),
+      updatedAt: new Date(),
+    }).where(eq(payrollEntries.id, entryId)).returning();
+    await recalculatePayrollRunTotals(db, runId);
+    return updated;
+  },
+
+  async finalize_payroll_run(args, ctx) {
+    const run = await db.query.payrollRuns.findFirst({ where: eq(payrollRuns.id, args.id) });
+    if (!run) throw new Error(`Payroll run #${args.id} not found`);
+    if (run.status !== 'draft') throw new Error('Can only finalize draft runs');
+    const [updated] = await db.update(payrollRuns).set({
+      status: 'finalized', finalizedAt: new Date(), updatedAt: new Date(),
+    }).where(eq(payrollRuns.id, args.id)).returning();
+    await db.insert(activityLog).values({
+      entityType: 'payroll_run', entityId: args.id,
+      action: 'finalized',
+      description: `Payroll ${run.year}-${String(run.month).padStart(2, '0')} finalized via AI chat`,
+      userId: ctx?.userId,
+    });
+    return updated;
+  },
+
+  async update_payroll_payment(args, ctx) {
+    const { runId, entryId, paymentStatus, paymentDate, bankTrxReference, bankAccountId } = args;
+    const entry = await db.query.payrollEntries.findFirst({
+      where: and(eq(payrollEntries.id, entryId), eq(payrollEntries.payrollRunId, runId)),
+    });
+    if (!entry) throw new Error(`Entry #${entryId} not found in run #${runId}`);
+    const [updated] = await db.update(payrollEntries).set({
+      paymentStatus, paymentDate: paymentDate || null,
+      bankTrxReference: bankTrxReference || null,
+      bankAccountId: bankAccountId || null, updatedAt: new Date(),
+    }).where(eq(payrollEntries.id, entryId)).returning();
+
+    // Auto-create bank expense transaction when marking paid with a bank account
+    if (paymentStatus === 'paid' && bankAccountId && entry.paymentStatus !== 'paid') {
+      const netSalary = parseFloat(entry.netSalary || '0');
+      if (netSalary > 0) {
+        await db.transaction(async (tx) => {
+          await tx.insert(transactions).values({
+            bankAccountId,
+            type: 'expense',
+            category: 'salary',
+            amount: String(netSalary),
+            date: paymentDate || new Date().toISOString().split('T')[0],
+            description: `Salary: ${entry.employeeName}`,
+            bankReference: bankTrxReference || null,
+          });
+          await recalculateBalance(tx, bankAccountId);
+        });
+      }
+    }
+
+    return updated;
+  },
+
+  async update_payroll_run(args, ctx) {
+    const run = await db.query.payrollRuns.findFirst({
+      where: eq(payrollRuns.id, args.id),
+    });
+    if (!run) throw new Error(`Payroll run #${args.id} not found`);
+    if (run.status !== 'draft') throw new Error('Can only update draft runs');
+    const updates: Record<string, unknown> = { updatedAt: new Date() };
+    if (args.standardWorkingDays !== undefined) {
+      updates.standardWorkingDays = args.standardWorkingDays;
+    }
+    if (args.notes !== undefined) updates.notes = args.notes;
+    const [updated] = await db.update(payrollRuns)
+      .set(updates)
+      .where(eq(payrollRuns.id, args.id))
+      .returning();
+    return updated;
+  },
+
+  async delete_payroll_run(args, ctx) {
+    const run = await db.query.payrollRuns.findFirst({
+      where: eq(payrollRuns.id, args.id),
+    });
+    if (!run) throw new Error(`Payroll run #${args.id} not found`);
+    if (run.status !== 'draft') {
+      throw new Error('Can only delete draft runs');
+    }
+    await db.delete(payrollRuns).where(eq(payrollRuns.id, args.id));
+    return { deleted: true, id: args.id };
+  },
+
+  async reopen_payroll_run(args, ctx) {
+    const run = await db.query.payrollRuns.findFirst({
+      where: eq(payrollRuns.id, args.id),
+    });
+    if (!run) throw new Error(`Payroll run #${args.id} not found`);
+    if (run.status !== 'finalized') {
+      throw new Error('Can only reopen finalized runs');
+    }
+    const [updated] = await db.update(payrollRuns)
+      .set({ status: 'draft', finalizedAt: null, updatedAt: new Date() })
+      .where(eq(payrollRuns.id, args.id))
+      .returning();
+    return updated;
+  },
+
+  async mark_all_paid(args, ctx) {
+    const run = await db.query.payrollRuns.findFirst({
+      where: eq(payrollRuns.id, args.id),
+    });
+    if (!run) throw new Error(`Payroll run #${args.id} not found`);
+    if (run.status === 'draft') {
+      throw new Error('Finalize the payroll run before marking entries paid');
+    }
+    const today = new Date().toISOString().split('T')[0];
+    const bankAccountId = args.bankAccountId ?? null;
+
+    const pendingEntries = await db.select()
+      .from(payrollEntries)
+      .where(and(
+        eq(payrollEntries.payrollRunId, args.id),
+        eq(payrollEntries.paymentStatus, 'pending'),
+      ));
+
+    await db.transaction(async (tx) => {
+      await tx.update(payrollEntries)
+        .set({
+          paymentStatus: 'paid',
+          paymentDate: today,
+          bankAccountId,
+          updatedAt: new Date(),
+        })
+        .where(and(
+          eq(payrollEntries.payrollRunId, args.id),
+          eq(payrollEntries.paymentStatus, 'pending'),
+        ));
+
+      if (bankAccountId) {
+        for (const entry of pendingEntries) {
+          const netSalary = parseFloat(entry.netSalary || '0');
+          if (netSalary > 0) {
+            await tx.insert(transactions).values({
+              bankAccountId,
+              type: 'expense',
+              category: 'salary',
+              amount: String(netSalary),
+              date: today,
+              description: `Salary: ${entry.employeeName}`,
+            });
+          }
+        }
+        await recalculateBalance(tx, bankAccountId);
+      }
+
+      const remaining = await tx.select({ id: payrollEntries.id })
+        .from(payrollEntries)
+        .where(and(
+          eq(payrollEntries.payrollRunId, args.id),
+          ne(payrollEntries.paymentStatus, 'paid'),
+        ))
+        .limit(1);
+
+      if (remaining.length === 0) {
+        await tx.update(payrollRuns)
+          .set({ status: 'paid', updatedAt: new Date() })
+          .where(eq(payrollRuns.id, args.id));
+      }
+    });
+
+    return { marked: pendingEntries.length, runId: args.id };
+  },
+
   async get_revenue_chart() {
     const rows = await db.execute(sql`
       WITH months AS (
@@ -3120,6 +3814,35 @@ export async function generateActionSummary(
       return `Import ${txns?.length || 0} transaction(s) to ${name}`;
     },
     update_settings: async () => `Update business settings`,
+    create_employee: async () => `Create employee "${args.name}" (${args.role})`,
+    update_employee: async () => {
+      const emp = await db.query.employees.findFirst({
+        where: eq(employees.id, args.id as number),
+      });
+      return `Update employee ${emp?.name || `#${args.id}`}`;
+    },
+    delete_employee: async () => {
+      const emp = await db.query.employees.findFirst({
+        where: eq(employees.id, args.id as number),
+      });
+      return `Delete employee ${emp?.name || `#${args.id}`}`;
+    },
+    create_payroll_run: async () =>
+      `Create payroll run for ${args.year}-${String(args.month).padStart(2, '0')}`,
+    update_payroll_entry: async () =>
+      `Update payroll entry #${args.entryId} in run #${args.runId}`,
+    finalize_payroll_run: async () =>
+      `Finalize payroll run #${args.id}`,
+    update_payroll_payment: async () =>
+      `Update payment for entry #${args.entryId} to "${args.paymentStatus}"`,
+    update_payroll_run: async () =>
+      `Update payroll run #${args.id}`,
+    delete_payroll_run: async () =>
+      `Delete payroll run #${args.id}`,
+    reopen_payroll_run: async () =>
+      `Reopen payroll run #${args.id} back to draft`,
+    mark_all_paid: async () =>
+      `Mark all pending entries in run #${args.id} as paid`,
     submit_to_jofotara: async () => {
       const num = await resolveInvoiceNumber(args.invoiceId);
       return `Submit ${num} to JoFotara (${args.paymentMethod})`;
