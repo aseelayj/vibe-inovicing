@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Check, ChevronsUpDown, Plus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,6 +27,7 @@ export interface ClientPickerProps {
 }
 
 export function ClientPicker({ value, onChange }: ClientPickerProps) {
+  const { t } = useTranslation('clients');
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
@@ -54,7 +56,7 @@ export function ClientPicker({ value, onChange }: ClientPickerProps) {
 
   return (
     <div className="space-y-2">
-      <Label>Client</Label>
+      <Label>{t('client')}</Label>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -66,7 +68,7 @@ export function ClientPicker({ value, onChange }: ClientPickerProps) {
             <span className={cn(!selectedClient && 'text-muted-foreground')}>
               {selectedClient
                 ? `${selectedClient.name}${selectedClient.company ? ` - ${selectedClient.company}` : ''}`
-                : 'Select a client...'}
+                : t('selectClient')}
             </span>
             <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
           </Button>
@@ -74,12 +76,12 @@ export function ClientPicker({ value, onChange }: ClientPickerProps) {
         <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
           <Command shouldFilter={false}>
             <CommandInput
-              placeholder="Search clients..."
+              placeholder={t('searchClients')}
               value={search}
               onValueChange={setSearch}
             />
             <CommandList>
-              <CommandEmpty>No clients found.</CommandEmpty>
+              <CommandEmpty>{t('noClientsFound')}</CommandEmpty>
               <CommandGroup>
                 {clients.map((client) => (
                   <CommandItem
@@ -114,7 +116,7 @@ export function ClientPicker({ value, onChange }: ClientPickerProps) {
               {showCreate ? (
                 <div className="flex gap-2">
                   <Input
-                    placeholder="Client name"
+                    placeholder={t('clientName')}
                     value={newClientName}
                     onChange={(e) => setNewClientName(e.target.value)}
                     onKeyDown={(e) => {
@@ -131,7 +133,7 @@ export function ClientPicker({ value, onChange }: ClientPickerProps) {
                     onClick={handleCreateClient}
                     disabled={createClient.isPending}
                   >
-                    Add
+                    {t('add')}
                   </Button>
                 </div>
               ) : (
@@ -142,7 +144,7 @@ export function ClientPicker({ value, onChange }: ClientPickerProps) {
                   onClick={() => setShowCreate(true)}
                 >
                   <Plus className="h-4 w-4" />
-                  Create new client
+                  {t('createNewClient')}
                 </Button>
               )}
             </div>

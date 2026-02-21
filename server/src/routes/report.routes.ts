@@ -70,7 +70,7 @@ router.get('/sales-tax', async (req, res, next) => {
         and(
           sql`${invoices.issueDate} >= ${range.startDate}`,
           sql`${invoices.issueDate} <= ${range.endDate}`,
-          sql`${invoices.status} NOT IN ('draft', 'cancelled')`,
+          sql`${invoices.status} NOT IN ('draft', 'cancelled', 'written_off')`,
         ),
       )
       .orderBy(invoices.issueDate);
@@ -220,7 +220,7 @@ router.get('/gst-summary', async (req, res, next) => {
         and(
           sql`${invoices.issueDate} >= ${startDate}`,
           sql`${invoices.issueDate} <= ${endDate}`,
-          sql`${invoices.status} NOT IN ('draft', 'cancelled')`,
+          sql`${invoices.status} NOT IN ('draft', 'cancelled', 'written_off')`,
           eq(invoices.isTaxable, true),
         ),
       );
@@ -234,7 +234,7 @@ router.get('/gst-summary', async (req, res, next) => {
         and(
           sql`${invoices.issueDate} >= ${startDate}`,
           sql`${invoices.issueDate} <= ${endDate}`,
-          sql`${invoices.status} NOT IN ('draft', 'cancelled')`,
+          sql`${invoices.status} NOT IN ('draft', 'cancelled', 'written_off')`,
           eq(invoices.isTaxable, false),
         ),
       );
@@ -549,7 +549,7 @@ router.get('/export/:type', async (req, res, next) => {
           and(
             sql`${invoices.issueDate} >= ${p.startDate}`,
             sql`${invoices.issueDate} <= ${p.endDate}`,
-            sql`${invoices.status} NOT IN ('draft', 'cancelled')`,
+            sql`${invoices.status} NOT IN ('draft', 'cancelled', 'written_off')`,
           ),
         )
         .orderBy(invoices.issueDate);
@@ -613,7 +613,7 @@ router.get('/export/:type', async (req, res, next) => {
           and(
             sql`${invoices.issueDate} >= ${p.startDate}`,
             sql`${invoices.issueDate} <= ${p.endDate}`,
-            sql`${invoices.status} NOT IN ('draft', 'cancelled')`,
+            sql`${invoices.status} NOT IN ('draft', 'cancelled', 'written_off')`,
             eq(invoices.isTaxable, true),
           ),
         );
@@ -627,7 +627,7 @@ router.get('/export/:type', async (req, res, next) => {
           and(
             sql`${invoices.issueDate} >= ${p.startDate}`,
             sql`${invoices.issueDate} <= ${p.endDate}`,
-            sql`${invoices.status} NOT IN ('draft', 'cancelled')`,
+            sql`${invoices.status} NOT IN ('draft', 'cancelled', 'written_off')`,
             eq(invoices.isTaxable, false),
           ),
         );

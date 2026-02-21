@@ -125,3 +125,22 @@ export function useSendInvoice() {
     },
   });
 }
+
+export function useSendReminder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: number) =>
+      api.post(`/invoices/${id}/remind`),
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({
+        queryKey: ['invoices', String(id)],
+      });
+      toast.success('Payment reminder sent successfully');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to send reminder');
+    },
+  });
+}

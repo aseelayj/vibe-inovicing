@@ -6,15 +6,28 @@ import { Toaster } from 'sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { queryClient } from '@/lib/query-client';
 import { App } from '@/app';
+import '@/lib/i18n';
 import '@/index.css';
+
+function AppWithToaster() {
+  const dir = document.documentElement.dir;
+  return (
+    <>
+      <App />
+      <Toaster
+        position={dir === 'rtl' ? 'top-left' : 'top-right'}
+        richColors
+      />
+    </>
+  );
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <TooltipProvider>
-          <App />
-          <Toaster position="top-right" richColors />
+          <AppWithToaster />
         </TooltipProvider>
       </BrowserRouter>
     </QueryClientProvider>

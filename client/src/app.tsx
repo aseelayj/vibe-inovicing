@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router';
 import { useAuth } from '@/hooks/use-auth';
+import { useLanguageDirection } from '@/hooks/use-language-direction';
 import { AppLayout } from '@/components/layout/app-layout';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { LoginPage } from '@/pages/login-page';
@@ -41,6 +42,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 export function App() {
+  useLanguageDirection();
+
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />

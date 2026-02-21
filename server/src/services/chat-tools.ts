@@ -11,6 +11,7 @@ import {
   recurringInvoices,
   recurringInvoiceLineItems,
   bankAccounts,
+  bankSessions,
   transactions,
   settings,
   activityLog,
@@ -24,6 +25,11 @@ import { generateQuotePdf } from './pdf.service.js';
 import { parseTransactionsFromText } from './ai.service.js';
 import { recalculateBalance } from '../routes/bank-account.routes.js';
 import {
+  getPayPalAccessToken,
+  fetchPayPalTransactions,
+  mapPayPalTransactionToLocal,
+} from './paypal.service.js';
+import {
   submitInvoiceToJofotara,
   submitCreditInvoice,
   preValidateInvoice,
@@ -36,6 +42,7 @@ import {
   getYearBimonthlyPeriods,
   calculateIncomeTax,
 } from '@vibe/shared';
+import * as XLSX from 'xlsx';
 
 // ---- Read-only tool names (auto-execute, no confirmation needed) ----
 export const READ_ONLY_TOOLS = new Set([
@@ -66,6 +73,8 @@ export const READ_ONLY_TOOLS = new Set([
   'get_income_tax_report',
   'get_profit_loss_report',
   'get_tax_deadlines',
+  'generate_export_link',
+  'generate_quote_template',
 ]);
 
 // ---- Gemini function declarations ----
@@ -120,7 +129,7 @@ export const chatToolDeclarations: FunctionDeclaration[] = [
     parameters: {
       type: 'OBJECT' as Type,
       properties: {
-        id: { type: 'INTEGER' as Type, description: 'Client ID' },
+        id: { type: 'INTEGER' as Type },
         name: { type: 'STRING' as Type },
         email: { type: 'STRING' as Type },
         phone: { type: 'STRING' as Type },
@@ -189,6 +198,7 @@ export const chatToolDeclarations: FunctionDeclaration[] = [
         discountAmount: { type: 'NUMBER' as Type, description: 'Discount amount (default: 0)' },
         notes: { type: 'STRING' as Type, description: 'Invoice notes' },
         terms: { type: 'STRING' as Type, description: 'Payment terms text' },
+        isWriteOff: { type: 'BOOLEAN' as Type, description: 'If true, creates a write-off invoice (WO-XXXX) with permanent written_off status. Used for bookkeeping only.' },
         lineItems: {
           type: 'ARRAY' as Type,
           description: 'Line items. For a single amount, use quantity=1.',
@@ -212,7 +222,7 @@ export const chatToolDeclarations: FunctionDeclaration[] = [
     parameters: {
       type: 'OBJECT' as Type,
       properties: {
-        id: { type: 'INTEGER' as Type, description: 'Invoice ID' },
+        id: { type: 'INTEGER' as Type },
         clientId: { type: 'INTEGER' as Type },
         issueDate: { type: 'STRING' as Type },
         dueDate: { type: 'STRING' as Type },
@@ -250,7 +260,7 @@ export const chatToolDeclarations: FunctionDeclaration[] = [
   },
   {
     name: 'update_invoice_status',
-    description: 'Change an invoice status (draft, sent, paid, overdue, cancelled)',
+    description: 'Change an invoice status (draft, sent, paid, overdue, cancelled). Cannot change status of written_off invoices.',
     parameters: {
       type: 'OBJECT' as Type,
       properties: {
@@ -262,13 +272,15 @@ export const chatToolDeclarations: FunctionDeclaration[] = [
   },
   {
     name: 'send_invoice_email',
-    description: 'Send an invoice to the client via email (generates PDF, sends it)',
+    description: 'Send an invoice to the client via email. MUST provide a thoughtful draft for the subject and body.',
     parameters: {
       type: 'OBJECT' as Type,
       properties: {
         id: { type: 'INTEGER' as Type, description: 'Invoice ID' },
+        subject: { type: 'STRING' as Type, description: 'Subject line draft' },
+        body: { type: 'STRING' as Type, description: 'Email message draft' },
       },
-      required: ['id'],
+      required: ['id', 'subject', 'body'],
     },
   },
   {
@@ -590,7 +602,7 @@ export const chatToolDeclarations: FunctionDeclaration[] = [
   },
   {
     name: 'create_bank_account',
-    description: 'Create a new bank account',
+    description: 'Create a new bank account. Provider can be manual, paypal, or bank_al_etihad.',
     parameters: {
       type: 'OBJECT' as Type,
       properties: {
@@ -600,6 +612,10 @@ export const chatToolDeclarations: FunctionDeclaration[] = [
         currency: { type: 'STRING' as Type },
         initialBalance: { type: 'NUMBER' as Type },
         notes: { type: 'STRING' as Type },
+        provider: {
+          type: 'STRING' as Type,
+          description: 'Account provider: manual, paypal, or bank_al_etihad',
+        },
       },
       required: ['name'],
     },
@@ -631,6 +647,30 @@ export const chatToolDeclarations: FunctionDeclaration[] = [
         id: { type: 'INTEGER' as Type },
       },
       required: ['id'],
+    },
+  },
+  {
+    name: 'connect_paypal',
+    description: 'Link a bank account to PayPal for transaction syncing. PayPal API credentials must be configured in Settings first.',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        bankAccountId: { type: 'INTEGER' as Type, description: 'The bank account ID to connect' },
+      },
+      required: ['bankAccountId'],
+    },
+  },
+  {
+    name: 'sync_bank_account',
+    description: 'Sync transactions from a connected provider (e.g. PayPal) for a date range',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        bankAccountId: { type: 'INTEGER' as Type },
+        fromDate: { type: 'STRING' as Type, description: 'Start date YYYY-MM-DD' },
+        toDate: { type: 'STRING' as Type, description: 'End date YYYY-MM-DD' },
+      },
+      required: ['bankAccountId', 'fromDate', 'toDate'],
     },
   },
   // -- Transactions --
@@ -992,6 +1032,30 @@ export const chatToolDeclarations: FunctionDeclaration[] = [
       properties: {},
     },
   },
+  // -- Generators & Exports --
+  {
+    name: 'generate_export_link',
+    description: 'Generate a downloadable CSV file link for a specific entity type (clients, invoices, or quotes).',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        entityType: { type: 'STRING' as Type, description: 'Type of entity to export (clients, invoices, quotes, transactions)' },
+      },
+      required: ['entityType'],
+    },
+  },
+  {
+    name: 'generate_quote_template',
+    description: 'Generate a customized draft proposal/quote text. Use this when the user asks for a template or draft for a service.',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        serviceType: { type: 'STRING' as Type, description: 'Type of service (e.g. web design, consultation)' },
+        clientName: { type: 'STRING' as Type, description: 'Optional name of the prospective client' }
+      },
+      required: ['serviceType'],
+    },
+  },
 ];
 
 // ---- Helper: calculate line item totals ----
@@ -1017,9 +1081,19 @@ function calculateTotals(
 async function generateInvoiceNumber(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   isTaxable = false,
+  isWriteOff = false,
 ) {
   const [s] = await tx.select().from(settings).limit(1);
   if (!s) throw new Error('Settings not found');
+
+  if (isWriteOff) {
+    const num = s.nextWriteOffNumber;
+    const invoiceNumber = `${s.writeOffPrefix}-${String(num).padStart(4, '0')}`;
+    await tx.update(settings)
+      .set({ nextWriteOffNumber: num + 1 })
+      .where(eq(settings.id, s.id));
+    return invoiceNumber;
+  }
 
   const prefix = isTaxable ? s.invoicePrefix : s.exemptInvoicePrefix;
   const nextNum = isTaxable ? s.nextInvoiceNumber : s.nextExemptInvoiceNumber;
@@ -1166,6 +1240,7 @@ export const toolExecutors: Record<
 
   async create_invoice(args) {
     const isTaxable = args.isTaxable === true;
+    const isWriteOff = args.isWriteOff === true;
     const defaultTaxRate = isTaxable ? 16 : 0;
     const taxRate = args.taxRate ?? defaultTaxRate;
     const { lineItems: items, discountAmount = 0 } = args;
@@ -1179,7 +1254,9 @@ export const toolExecutors: Record<
     }
 
     const result = await db.transaction(async (tx) => {
-      const invoiceNumber = await generateInvoiceNumber(tx, isTaxable);
+      const invoiceNumber = await generateInvoiceNumber(
+        tx, isTaxable, isWriteOff,
+      );
       const [inv] = await tx.insert(invoices).values({
         clientId: args.clientId || null,
         issueDate: args.issueDate,
@@ -1194,7 +1271,8 @@ export const toolExecutors: Record<
         subtotal: totals.subtotal,
         taxAmount: totals.taxAmount,
         total: totals.total,
-        status: 'draft',
+        status: isWriteOff ? 'written_off' : 'draft',
+        amountPaid: isWriteOff ? '0' : undefined,
       }).returning();
 
       const rows = items.map((item: any, idx: number) => ({
@@ -1209,7 +1287,10 @@ export const toolExecutors: Record<
 
       await tx.insert(activityLog).values({
         entityType: 'invoice', entityId: inv.id,
-        action: 'created', description: `Invoice ${inv.invoiceNumber} created via AI chat`,
+        action: isWriteOff ? 'written_off' : 'created',
+        description: isWriteOff
+          ? `Write-off invoice ${inv.invoiceNumber} created via AI chat`
+          : `Invoice ${inv.invoiceNumber} created via AI chat`,
       });
       return inv;
     });
@@ -1274,6 +1355,14 @@ export const toolExecutors: Record<
   },
 
   async update_invoice_status(args) {
+    // Block status changes on written-off invoices
+    const [existing] = await db.select({ status: invoices.status })
+      .from(invoices).where(eq(invoices.id, args.id));
+    if (!existing) throw new Error(`Invoice #${args.id} not found`);
+    if (existing.status === 'written_off') {
+      throw new Error('Cannot change status of a written-off invoice');
+    }
+
     const updateData: Record<string, unknown> = {
       status: args.status, updatedAt: new Date(),
     };
@@ -1304,10 +1393,15 @@ export const toolExecutors: Record<
       invoice, lineItems: invoice.lineItems,
       client: invoice.client, settings: settingsRow || {},
     });
+
+    // Support custom drafted subject/body
+    const subject = args.subject || `Invoice ${invoice.invoiceNumber}`;
+    const body = args.body || `Please find your invoice ${invoice.invoiceNumber} attached.`;
+
     const emailResult = await sendInvoiceEmail({
       to: invoice.client.email,
-      subject: `Invoice ${invoice.invoiceNumber}`,
-      body: `Please find your invoice ${invoice.invoiceNumber} attached.`,
+      subject,
+      body,
       pdfBuffer, invoiceNumber: invoice.invoiceNumber,
       businessName: settingsRow?.businessName || 'Our Company',
       clientName: invoice.client.name,
@@ -1319,7 +1413,7 @@ export const toolExecutors: Record<
       .where(eq(invoices.id, args.id));
     await db.insert(emailLog).values({
       invoiceId: args.id, recipientEmail: invoice.client.email,
-      subject: `Invoice ${invoice.invoiceNumber}`, status: 'sent', resendId: emailResult.id,
+      subject, status: 'sent', resendId: emailResult.id,
     });
     await db.insert(activityLog).values({
       entityType: 'invoice', entityId: args.id, action: 'sent',
@@ -1880,6 +1974,7 @@ export const toolExecutors: Record<
       currency: args.currency || 'USD',
       initialBalance: String(balance), currentBalance: String(balance),
       notes: args.notes,
+      provider: args.provider || 'manual',
     }).returning();
     await db.insert(activityLog).values({
       entityType: 'bank_account', entityId: account.id,
@@ -1913,6 +2008,151 @@ export const toolExecutors: Record<
       action: 'deleted', description: `Bank account "${account.name}" deleted via AI chat`,
     });
     return { message: `Bank account "${account.name}" deleted` };
+  },
+
+  async connect_paypal(args) {
+    const [account] = await db.select().from(bankAccounts)
+      .where(eq(bankAccounts.id, args.bankAccountId));
+    if (!account) throw new Error(`Bank account #${args.bankAccountId} not found`);
+
+    // Read credentials from settings
+    const [s] = await db.select().from(settings);
+    if (!s?.paypalEnabled || !s.paypalClientId || !s.paypalClientSecret) {
+      throw new Error(
+        'PayPal is not configured. Go to Settings to add your PayPal API credentials.',
+      );
+    }
+    const env = (s.paypalEnvironment || 'sandbox') as 'sandbox' | 'live';
+
+    // Validate credentials
+    const { accessToken, expiresIn } = await getPayPalAccessToken(
+      s.paypalClientId, s.paypalClientSecret, env,
+    );
+
+    await db.update(bankAccounts).set({
+      provider: 'paypal',
+      updatedAt: new Date(),
+    }).where(eq(bankAccounts.id, args.bankAccountId));
+
+    await db.delete(bankSessions).where(
+      eq(bankSessions.bankAccountId, args.bankAccountId),
+    );
+    await db.insert(bankSessions).values({
+      bankAccountId: args.bankAccountId,
+      provider: 'paypal',
+      token: accessToken,
+      expiresAt: new Date(Date.now() + expiresIn * 1000),
+      metadata: { environment: env },
+    });
+
+    await db.insert(activityLog).values({
+      entityType: 'bank_account', entityId: args.bankAccountId,
+      action: 'paypal_connected',
+      description: `PayPal connected to "${account.name}" via AI chat`,
+    });
+    return { message: `PayPal connected to "${account.name}"` };
+  },
+
+  async sync_bank_account(args) {
+    const [account] = await db.select().from(bankAccounts)
+      .where(eq(bankAccounts.id, args.bankAccountId));
+    if (!account) throw new Error(`Bank account #${args.bankAccountId} not found`);
+    if (account.provider === 'manual') {
+      throw new Error('Manual accounts cannot be synced');
+    }
+
+    await db.update(bankAccounts).set({
+      lastSyncStatus: 'syncing', updatedAt: new Date(),
+    }).where(eq(bankAccounts.id, args.bankAccountId));
+
+    let imported = 0, skipped = 0;
+    const errors: string[] = [];
+
+    try {
+      if (account.provider === 'paypal') {
+        // Read credentials from settings
+        const [s] = await db.select().from(settings);
+        if (!s?.paypalEnabled || !s.paypalClientId || !s.paypalClientSecret) {
+          throw new Error('PayPal is not configured in Settings.');
+        }
+        const env = (s.paypalEnvironment || 'sandbox') as 'sandbox' | 'live';
+
+        // Get or refresh token
+        const [session] = await db.select().from(bankSessions)
+          .where(and(
+            eq(bankSessions.bankAccountId, args.bankAccountId),
+            eq(bankSessions.provider, 'paypal'),
+          ));
+        let accessToken: string;
+        if (session && new Date(session.expiresAt) > new Date()) {
+          accessToken = session.token;
+        } else {
+          const result = await getPayPalAccessToken(
+            s.paypalClientId, s.paypalClientSecret, env,
+          );
+          accessToken = result.accessToken;
+          if (session) {
+            await db.update(bankSessions).set({
+              token: accessToken,
+              expiresAt: new Date(Date.now() + result.expiresIn * 1000),
+            }).where(eq(bankSessions.id, session.id));
+          } else {
+            await db.insert(bankSessions).values({
+              bankAccountId: args.bankAccountId,
+              provider: 'paypal', token: accessToken,
+              expiresAt: new Date(Date.now() + result.expiresIn * 1000),
+            });
+          }
+        }
+
+        const txns = await fetchPayPalTransactions(
+          accessToken, env, args.fromDate, args.toDate,
+        );
+
+        for (const txn of txns) {
+          const mapped = mapPayPalTransactionToLocal(txn);
+          if (!mapped) { skipped++; continue; }
+
+          const [existing] = await db.select({ id: transactions.id })
+            .from(transactions)
+            .where(and(
+              eq(transactions.bankAccountId, args.bankAccountId),
+              eq(transactions.bankReference, mapped.bankReference),
+            ));
+          if (existing) { skipped++; continue; }
+
+          await db.insert(transactions).values({
+            bankAccountId: args.bankAccountId,
+            type: mapped.type, category: mapped.category,
+            amount: String(mapped.amount), date: mapped.date,
+            description: mapped.description, notes: mapped.notes,
+            bankReference: mapped.bankReference,
+            supplierName: mapped.supplierName,
+            isFromBank: true, bankSyncedAt: mapped.bankSyncedAt,
+          });
+          imported++;
+        }
+      }
+
+      await db.transaction(async (tx) => {
+        await recalculateBalance(tx, args.bankAccountId);
+      });
+      await db.update(bankAccounts).set({
+        lastSyncAt: new Date(), lastSyncStatus: 'success', updatedAt: new Date(),
+      }).where(eq(bankAccounts.id, args.bankAccountId));
+    } catch (err: any) {
+      errors.push(err.message);
+      await db.update(bankAccounts).set({
+        lastSyncStatus: 'failed', updatedAt: new Date(),
+      }).where(eq(bankAccounts.id, args.bankAccountId));
+    }
+
+    await db.insert(activityLog).values({
+      entityType: 'bank_account', entityId: args.bankAccountId,
+      action: 'synced',
+      description: `Synced ${imported} transactions (${skipped} skipped) via AI chat`,
+    });
+    return { imported, skipped, errors, bankAccountId: args.bankAccountId };
   },
 
   // -- Transactions --
@@ -2050,7 +2290,16 @@ export const toolExecutors: Record<
     }
 
     const results: { id: number; invoiceNumber: string; status: string }[] = [];
+    const skipped: number[] = [];
     for (const id of invoiceIds) {
+      // Skip written-off invoices
+      const [existing] = await db.select({ status: invoices.status })
+        .from(invoices).where(eq(invoices.id, id));
+      if (existing?.status === 'written_off') {
+        skipped.push(id);
+        continue;
+      }
+
       const updateData: Record<string, unknown> = {
         status, updatedAt: new Date(),
       };
@@ -2072,7 +2321,7 @@ export const toolExecutors: Record<
       }
     }
     return {
-      message: `Updated ${results.length} invoice(s) to "${status}"`,
+      message: `Updated ${results.length} invoice(s) to "${status}"${skipped.length ? `, skipped ${skipped.length} written-off invoice(s)` : ''}`,
       invoices: results,
     };
   },
@@ -2652,6 +2901,47 @@ export const toolExecutors: Record<
     return deadlines;
   },
 
+  async generate_export_link(args) {
+    let data;
+    switch (args.entityType) {
+      case 'clients':
+        data = await db.query.clients.findMany();
+        break;
+      case 'invoices':
+        data = await db.query.invoices.findMany();
+        break;
+      case 'quotes':
+        data = await db.query.quotes.findMany();
+        break;
+      case 'transactions':
+        data = await db.query.transactions.findMany();
+        break;
+      default:
+        throw new Error('Unsupported entity type');
+    }
+
+    if (!data || data.length === 0) {
+      return { message: `No ${args.entityType} found to export.` };
+    }
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const csvData = XLSX.utils.sheet_to_csv(ws);
+    const base64 = Buffer.from(csvData).toString('base64');
+    const dataUri = `data:text/csv;base64,${base64}`;
+
+    return {
+      message: 'Here is the export link to provide.',
+      markdownLink: `[Download ${args.entityType} CSV](${dataUri})`
+    };
+  },
+
+  async generate_quote_template(args) {
+    return {
+      note: 'Output this rich markdown template to the user, adapting the placeholders as needed based on context.',
+      markdownTemplate: `# Proposal for ${args.serviceType}\n\n**Prepared for:** ${args.clientName || '[Client Name]'}\n\n## Overview\n[Brief overview of the project and goals]\n\n## Scope of Work\n- [Deliverable 1]\n- [Deliverable 2]\n\n## Estimated Investment\n| Phase | Description | Cost |\n|---|---|---|\n| Phase 1 | [Description] | [Amount] |\n\n## Next Steps\n[How to proceed if accepted]\n\n*Note: Use the "Create a quote" button below to turn this into a formal quote.*`
+    };
+  },
+
   async get_revenue_chart() {
     const rows = await db.execute(sql`
       WITH months AS (
@@ -2804,6 +3094,14 @@ export async function generateActionSummary(
     delete_bank_account: async () => {
       const name = await resolveBankAccountName(args.id);
       return `Delete bank account ${name}`;
+    },
+    connect_paypal: async () => {
+      const name = await resolveBankAccountName(args.bankAccountId);
+      return `Connect PayPal to bank account ${name} (using credentials from Settings)`;
+    },
+    sync_bank_account: async () => {
+      const name = await resolveBankAccountName(args.bankAccountId);
+      return `Sync transactions for ${name} from ${args.fromDate} to ${args.toDate}`;
     },
     create_transaction: async () => `Create ${args.type} transaction of ${args.amount}`,
     update_transaction: async () => `Update transaction #${args.id}`,

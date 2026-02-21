@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router';
 import {
   Plus,
@@ -45,6 +46,8 @@ import {
 import { formatDate } from '@/lib/format';
 
 export function ClientsPage() {
+  const { t } = useTranslation('clients');
+  const { t: tc } = useTranslation('common');
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
@@ -79,15 +82,15 @@ export function ClientsPage() {
     <div className="space-y-4 sm:space-y-6">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-xl font-bold sm:text-2xl">Clients</h2>
+          <h2 className="text-xl font-bold sm:text-2xl">{t('title')}</h2>
           <p className="mt-0.5 hidden text-sm text-muted-foreground sm:block">
-            Manage your client directory
+            {t('subtitle')}
           </p>
         </div>
         <Button size="sm" className="shrink-0 sm:size-default" onClick={() => setShowCreate(true)}>
           <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">New Client</span>
-          <span className="sm:hidden">New</span>
+          <span className="hidden sm:inline">{t('newClient')}</span>
+          <span className="sm:hidden">{tc('new')}</span>
         </Button>
       </div>
 
@@ -95,7 +98,7 @@ export function ClientsPage() {
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           type="text"
-          placeholder="Search clients..."
+          placeholder={t('searchPlaceholder')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full pl-9 sm:w-80"
@@ -107,13 +110,13 @@ export function ClientsPage() {
       ) : clients.length === 0 ? (
         <EmptyState
           icon={Users}
-          title="No clients found"
+          title={t('noClientsFound')}
           description={
             search
-              ? 'Try adjusting your search term.'
-              : 'Add your first client to get started.'
+              ? t('adjustSearch')
+              : t('addFirstClient')
           }
-          actionLabel={!search ? 'Add Client' : undefined}
+          actionLabel={!search ? t('addClient') : undefined}
           onAction={!search ? () => setShowCreate(true) : undefined}
         />
       ) : (
@@ -121,10 +124,10 @@ export function ClientsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead className="hidden md:table-cell">Company</TableHead>
-                <TableHead className="hidden lg:table-cell">Created</TableHead>
+                <TableHead>{t('name')}</TableHead>
+                <TableHead>{t('email')}</TableHead>
+                <TableHead className="hidden md:table-cell">{t('company')}</TableHead>
+                <TableHead className="hidden lg:table-cell">{t('created')}</TableHead>
                 <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
@@ -166,7 +169,7 @@ export function ClientsPage() {
                           }
                         >
                           <Eye className="h-4 w-4" />
-                          View
+                          {tc('view')}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() =>
@@ -174,7 +177,7 @@ export function ClientsPage() {
                           }
                         >
                           <Pencil className="h-4 w-4" />
-                          Edit
+                          {tc('edit')}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -182,7 +185,7 @@ export function ClientsPage() {
                           onClick={() => setDeleteId(client.id)}
                         >
                           <Trash2 className="h-4 w-4" />
-                          Delete
+                          {tc('delete')}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -201,9 +204,9 @@ export function ClientsPage() {
       >
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>New Client</DialogTitle>
+            <DialogTitle>{t('newClient')}</DialogTitle>
             <DialogDescription>
-              Add a new client to your directory.
+              {t('newClientDesc')}
             </DialogDescription>
           </DialogHeader>
           <ClientForm
@@ -221,22 +224,21 @@ export function ClientsPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Client</DialogTitle>
+            <DialogTitle>{t('deleteClient')}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this client? Associated
-              invoices and quotes will not be deleted.
+              {t('deleteClientConfirm')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteId(null)}>
-              Cancel
+              {tc('cancel')}
             </Button>
             <Button
               variant="destructive"
               onClick={handleDelete}
               disabled={deleteClient.isPending}
             >
-              {deleteClient.isPending ? 'Deleting...' : 'Delete'}
+              {deleteClient.isPending ? tc('deleting') : tc('delete')}
             </Button>
           </DialogFooter>
         </DialogContent>

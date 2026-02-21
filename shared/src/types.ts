@@ -9,6 +9,7 @@ import type {
   JofotaraSubmissionStatus,
   JofotaraInvoiceType,
   FilingStatus,
+  BankAccountProvider,
 } from './constants';
 
 // ---- Client ----
@@ -170,6 +171,10 @@ export interface Settings {
   jofotaraEnabled: boolean;
   bankEtihadUsername: string | null;
   bankEtihadEnabled: boolean;
+  paypalClientId: string | null;
+  paypalClientSecret: string | null;
+  paypalEnvironment: 'sandbox' | 'live';
+  paypalEnabled: boolean;
   filingStatus: FilingStatus;
   personalExemption: number;
   familyExemption: number;
@@ -204,7 +209,7 @@ export interface BankAccount {
   currentBalance: number;
   isActive: boolean;
   notes: string | null;
-  bankEtihadLinked: boolean;
+  provider: BankAccountProvider;
   lastSyncAt: string | null;
   lastSyncStatus: BankSyncStatusValue | null;
   createdAt: string;

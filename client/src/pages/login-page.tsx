@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { Loader2, Zap } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,6 +16,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 
 export function LoginPage() {
+  const { t } = useTranslation('common');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -24,7 +26,7 @@ export function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!password.trim()) {
-      setError('Password is required');
+      setError(t('passwordRequired'));
       return;
     }
 
@@ -33,11 +35,11 @@ export function LoginPage() {
 
     try {
       await login(password);
-      toast.success('Welcome back!');
+      toast.success(t('welcomeBack'));
       navigate('/');
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : 'Invalid password',
+        err instanceof Error ? err.message : t('invalidPassword'),
       );
     } finally {
       setIsLoading(false);
@@ -55,29 +57,29 @@ export function LoginPage() {
             <Zap className="h-7 w-7 text-primary-foreground" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight">
-            Vibe Invoicing
+            {t('appName')}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Enter your password to continue
+            {t('enterPasswordToContinue')}
           </p>
         </div>
 
         <Card>
           <CardHeader className="sr-only">
-            <CardTitle>Sign In</CardTitle>
+            <CardTitle>{t('signIn')}</CardTitle>
             <CardDescription>
-              Authenticate to access your dashboard
+              {t('authenticateToAccess')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit}>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password">{t('password')}</Label>
                   <Input
                     id="password"
                     type="password"
-                    placeholder="Enter your password"
+                    placeholder={t('enterYourPassword')}
                     value={password}
                     onChange={(e) => {
                       setPassword(e.target.value);
@@ -98,7 +100,7 @@ export function LoginPage() {
                   {isLoading && (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   )}
-                  Sign In
+                  {t('signIn')}
                 </Button>
               </div>
             </form>

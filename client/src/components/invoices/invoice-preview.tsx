@@ -1,10 +1,13 @@
 import { useFormContext } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { useSettings } from '@/hooks/use-settings';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 
 export function InvoicePreview() {
+  const { t } = useTranslation('invoices');
+  const { t: tc } = useTranslation('common');
   const { watch } = useFormContext();
   const { data: settings } = useSettings();
 
@@ -32,7 +35,7 @@ export function InvoicePreview() {
         <div className="mb-8 flex items-start justify-between">
           <div>
             <h2 className="text-xl font-bold">
-              {settings?.businessName || 'Your Business'}
+              {settings?.businessName || t('yourBusiness')}
             </h2>
             {settings?.businessEmail && (
               <p className="mt-1 text-sm text-muted-foreground">
@@ -51,24 +54,24 @@ export function InvoicePreview() {
             )}
           </div>
           <div className="text-right">
-            <h3 className="text-2xl font-bold text-primary">INVOICE</h3>
-            <p className="mt-1 text-sm text-muted-foreground">Draft</p>
+            <h3 className="text-2xl font-bold text-primary">{t('invoice')}</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{t('draft')}</p>
           </div>
         </div>
 
         <div className="mb-8 grid grid-cols-2 gap-8">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Bill To
+              {t('billTo')}
             </p>
             <p className="mt-1 text-sm font-medium">
-              {values.clientName || 'Select a client'}
+              {values.clientName || t('selectAClient')}
             </p>
           </div>
           <div className="space-y-2 text-right">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Issue Date
+                {t('issueDate')}
               </p>
               <p className="text-sm">
                 {values.issueDate ? formatDate(values.issueDate) : '--'}
@@ -76,7 +79,7 @@ export function InvoicePreview() {
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Due Date
+                {t('dueDate')}
               </p>
               <p className="text-sm">
                 {values.dueDate ? formatDate(values.dueDate) : '--'}
@@ -89,16 +92,16 @@ export function InvoicePreview() {
           <thead>
             <tr className="border-b">
               <th className="pb-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Description
+                {tc('description')}
               </th>
               <th className="pb-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Qty
+                {tc('qty')}
               </th>
               <th className="pb-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Price
+                {tc('price')}
               </th>
               <th className="pb-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Amount
+                {tc('amount')}
               </th>
             </tr>
           </thead>
@@ -109,7 +112,7 @@ export function InvoicePreview() {
                   colSpan={4}
                   className="py-6 text-center text-muted-foreground"
                 >
-                  No line items
+                  {tc('noLineItems')}
                 </td>
               </tr>
             ) : (
@@ -127,7 +130,7 @@ export function InvoicePreview() {
                   return (
                     <tr key={i} className="border-b border-border/50">
                       <td className="py-2">
-                        {item.description || 'Untitled item'}
+                        {item.description || tc('untitledItem')}
                       </td>
                       <td className="py-2 text-right text-muted-foreground">
                         {qty}
@@ -149,20 +152,20 @@ export function InvoicePreview() {
         <div className="flex justify-end">
           <div className="w-64 space-y-2">
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Subtotal</span>
+              <span className="text-muted-foreground">{tc('subtotal')}</span>
               <span>{formatCurrency(subtotal, currency)}</span>
             </div>
             {taxRate > 0 && (
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">
-                  Tax ({taxRate}%)
+                  {tc('tax')} ({taxRate}%)
                 </span>
                 <span>{formatCurrency(taxAmount, currency)}</span>
               </div>
             )}
             {discountAmount > 0 && (
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Discount</span>
+                <span className="text-muted-foreground">{tc('discount')}</span>
                 <span className="text-destructive">
                   -{formatCurrency(discountAmount, currency)}
                 </span>
@@ -170,7 +173,7 @@ export function InvoicePreview() {
             )}
             <Separator />
             <div className="flex justify-between text-base font-bold">
-              <span>Total</span>
+              <span>{tc('total')}</span>
               <span>{formatCurrency(total, currency)}</span>
             </div>
           </div>
@@ -179,7 +182,7 @@ export function InvoicePreview() {
         {values.notes && (
           <div className="mt-8 border-t pt-4">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Notes
+              {tc('notes')}
             </p>
             <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
               {values.notes}
@@ -190,7 +193,7 @@ export function InvoicePreview() {
         {values.terms && (
           <div className="mt-4">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Terms
+              {tc('terms')}
             </p>
             <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
               {values.terms}

@@ -1,4 +1,5 @@
 import { Link } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import {
   DollarSign,
   Clock,
@@ -35,37 +36,38 @@ import { formatCurrency, formatDate, formatTimeAgo } from '@/lib/format';
 const statCards = [
   {
     key: 'totalRevenue' as const,
-    label: 'Total Revenue',
+    label: 'totalRevenue',
     icon: DollarSign,
     color: 'text-green-600 bg-green-100',
   },
   {
     key: 'outstandingAmount' as const,
-    label: 'Outstanding',
+    label: 'outstanding',
     icon: Clock,
     color: 'text-blue-600 bg-blue-100',
   },
   {
     key: 'overdueAmount' as const,
-    label: 'Overdue',
+    label: 'overdue',
     icon: AlertTriangle,
     color: 'text-red-600 bg-red-100',
   },
   {
     key: 'totalBankBalance' as const,
-    label: 'Bank Balance',
+    label: 'bankBalance',
     icon: Landmark,
     color: 'text-emerald-600 bg-emerald-100',
   },
   {
     key: 'monthlyExpenses' as const,
-    label: 'Expenses (Month)',
+    label: 'expensesMonth',
     icon: TrendingDown,
     color: 'text-orange-600 bg-orange-100',
   },
 ];
 
 export function DashboardPage() {
+  const { t } = useTranslation('dashboard');
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
   const { data: chartData, isLoading: chartLoading } = useRevenueChart();
   const { data: activity, isLoading: activityLoading } = useRecentActivity();
@@ -90,7 +92,7 @@ export function DashboardPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="truncate text-xs font-medium text-muted-foreground sm:text-sm">
-                      {card.label}
+                      {t(card.label)}
                     </p>
                     <p className="mt-1 text-lg font-bold tracking-tight sm:text-2xl">
                       {formatCurrency(value)}
@@ -110,7 +112,7 @@ export function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-3">
         <Card className="xl:col-span-2">
           <CardHeader>
-            <CardTitle>Revenue Overview</CardTitle>
+            <CardTitle>{t('revenueOverview')}</CardTitle>
           </CardHeader>
           <CardContent>
             {chartLoading ? (
@@ -163,7 +165,7 @@ export function DashboardPage() {
                     <Tooltip
                       formatter={(value: number) => [
                         formatCurrency(value),
-                        'Revenue',
+                        t('revenue', { ns: 'common' }),
                       ]}
                       contentStyle={{
                         borderRadius: '8px',
@@ -189,14 +191,14 @@ export function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
+            <CardTitle>{t('recentActivity')}</CardTitle>
           </CardHeader>
           <CardContent>
             {activityLoading ? (
               <LoadingSpinner size="sm" />
             ) : !activity?.length ? (
               <p className="py-8 text-center text-sm text-muted-foreground">
-                No recent activity
+                {t('noRecentActivity')}
               </p>
             ) : (
               <ul className="space-y-1">
@@ -231,18 +233,18 @@ export function DashboardPage() {
         {/* Upcoming Tax Deadlines */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-base">Tax Deadlines</CardTitle>
+            <CardTitle className="text-base">{t('taxDeadlines')}</CardTitle>
             <Link
               to="/tax-reports?tab=sales-tax"
               className="text-xs text-muted-foreground hover:text-foreground"
             >
-              View Reports
+              {t('viewReports')}
             </Link>
           </CardHeader>
           <CardContent>
             {!deadlines?.length ? (
               <p className="py-4 text-center text-sm text-muted-foreground">
-                No upcoming deadlines
+                {t('noUpcomingDeadlines')}
               </p>
             ) : (
               <ul className="space-y-2">
@@ -282,7 +284,7 @@ export function DashboardPage() {
                             : 'text-muted-foreground'
                       }`}
                     >
-                      {d.daysUntil}d
+                      {t('daysShort', { days: d.daysUntil })}
                     </span>
                   </li>
                 ))}
@@ -296,38 +298,38 @@ export function DashboardPage() {
           <Card className="xl:col-span-2">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-base">
-                GST Summary — {gstSummary.period.label}
+                {t('gstSummaryPeriod', { period: gstSummary.period.label })}
               </CardTitle>
               <Link
                 to={`/tax-reports?tab=sales-tax`}
                 className="text-xs text-muted-foreground hover:text-foreground"
               >
                 <FileSpreadsheet className="mr-1 inline h-3 w-3" />
-                Full Report
+                {t('fullReport')}
               </Link>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div>
-                  <p className="text-xs text-muted-foreground">Taxable Sales</p>
+                  <p className="text-xs text-muted-foreground">{t('taxableSales')}</p>
                   <p className="mt-0.5 text-sm font-semibold">
                     {formatCurrency(gstSummary.taxableSales, 'JOD')}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Output Tax</p>
+                  <p className="text-xs text-muted-foreground">{t('outputTax')}</p>
                   <p className="mt-0.5 text-sm font-semibold text-red-600">
                     {formatCurrency(gstSummary.outputTax, 'JOD')}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Input Tax</p>
+                  <p className="text-xs text-muted-foreground">{t('inputTax')}</p>
                   <p className="mt-0.5 text-sm font-semibold text-green-600">
                     {formatCurrency(gstSummary.inputTax, 'JOD')}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Net Due</p>
+                  <p className="text-xs text-muted-foreground">{t('netDue')}</p>
                   <p
                     className={`mt-0.5 text-sm font-bold ${
                       gstSummary.netTax >= 0 ? 'text-red-600' : 'text-green-600'

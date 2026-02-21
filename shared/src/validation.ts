@@ -9,6 +9,7 @@ import {
   TRANSACTION_CATEGORIES,
   JOFOTARA_INVOICE_TYPES,
   FILING_STATUSES,
+  BANK_ACCOUNT_PROVIDERS,
 } from './constants';
 
 // Helper: transform empty strings to null for optional fields
@@ -56,6 +57,7 @@ export const createInvoiceSchema = z.object({
   notes: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
   terms: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
   lineItems: z.array(lineItemSchema).min(1, 'At least one line item'),
+  isWriteOff: z.boolean().default(false).optional(),
 });
 
 export const updateInvoiceSchema = createInvoiceSchema.partial();
@@ -128,6 +130,10 @@ export const updateSettingsSchema = z.object({
   jofotaraEnabled: z.boolean().optional(),
   bankEtihadUsername: optionalString(100),
   bankEtihadEnabled: z.boolean().optional(),
+  paypalClientId: optionalString(255),
+  paypalClientSecret: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
+  paypalEnvironment: z.enum(['sandbox', 'live']).optional(),
+  paypalEnabled: z.boolean().optional(),
   filingStatus: z.enum(FILING_STATUSES).optional(),
   personalExemption: z.number().min(0).optional(),
   familyExemption: z.number().min(0).optional(),
@@ -168,9 +174,15 @@ export const createBankAccountSchema = z.object({
   initialBalance: z.number().default(0),
   isActive: z.boolean().default(true),
   notes: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
+  provider: z.enum(BANK_ACCOUNT_PROVIDERS).default('manual'),
 });
 
 export const updateBankAccountSchema = createBankAccountSchema.partial();
+
+export const syncBankAccountSchema = z.object({
+  fromDate: z.string().min(1, 'Start date is required'),
+  toDate: z.string().min(1, 'End date is required'),
+});
 
 // ---- Transaction ----
 export const createTransactionSchema = z.object({

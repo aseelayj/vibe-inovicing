@@ -20,11 +20,17 @@ router.get('/', async (req, res, next) => {
       settingsRow = created;
     }
 
-    // Mask secret before sending to client
+    // Mask secrets before sending to client
     const response = { ...settingsRow };
     if (response.jofotaraClientSecret) {
       const secret = response.jofotaraClientSecret;
       response.jofotaraClientSecret = secret.length > 4
+        ? '****' + secret.slice(-4)
+        : '****';
+    }
+    if (response.paypalClientSecret) {
+      const secret = response.paypalClientSecret;
+      response.paypalClientSecret = secret.length > 4
         ? '****' + secret.slice(-4)
         : '****';
     }
@@ -68,7 +74,7 @@ router.put('/', validate(updateSettingsSchema), async (req, res, next) => {
       updatePayload.additionalExemptions = String(req.body.additionalExemptions);
     }
 
-    // Don't overwrite secret with the masked value from the GET response
+    // Don't overwrite secrets with the masked values from the GET response
     if (
       updatePayload.jofotaraClientSecret &&
       typeof updatePayload.jofotaraClientSecret === 'string' &&
@@ -76,17 +82,30 @@ router.put('/', validate(updateSettingsSchema), async (req, res, next) => {
     ) {
       delete updatePayload.jofotaraClientSecret;
     }
+    if (
+      updatePayload.paypalClientSecret &&
+      typeof updatePayload.paypalClientSecret === 'string' &&
+      (updatePayload.paypalClientSecret as string).startsWith('****')
+    ) {
+      delete updatePayload.paypalClientSecret;
+    }
 
     const [updated] = await db.update(settings)
       .set(updatePayload)
       .where(eq(settings.id, settingsRow.id))
       .returning();
 
-    // Mask secret in response
+    // Mask secrets in response
     const response = { ...updated };
     if (response.jofotaraClientSecret) {
       const secret = response.jofotaraClientSecret;
       response.jofotaraClientSecret = secret.length > 4
+        ? '****' + secret.slice(-4)
+        : '****';
+    }
+    if (response.paypalClientSecret) {
+      const secret = response.paypalClientSecret;
+      response.paypalClientSecret = secret.length > 4
         ? '****' + secret.slice(-4)
         : '****';
     }

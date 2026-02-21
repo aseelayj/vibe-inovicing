@@ -44,7 +44,20 @@ function calculateTotals(
 async function generateInvoiceNumber(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   isTaxable: boolean,
+  isWriteOff = false,
 ) {
+  if (isWriteOff) {
+    const [settingsRow] = await tx
+      .update(settings)
+      .set({ nextWriteOffNumber: sql`${settings.nextWriteOffNumber} + 1` })
+      .returning();
+    if (!settingsRow) {
+      throw new Error('Settings not found. Please configure settings first.');
+    }
+    const num = settingsRow.nextWriteOffNumber - 1;
+    return `${settingsRow.writeOffPrefix}-${String(num).padStart(4, '0')}`;
+  }
+
   const updateCol = isTaxable
     ? { nextInvoiceNumber: sql`${settings.nextInvoiceNumber} + 1` }
     : { nextExemptInvoiceNumber: sql`${settings.nextExemptInvoiceNumber} + 1` };
@@ -88,6 +101,9 @@ router.get('/', async (req, res, next) => {
 
     if (status && typeof status === 'string') {
       conditions.push(eq(invoices.status, status));
+    } else {
+      // Exclude written_off from default "all" list
+      conditions.push(sql`${invoices.status} != 'written_off'`);
     }
 
     if (clientId && typeof clientId === 'string') {
@@ -187,6 +203,7 @@ router.post('/', validate(createInvoiceSchema), async (req, res, next) => {
       taxRate: rawTaxRate = 0,
       discountAmount = 0,
       isTaxable = false,
+      isWriteOff = false,
       ...invoiceData
     } = req.body;
 
@@ -194,7 +211,9 @@ router.post('/', validate(createInvoiceSchema), async (req, res, next) => {
     const totals = calculateTotals(lineItemsInput, taxRate, discountAmount);
 
     const result = await db.transaction(async (tx) => {
-      const invoiceNumber = await generateInvoiceNumber(tx, isTaxable);
+      const invoiceNumber = await generateInvoiceNumber(
+        tx, isTaxable, isWriteOff,
+      );
 
       const [invoice] = await tx.insert(invoices).values({
         ...invoiceData,
@@ -205,7 +224,8 @@ router.post('/', validate(createInvoiceSchema), async (req, res, next) => {
         subtotal: totals.subtotal,
         taxAmount: totals.taxAmount,
         total: totals.total,
-        status: 'draft',
+        status: isWriteOff ? 'written_off' : 'draft',
+        amountPaid: isWriteOff ? '0' : undefined,
       }).returning();
 
       const lineItemRows = lineItemsInput.map(
@@ -224,8 +244,10 @@ router.post('/', validate(createInvoiceSchema), async (req, res, next) => {
       await tx.insert(activityLog).values({
         entityType: 'invoice',
         entityId: invoice.id,
-        action: 'created',
-        description: `Invoice ${invoice.invoiceNumber} created`,
+        action: isWriteOff ? 'written_off' : 'created',
+        description: isWriteOff
+          ? `Write-off invoice ${invoice.invoiceNumber} created`
+          : `Invoice ${invoice.invoiceNumber} created`,
       });
 
       return invoice;
@@ -261,6 +283,13 @@ router.put('/:id', validate(updateInvoiceSchema), async (req, res, next) => {
 
       if (!existing) {
         throw Object.assign(new Error('Invoice not found'), { status: 404 });
+      }
+
+      if (existing.status === 'written_off') {
+        throw Object.assign(
+          new Error('Cannot edit a written-off invoice'),
+          { status: 400 },
+        );
       }
 
       const effectiveTaxRate = taxRate ?? parseFloat(existing.taxRate);
@@ -331,8 +360,8 @@ router.put('/:id', validate(updateInvoiceSchema), async (req, res, next) => {
 
     res.json({ data: invoice });
   } catch (err: any) {
-    if (err.status === 404) {
-      res.status(404).json({ error: err.message });
+    if (err.status === 404 || err.status === 400) {
+      res.status(err.status).json({ error: err.message });
       return;
     }
     next(err);
@@ -448,6 +477,16 @@ router.patch(
       const id = parseId(req, res);
       if (id === null) return;
       const { status } = req.body;
+
+      // Block status changes on written-off invoices
+      const [existing] = await db.select({ status: invoices.status })
+        .from(invoices).where(eq(invoices.id, id));
+      if (existing?.status === 'written_off') {
+        res.status(400).json({
+          error: 'Cannot change status of a written-off invoice',
+        });
+        return;
+      }
 
       const updateData: Record<string, unknown> = {
         status,

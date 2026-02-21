@@ -39,6 +39,10 @@ export const settings = pgTable('settings', {
     .notNull().default('EINV'),
   nextExemptInvoiceNumber: integer('next_exempt_invoice_number')
     .notNull().default(1),
+  writeOffPrefix: varchar('write_off_prefix', { length: 10 })
+    .notNull().default('WO'),
+  nextWriteOffNumber: integer('next_write_off_number')
+    .notNull().default(1),
   quotePrefix: varchar('quote_prefix', { length: 10 })
     .notNull().default('QUO'),
   nextQuoteNumber: integer('next_quote_number')
@@ -54,6 +58,11 @@ export const settings = pgTable('settings', {
   jofotaraEnabled: boolean('jofotara_enabled').notNull().default(false),
   bankEtihadUsername: varchar('bank_etihad_username', { length: 100 }),
   bankEtihadEnabled: boolean('bank_etihad_enabled').notNull().default(false),
+  paypalClientId: varchar('paypal_client_id', { length: 255 }),
+  paypalClientSecret: text('paypal_client_secret'),
+  paypalEnvironment: varchar('paypal_environment', { length: 10 })
+    .notNull().default('sandbox'),
+  paypalEnabled: boolean('paypal_enabled').notNull().default(false),
   filingStatus: varchar('filing_status', { length: 20 })
     .notNull().default('single'),
   personalExemption: decimal('personal_exemption', {
@@ -290,7 +299,7 @@ export const bankAccounts = pgTable('bank_accounts', {
     .notNull().default('0'),
   isActive: boolean('is_active').notNull().default(true),
   notes: text('notes'),
-  bankEtihadLinked: boolean('bank_etihad_linked').notNull().default(false),
+  provider: varchar('provider', { length: 50 }).notNull().default('manual'),
   lastSyncAt: timestamp('last_sync_at'),
   lastSyncStatus: varchar('last_sync_status', { length: 20 }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
@@ -300,6 +309,8 @@ export const bankAccounts = pgTable('bank_accounts', {
 // ---- Bank Sessions (for bank portal auth tokens) ----
 export const bankSessions = pgTable('bank_sessions', {
   id: serial('id').primaryKey(),
+  bankAccountId: integer('bank_account_id')
+    .references(() => bankAccounts.id, { onDelete: 'cascade' }),
   provider: varchar('provider', { length: 50 }).notNull()
     .default('bank_al_etihad'),
   token: text('token').notNull(),

@@ -1,0 +1,20 @@
+{
+  "dashboard": "لوحة التحكم",
+  "invoices": "الفواتير",
+  "quotes": "عروض الأسعار",
+  "clients": "العملاء",
+  "payments": "المدفوعات",
+  "recurring": "الفواتير المتكررة",
+  "bankAccounts": "الحسابات البنكية",
+  "transactions": "المعاملات",
+  "taxReports": "التقارير الضريبية",
+  "settings": "الإعدادات",
+  "logout": "تسجيل الخروج",
+  "appName": "Vibe للفوترة",
+  "toggleMenu": "تبديل القائمة",
+  "closeChat": "إغلاق المحادثة",
+  "aiChat": "محادثة ذكية",
+  "page": "الصفحة",
+  "defaultMode": "افتراضي",
+  "chatMode": "محادثة"
+}

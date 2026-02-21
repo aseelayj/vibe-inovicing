@@ -107,7 +107,7 @@ router.post('/', validate(createPaymentSchema), async (req, res, next) => {
       return;
     }
 
-    if (invoice.status === 'draft' || invoice.status === 'cancelled') {
+    if (['draft', 'cancelled', 'written_off'].includes(invoice.status)) {
       res.status(400).json({
         error: `Cannot record payment for ${invoice.status} invoice`,
       });

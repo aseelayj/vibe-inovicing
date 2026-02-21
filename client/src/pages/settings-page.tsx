@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { Loader2 } from 'lucide-react';
 import {
@@ -45,6 +46,10 @@ interface SettingsFormValues {
   jofotaraCompanyTin: string;
   jofotaraIncomeSourceSequence: string;
   jofotaraInvoiceType: string;
+  paypalEnabled: boolean;
+  paypalClientId: string;
+  paypalClientSecret: string;
+  paypalEnvironment: string;
   filingStatus: string;
   personalExemption: number;
   familyExemption: number;
@@ -52,6 +57,7 @@ interface SettingsFormValues {
 }
 
 export function SettingsPage() {
+  const { t } = useTranslation('settings');
   const { data: settings, isLoading } = useSettings();
   const updateSettings = useUpdateSettings();
 
@@ -86,6 +92,10 @@ export function SettingsPage() {
           settings.jofotaraIncomeSourceSequence || '',
         jofotaraInvoiceType:
           settings.jofotaraInvoiceType || 'general_sales',
+        paypalEnabled: settings.paypalEnabled || false,
+        paypalClientId: settings.paypalClientId || '',
+        paypalClientSecret: settings.paypalClientSecret || '',
+        paypalEnvironment: settings.paypalEnvironment || 'sandbox',
         filingStatus: (settings as any).filingStatus || 'single',
         personalExemption: (settings as any).personalExemption ?? 9000,
         familyExemption: (settings as any).familyExemption ?? 9000,
@@ -103,28 +113,28 @@ export function SettingsPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       <div>
-        <h2 className="text-xl font-bold tracking-tight sm:text-2xl">Settings</h2>
+        <h2 className="text-xl font-bold tracking-tight sm:text-2xl">{t('title')}</h2>
         <p className="mt-0.5 hidden text-sm text-muted-foreground sm:block">
-          Configure your business profile and invoice defaults
+          {t('subtitle')}
         </p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="max-w-2xl space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Business Information</CardTitle>
+            <CardTitle>{t('businessInfo')}</CardTitle>
             <CardDescription>
-              Your business details appear on invoices and quotes
+              {t('businessInfoDesc')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="businessName">Business Name</Label>
+              <Label htmlFor="businessName">{t('businessName')}</Label>
               <Input
                 id="businessName"
-                placeholder="Your Business Name"
+                placeholder={t('businessNamePlaceholder')}
                 {...register('businessName', {
-                  required: 'Business name is required',
+                  required: t('businessNameRequired'),
                 })}
               />
               {errors.businessName?.message && (
@@ -135,13 +145,13 @@ export function SettingsPage() {
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="businessEmail">Email</Label>
+                <Label htmlFor="businessEmail">{t('email')}</Label>
                 <Input
                   id="businessEmail"
                   type="email"
-                  placeholder="billing@example.com"
+                  placeholder={t('emailPlaceholder')}
                   {...register('businessEmail', {
-                    required: 'Email is required',
+                    required: t('emailRequired'),
                   })}
                 />
                 {errors.businessEmail?.message && (
@@ -151,29 +161,29 @@ export function SettingsPage() {
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="businessPhone">Phone</Label>
+                <Label htmlFor="businessPhone">{t('phone')}</Label>
                 <Input
                   id="businessPhone"
                   type="tel"
-                  placeholder="+1 (555) 000-0000"
+                  placeholder={t('phonePlaceholder')}
                   {...register('businessPhone')}
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="businessAddress">Address</Label>
+              <Label htmlFor="businessAddress">{t('address')}</Label>
               <Textarea
                 id="businessAddress"
                 rows={3}
-                placeholder="Your business address..."
+                placeholder={t('addressPlaceholder')}
                 {...register('businessAddress')}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="taxId">Tax ID / VAT Number</Label>
+              <Label htmlFor="taxId">{t('taxIdVat')}</Label>
               <Input
                 id="taxId"
-                placeholder="XX-XXXXXXX"
+                placeholder={t('taxIdPlaceholder')}
                 {...register('taxId')}
               />
             </div>
@@ -182,15 +192,15 @@ export function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Invoice Defaults</CardTitle>
+            <CardTitle>{t('invoiceDefaults')}</CardTitle>
             <CardDescription>
-              Default values for new invoices and quotes
+              {t('invoiceDefaultsDesc')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Default Currency</Label>
+                <Label>{t('defaultCurrency')}</Label>
                 <Select
                   value={watch('defaultCurrency') || 'USD'}
                   onValueChange={(val) => {
@@ -198,7 +208,7 @@ export function SettingsPage() {
                   }}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select currency" />
+                    <SelectValue placeholder={t('selectCurrency')} />
                   </SelectTrigger>
                   <SelectContent>
                     {CURRENCIES.map((c) => (
@@ -210,7 +220,7 @@ export function SettingsPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="defaultTaxRate">Default Tax Rate (%)</Label>
+                <Label htmlFor="defaultTaxRate">{t('defaultTaxRate')}</Label>
                 <Input
                   id="defaultTaxRate"
                   type="number"
@@ -223,7 +233,7 @@ export function SettingsPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="defaultPaymentTerms">
-                Default Payment Terms (days)
+                {t('defaultPaymentTerms')}
               </Label>
               <Input
                 id="defaultPaymentTerms"
@@ -234,7 +244,7 @@ export function SettingsPage() {
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="space-y-2">
-                <Label htmlFor="invoicePrefix">Taxable Invoice Prefix</Label>
+                <Label htmlFor="invoicePrefix">{t('taxableInvoicePrefix')}</Label>
                 <Input
                   id="invoicePrefix"
                   placeholder="INV"
@@ -244,7 +254,7 @@ export function SettingsPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="exemptInvoicePrefix">
-                  Exempt Invoice Prefix
+                  {t('exemptInvoicePrefix')}
                 </Label>
                 <Input
                   id="exemptInvoicePrefix"
@@ -254,7 +264,7 @@ export function SettingsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="quotePrefix">Quote Prefix</Label>
+                <Label htmlFor="quotePrefix">{t('quotePrefix')}</Label>
                 <Input
                   id="quotePrefix"
                   placeholder="QTE"
@@ -268,9 +278,9 @@ export function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>JoFotara E-Invoicing</CardTitle>
+            <CardTitle>{t('jofotaraTitle')}</CardTitle>
             <CardDescription>
-              Configure Jordan&apos;s official e-invoicing system
+              {t('jofotaraDesc')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -282,7 +292,7 @@ export function SettingsPage() {
                 {...register('jofotaraEnabled')}
               />
               <Label htmlFor="jofotaraEnabled">
-                Enable JoFotara e-invoicing
+                {t('enableJofotara')}
               </Label>
             </div>
 
@@ -291,22 +301,22 @@ export function SettingsPage() {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="jofotaraClientId">
-                      Client ID
+                      {t('jofotaraClientId')}
                     </Label>
                     <Input
                       id="jofotaraClientId"
-                      placeholder="UUID from JoFotara portal"
+                      placeholder={t('jofotaraClientIdPlaceholder')}
                       {...register('jofotaraClientId')}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="jofotaraClientSecret">
-                      Client Secret
+                      {t('jofotaraClientSecret')}
                     </Label>
                     <Input
                       id="jofotaraClientSecret"
                       type="password"
-                      placeholder="Secret from JoFotara portal"
+                      placeholder={t('jofotaraClientSecretPlaceholder')}
                       {...register('jofotaraClientSecret')}
                     />
                   </div>
@@ -315,28 +325,28 @@ export function SettingsPage() {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="jofotaraCompanyTin">
-                      Company TIN
+                      {t('jofotaraCompanyTin')}
                     </Label>
                     <Input
                       id="jofotaraCompanyTin"
-                      placeholder="8-digit TIN"
+                      placeholder={t('jofotaraCompanyTinPlaceholder')}
                       {...register('jofotaraCompanyTin')}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="jofotaraIncomeSourceSequence">
-                      Income Source Sequence
+                      {t('jofotaraIncomeSourceSeq')}
                     </Label>
                     <Input
                       id="jofotaraIncomeSourceSequence"
-                      placeholder="Income source ID"
+                      placeholder={t('jofotaraIncomeSourceSeqPlaceholder')}
                       {...register('jofotaraIncomeSourceSequence')}
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Default Invoice Type</Label>
+                  <Label>{t('jofotaraDefaultInvoiceType')}</Label>
                   <Select
                     value={
                       watch('jofotaraInvoiceType') || 'general_sales'
@@ -348,12 +358,12 @@ export function SettingsPage() {
                     }
                   >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select type" />
+                      <SelectValue placeholder={t('selectType')} />
                     </SelectTrigger>
                     <SelectContent>
-                      {JOFOTARA_INVOICE_TYPES.map((t) => (
-                        <SelectItem key={t} value={t}>
-                          {t.replace(/_/g, ' ').replace(/\b\w/g, (c) =>
+                      {JOFOTARA_INVOICE_TYPES.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {type.replace(/_/g, ' ').replace(/\b\w/g, (c) =>
                             c.toUpperCase(),
                           )}
                         </SelectItem>
@@ -368,14 +378,91 @@ export function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Income Tax Exemptions (إعفاءات ضريبة الدخل)</CardTitle>
+            <CardTitle>{t('paypalTitle')}</CardTitle>
             <CardDescription>
-              Configure exemptions for annual income tax calculation
+              {t('paypalDesc')}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="paypalEnabled"
+                className="h-4 w-4 rounded border-gray-300"
+                {...register('paypalEnabled')}
+              />
+              <Label htmlFor="paypalEnabled">
+                {t('enablePaypal')}
+              </Label>
+            </div>
+
+            {watch('paypalEnabled') && (
+              <div className="space-y-4 pt-2">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="paypalClientId">
+                      {t('paypalClientId')}
+                    </Label>
+                    <Input
+                      id="paypalClientId"
+                      placeholder={t('paypalClientIdPlaceholder')}
+                      {...register('paypalClientId')}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="paypalClientSecret">
+                      {t('paypalClientSecret')}
+                    </Label>
+                    <Input
+                      id="paypalClientSecret"
+                      type="password"
+                      placeholder={t('paypalClientSecretPlaceholder')}
+                      {...register('paypalClientSecret')}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>{t('paypalEnvironment')}</Label>
+                  <Select
+                    value={watch('paypalEnvironment') || 'sandbox'}
+                    onValueChange={(val) =>
+                      setValue('paypalEnvironment', val, {
+                        shouldDirty: true,
+                      })
+                    }
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder={t('selectEnvironment')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sandbox">
+                        {t('paypalSandbox')}
+                      </SelectItem>
+                      <SelectItem value="live">
+                        {t('paypalLive')}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {t('paypalEnvironmentHint')}
+                  </p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('incomeTaxExemptions')} ({t('incomeTaxExemptionsAr')})</CardTitle>
+            <CardDescription>
+              {t('incomeTaxExemptionsDesc')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>Filing Status</Label>
+              <Label>{t('filingStatus')}</Label>
               <Select
                 value={watch('filingStatus') || 'single'}
                 onValueChange={(val) =>
@@ -383,14 +470,14 @@ export function SettingsPage() {
                 }
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select status" />
+                  <SelectValue placeholder={t('selectStatus')} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="single">
-                    Single (أعزب)
+                    {t('single')} ({t('singleAr')})
                   </SelectItem>
                   <SelectItem value="married">
-                    Married (متزوج)
+                    {t('married')} ({t('marriedAr')})
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -398,7 +485,7 @@ export function SettingsPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="personalExemption">
-                  Personal Exemption (JOD)
+                  {t('personalExemption')}
                 </Label>
                 <Input
                   id="personalExemption"
@@ -408,13 +495,13 @@ export function SettingsPage() {
                   {...register('personalExemption', { valueAsNumber: true })}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Default: 9,000 JOD
+                  {t('personalExemptionDefault')}
                 </p>
               </div>
               {watch('filingStatus') === 'married' && (
                 <div className="space-y-2">
                   <Label htmlFor="familyExemption">
-                    Family Exemption (JOD)
+                    {t('familyExemption')}
                   </Label>
                   <Input
                     id="familyExemption"
@@ -424,14 +511,14 @@ export function SettingsPage() {
                     {...register('familyExemption', { valueAsNumber: true })}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Default: 9,000 JOD (if married)
+                    {t('familyExemptionDefault')}
                   </p>
                 </div>
               )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="additionalExemptions">
-                Additional Exemptions (JOD)
+                {t('additionalExemptions')}
               </Label>
               <Input
                 id="additionalExemptions"
@@ -442,7 +529,7 @@ export function SettingsPage() {
                 {...register('additionalExemptions', { valueAsNumber: true })}
               />
               <p className="text-xs text-muted-foreground">
-                Medical, education, rent, housing loan interest — max 3,000 JOD
+                {t('additionalExemptionsDesc')}
               </p>
             </div>
           </CardContent>
@@ -455,7 +542,7 @@ export function SettingsPage() {
           {updateSettings.isPending && (
             <Loader2 className="h-4 w-4 animate-spin" />
           )}
-          Save Settings
+          {t('saveSettings')}
         </Button>
       </form>
     </div>

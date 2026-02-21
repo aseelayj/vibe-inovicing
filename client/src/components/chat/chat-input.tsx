@@ -2,8 +2,12 @@ import {
   forwardRef, useCallback, useImperativeHandle, useRef, useState,
   type KeyboardEvent,
 } from 'react';
-import { Send, Paperclip, Square } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { ArrowUp, Paperclip, Square, Mic, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
+import { cn } from '@/lib/utils';
+import { useAudioRecorder } from '@/hooks/use-audio-recorder';
+import { VoiceRecorder } from './voice-recorder';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -15,11 +19,16 @@ interface ChatInputProps {
 
 export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(
   function ChatInput({ onSend, onUpload, isStreaming, onStop, disabled }, ref) {
+    const { t } = useTranslation('chat');
     const [value, setValue] = useState('');
+    const [isTranscribing, setIsTranscribing] = useState(false);
+    const {
+      isRecording, duration, analyserRef, audioLevelsRef,
+      startRecording, stopRecording, cancelRecording,
+    } = useAudioRecorder();
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Forward ref to the textarea for external focus control
     useImperativeHandle(ref, () => textareaRef.current!);
 
     const handleSend = useCallback(() => {
@@ -54,7 +63,6 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(
       e.target.value = '';
     };
 
-    // Handle clipboard paste of images
     const handlePaste = useCallback((e: React.ClipboardEvent) => {
       const items = e.clipboardData?.items;
       if (!items || !onUpload) return;
@@ -70,65 +78,149 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(
       }
     }, [onUpload]);
 
+    const handleStartRecording = useCallback(async () => {
+      try {
+        await startRecording();
+      } catch {
+        toast.error('Could not access microphone');
+      }
+    }, [startRecording]);
+
+    const handleCancelRecording = useCallback(() => {
+      cancelRecording();
+    }, [cancelRecording]);
+
+    const handleSendRecording = useCallback(async () => {
+      try {
+        setIsTranscribing(true);
+        const audioBlob = await stopRecording();
+
+        const formData = new FormData();
+        formData.append('audio', audioBlob, 'recording.webm');
+
+        const token = localStorage.getItem('token');
+        const res = await fetch('/api/chat/transcribe', {
+          method: 'POST',
+          body: formData,
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+
+        if (!res.ok) throw new Error('Transcription failed');
+        const data = await res.json();
+
+        if (data?.data?.text) {
+          onSend(data.data.text);
+        }
+      } catch (err) {
+        console.error('Failed to transcribe audio:', err);
+        toast.error('Failed to transcribe audio.');
+      } finally {
+        setIsTranscribing(false);
+      }
+    }, [stopRecording, onSend]);
+
+    const canSend = value.trim().length > 0 && !isStreaming && !disabled;
+
     return (
-      <div className="border-t bg-background p-3">
-        <div className="flex items-end gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 shrink-0"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isStreaming}
-            aria-label="Attach file"
-          >
-            <Paperclip className="h-4 w-4" />
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            className="hidden"
-            accept="image/*,.pdf,.csv,.xlsx,.xls"
-            onChange={handleFileChange}
-          />
-          <textarea
-            ref={textareaRef}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onInput={handleInput}
-            onPaste={handlePaste}
-            placeholder="Ask anything..."
-            rows={1}
-            maxLength={4000}
-            disabled={isStreaming || disabled}
-            aria-label="Chat message"
-            className="flex-1 resize-none rounded-lg border bg-muted/50 px-3 py-2
-              text-sm outline-none placeholder:text-muted-foreground
-              focus:ring-1 focus:ring-ring disabled:opacity-50"
-          />
-          {isStreaming ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 shrink-0"
-              onClick={onStop}
-              aria-label="Stop generating"
-            >
-              <Square className="h-4 w-4" />
-            </Button>
+      <div className="px-3 pb-3 pt-1">
+        <div
+          className={cn(
+            'relative rounded-2xl border bg-muted/40 transition-colors',
+            'focus-within:border-ring focus-within:bg-muted/60',
+            isRecording && 'border-destructive/50 bg-destructive/5',
+          )}
+        >
+          {isRecording || isTranscribing ? (
+            <VoiceRecorder
+              duration={duration}
+              analyserRef={analyserRef}
+              audioLevelsRef={audioLevelsRef}
+              isTranscribing={isTranscribing}
+              onCancel={handleCancelRecording}
+              onSend={handleSendRecording}
+            />
           ) : (
-            <Button
-              type="button"
-              size="icon"
-              className="h-8 w-8 shrink-0"
-              onClick={handleSend}
-              disabled={!value.trim() || disabled}
-              aria-label="Send message"
-            >
-              <Send className="h-4 w-4" />
-            </Button>
+            <>
+              <textarea
+                ref={textareaRef}
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onInput={handleInput}
+                onPaste={handlePaste}
+                placeholder={t('askAnything')}
+                rows={1}
+                maxLength={4000}
+                disabled={isStreaming || disabled}
+                aria-label={t('chatMessage')}
+                className="w-full resize-none bg-transparent px-4 pt-3 pb-10 text-sm
+                  outline-none placeholder:text-muted-foreground/60 disabled:opacity-50"
+              />
+
+              {/* Bottom toolbar inside the container */}
+              <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between">
+                <div className="flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isStreaming}
+                    aria-label={t('attachFile')}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg
+                      text-muted-foreground/70 transition-colors
+                      hover:bg-background hover:text-foreground
+                      disabled:pointer-events-none disabled:opacity-40"
+                  >
+                    <Paperclip className="h-4 w-4" />
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept="image/*,.pdf,.csv,.xlsx,.xls"
+                    onChange={handleFileChange}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleStartRecording}
+                    disabled={isStreaming || disabled}
+                    aria-label={t('voiceInput')}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg
+                      text-muted-foreground/70 transition-colors
+                      hover:bg-background hover:text-foreground
+                      disabled:pointer-events-none disabled:opacity-40"
+                  >
+                    <Mic className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {isStreaming ? (
+                  <button
+                    type="button"
+                    onClick={onStop}
+                    aria-label={t('stopGenerating')}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg
+                      bg-foreground text-background transition-opacity hover:opacity-80"
+                  >
+                    <Square className="h-3 w-3" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSend}
+                    disabled={!canSend}
+                    aria-label={t('sendMessage')}
+                    className={cn(
+                      'flex h-7 w-7 items-center justify-center rounded-lg transition-all',
+                      canSend
+                        ? 'bg-primary text-primary-foreground hover:opacity-90'
+                        : 'bg-muted-foreground/20 text-muted-foreground/40',
+                    )}
+                  >
+                    <ArrowUp className="h-4 w-4" strokeWidth={2.5} />
+                  </button>
+                )}
+              </div>
+            </>
           )}
         </div>
       </div>

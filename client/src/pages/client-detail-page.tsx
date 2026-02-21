@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate, Link } from 'react-router';
 import {
   ArrowLeft,
@@ -48,6 +49,10 @@ import { STATUS_COLORS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 
 export function ClientDetailPage() {
+  const { t } = useTranslation('clients');
+  const { t: tc } = useTranslation('common');
+  const { t: tq } = useTranslation('quotes');
+  const { t: ti } = useTranslation('invoices');
   const { id } = useParams();
   const navigate = useNavigate();
   const { data: client, isLoading } = useClient(id);
@@ -123,7 +128,7 @@ export function ClientDetailPage() {
             onClick={() => setShowEdit(true)}
           >
             <Pencil className="h-4 w-4" />
-            <span className="hidden sm:inline">Edit</span>
+            <span className="hidden sm:inline">{tc('edit')}</span>
           </Button>
           <Button
             variant="destructive"
@@ -131,7 +136,7 @@ export function ClientDetailPage() {
             onClick={() => setShowDelete(true)}
           >
             <Trash2 className="h-4 w-4" />
-            <span className="hidden sm:inline">Delete</span>
+            <span className="hidden sm:inline">{tc('delete')}</span>
           </Button>
         </div>
       </div>
@@ -139,7 +144,7 @@ export function ClientDetailPage() {
       <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-3">
         <Card>
           <CardHeader>
-            <CardTitle>Contact Info</CardTitle>
+            <CardTitle>{t('contactInfo')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {client.email && (
@@ -171,7 +176,7 @@ export function ClientDetailPage() {
             {client.notes && (
               <div className="border-t pt-4">
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Notes
+                  {tc('notes')}
                 </p>
                 <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
                   {client.notes}
@@ -184,8 +189,8 @@ export function ClientDetailPage() {
         <div className="xl:col-span-2">
           <Tabs defaultValue="invoices">
             <TabsList>
-              <TabsTrigger value="invoices">Invoices</TabsTrigger>
-              <TabsTrigger value="quotes">Quotes</TabsTrigger>
+              <TabsTrigger value="invoices">{ti('title')}</TabsTrigger>
+              <TabsTrigger value="quotes">{tq('title')}</TabsTrigger>
             </TabsList>
 
             <TabsContent value="invoices">
@@ -193,10 +198,10 @@ export function ClientDetailPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Invoice</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead>{ti('invoice')}</TableHead>
+                      <TableHead>{tc('status')}</TableHead>
+                      <TableHead>{tc('date')}</TableHead>
+                      <TableHead className="text-right">{tc('total')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -206,7 +211,7 @@ export function ClientDetailPage() {
                           colSpan={4}
                           className="py-8 text-center text-muted-foreground"
                         >
-                          No invoices for this client
+                          {t('noInvoicesForClient')}
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -250,10 +255,10 @@ export function ClientDetailPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Quote</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead>{tq('quote')}</TableHead>
+                      <TableHead>{tc('status')}</TableHead>
+                      <TableHead>{tc('date')}</TableHead>
+                      <TableHead className="text-right">{tc('total')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -263,7 +268,7 @@ export function ClientDetailPage() {
                           colSpan={4}
                           className="py-8 text-center text-muted-foreground"
                         >
-                          No quotes for this client
+                          {t('noQuotesForClient')}
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -312,9 +317,9 @@ export function ClientDetailPage() {
       >
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Edit Client</DialogTitle>
+            <DialogTitle>{t('editClient')}</DialogTitle>
             <DialogDescription>
-              Update {client.name}'s information.
+              {t('editClientDesc', { name: client.name })}
             </DialogDescription>
           </DialogHeader>
           <ClientForm
@@ -333,10 +338,9 @@ export function ClientDetailPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Client</DialogTitle>
+            <DialogTitle>{t('deleteClient')}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this client? Associated
-              invoices and quotes will not be deleted.
+              {t('deleteClientConfirm')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -344,14 +348,14 @@ export function ClientDetailPage() {
               variant="outline"
               onClick={() => setShowDelete(false)}
             >
-              Cancel
+              {tc('cancel')}
             </Button>
             <Button
               variant="destructive"
               onClick={handleDelete}
               disabled={deleteClient.isPending}
             >
-              {deleteClient.isPending ? 'Deleting...' : 'Delete'}
+              {deleteClient.isPending ? tc('deleting') : tc('delete')}
             </Button>
           </DialogFooter>
         </DialogContent>

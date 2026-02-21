@@ -125,7 +125,7 @@ router.post('/', validate(createRecurringSchema), async (req, res, next) => {
 // PUT /:id - Update recurring invoice and replace line items
 router.put('/:id', validate(createRecurringSchema), async (req, res, next) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = parseInt(req.params.id as string, 10);
     const {
       lineItems: lineItemsInput,
       taxRate = 0,

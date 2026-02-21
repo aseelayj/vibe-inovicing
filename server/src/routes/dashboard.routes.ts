@@ -52,10 +52,11 @@ router.get('/stats', async (req, res, next) => {
 
     const overdueAmount = parseFloat(overdueResult?.value ?? '0');
 
-    // Total invoices count
+    // Total invoices count (exclude written-off)
     const [invoiceCountResult] = await db
       .select({ value: count() })
-      .from(invoices);
+      .from(invoices)
+      .where(sql`${invoices.status} != 'written_off'`);
 
     const totalInvoices = invoiceCountResult?.value ?? 0;
 

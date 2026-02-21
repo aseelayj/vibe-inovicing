@@ -6,6 +6,7 @@ export const STATUS_COLORS: Record<string, string> = {
   partially_paid: 'bg-yellow-100 text-yellow-700',
   overdue: 'bg-red-100 text-red-700',
   cancelled: 'bg-gray-100 text-gray-500',
+  written_off: 'bg-orange-100 text-orange-700',
   accepted: 'bg-green-100 text-green-700',
   rejected: 'bg-red-100 text-red-700',
   expired: 'bg-gray-100 text-gray-500',
@@ -35,15 +36,30 @@ export const JORDAN_CITY_NAMES: Record<string, string> = {
   'JO-AQ': 'Aqaba',
 };
 
+export const JORDAN_CITY_NAMES_AR: Record<string, string> = {
+  'JO-AM': 'عمّان',
+  'JO-IR': 'إربد',
+  'JO-AZ': 'الزرقاء',
+  'JO-BA': 'البلقاء',
+  'JO-MA': 'المفرق',
+  'JO-KA': 'الكرك',
+  'JO-JA': 'جرش',
+  'JO-AJ': 'عجلون',
+  'JO-AT': 'الطفيلة',
+  'JO-MN': 'معان',
+  'JO-MD': 'مادبا',
+  'JO-AQ': 'العقبة',
+};
+
 export const NAV_ITEMS = [
-  { label: 'Dashboard', path: '/', icon: 'LayoutDashboard' },
-  { label: 'Invoices', path: '/invoices', icon: 'FileText' },
-  { label: 'Quotes', path: '/quotes', icon: 'FileCheck' },
-  { label: 'Clients', path: '/clients', icon: 'Users' },
-  { label: 'Payments', path: '/payments', icon: 'CreditCard' },
-  { label: 'Recurring', path: '/recurring', icon: 'RefreshCw' },
-  { label: 'Bank Accounts', path: '/bank-accounts', icon: 'Landmark' },
-  { label: 'Transactions', path: '/transactions', icon: 'ArrowLeftRight' },
-  { label: 'Tax Reports', path: '/tax-reports', icon: 'FileSpreadsheet' },
-  { label: 'Settings', path: '/settings', icon: 'Settings' },
+  { labelKey: 'dashboard', path: '/', icon: 'LayoutDashboard' },
+  { labelKey: 'invoices', path: '/invoices', icon: 'FileText' },
+  { labelKey: 'quotes', path: '/quotes', icon: 'FileCheck' },
+  { labelKey: 'clients', path: '/clients', icon: 'Users' },
+  { labelKey: 'payments', path: '/payments', icon: 'CreditCard' },
+  { labelKey: 'recurring', path: '/recurring', icon: 'RefreshCw' },
+  { labelKey: 'bankAccounts', path: '/bank-accounts', icon: 'Landmark' },
+  { labelKey: 'transactions', path: '/transactions', icon: 'ArrowLeftRight' },
+  { labelKey: 'taxReports', path: '/tax-reports', icon: 'FileSpreadsheet' },
+  { labelKey: 'settings', path: '/settings', icon: 'Settings' },
 ] as const;

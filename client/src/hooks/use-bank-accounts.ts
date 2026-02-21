@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
-import type { BankAccount } from '@vibe/shared';
+import type { BankAccount, BankSyncResult } from '@vibe/shared';
 import { toast } from 'sonner';
 
 export function useBankAccounts(activeOnly = false) {
@@ -69,5 +69,49 @@ export function useDeleteBankAccount() {
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to delete bank account');
     },
+  });
+}
+
+export function useDisconnectProvider() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: number) =>
+      api.post(`/bank-accounts/${id}/disconnect`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
+      toast.success('Provider disconnected');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to disconnect provider');
+    },
+  });
+}
+
+export function useSyncBankAccount() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: {
+      id: number;
+      data: { fromDate: string; toDate: string };
+    }) => api.post<BankSyncResult>(`/bank-accounts/${id}/sync`, data),
+    onSuccess: (_data) => {
+      queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to sync transactions');
+    },
+  });
+}
+
+export function useSyncStatus(id: number | undefined) {
+  return useQuery({
+    queryKey: ['bank-accounts', id, 'sync-status'],
+    queryFn: () => api.get(`/bank-accounts/${id}/sync-status`),
+    enabled: !!id,
+    refetchInterval: 30000,
   });
 }

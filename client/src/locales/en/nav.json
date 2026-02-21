@@ -1,0 +1,20 @@
+{
+  "dashboard": "Dashboard",
+  "invoices": "Invoices",
+  "quotes": "Quotes",
+  "clients": "Clients",
+  "payments": "Payments",
+  "recurring": "Recurring",
+  "bankAccounts": "Bank Accounts",
+  "transactions": "Transactions",
+  "taxReports": "Tax Reports",
+  "settings": "Settings",
+  "logout": "Logout",
+  "appName": "Vibe Invoicing",
+  "toggleMenu": "Toggle menu",
+  "closeChat": "Close Chat",
+  "aiChat": "AI Chat",
+  "page": "Page",
+  "defaultMode": "Default",
+  "chatMode": "Chat"
+}

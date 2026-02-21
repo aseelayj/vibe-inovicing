@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate, Link } from 'react-router';
 import {
   ArrowLeft,
@@ -14,6 +15,7 @@ import {
   AlertCircle,
   ChevronDown,
   ChevronUp,
+  Bell,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { Badge } from '@/components/ui/badge';
@@ -63,6 +65,7 @@ import {
   useInvoice,
   useDeleteInvoice,
   useSendInvoice,
+  useSendReminder,
 } from '@/hooks/use-invoices';
 import {
   useInvoicePayments,
@@ -86,6 +89,8 @@ import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 
 export function InvoiceDetailPage() {
+  const { t } = useTranslation('invoices');
+  const { t: tc } = useTranslation('common');
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -93,6 +98,7 @@ export function InvoiceDetailPage() {
   const { data: payments } = useInvoicePayments(invoice?.id);
   const deleteInvoice = useDeleteInvoice();
   const sendInvoice = useSendInvoice();
+  const sendReminder = useSendReminder();
   const createPayment = useCreatePayment();
   const deletePayment = useDeletePayment();
   const { data: settings } = useSettings();
@@ -106,6 +112,7 @@ export function InvoiceDetailPage() {
 
   const [showDelete, setShowDelete] = useState(false);
   const [showSend, setShowSend] = useState(false);
+  const [showReminder, setShowReminder] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const [deletePaymentId, setDeletePaymentId] = useState<number | null>(
     null,
@@ -149,6 +156,15 @@ export function InvoiceDetailPage() {
     try {
       await sendInvoice.mutateAsync(invoice.id);
       setShowSend(false);
+    } catch {
+      // handled
+    }
+  };
+
+  const handleSendReminder = async () => {
+    try {
+      await sendReminder.mutateAsync(invoice.id);
+      setShowReminder(false);
     } catch {
       // handled
     }
@@ -267,7 +283,7 @@ export function InvoiceDetailPage() {
                       : 'bg-gray-100 text-gray-600',
                   )}
                 >
-                  {invoice.isTaxable ? 'Taxable' : 'Exempt'}
+                  {invoice.isTaxable ? tc('taxable') : tc('exempt')}
                 </Badge>
                 <Badge
                   variant="outline"
@@ -280,22 +296,22 @@ export function InvoiceDetailPage() {
                 </Badge>
                 {invoice.jofotaraStatus &&
                   invoice.jofotaraStatus !== 'not_submitted' && (
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      JOFOTARA_STATUS_COLORS[invoice.jofotaraStatus],
-                      'border-transparent',
-                    )}
-                  >
-                    <Globe className="mr-1 h-3 w-3" />
-                    {invoice.jofotaraStatus === 'submitted'
-                      ? 'E-Invoiced'
-                      : invoice.jofotaraStatus.replace(/_/g, ' ')}
-                  </Badge>
-                )}
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        JOFOTARA_STATUS_COLORS[invoice.jofotaraStatus],
+                        'border-transparent',
+                      )}
+                    >
+                      <Globe className="mr-1 h-3 w-3" />
+                      {invoice.jofotaraStatus === 'submitted'
+                        ? t('jofotaraEInvoiced')
+                        : invoice.jofotaraStatus.replace(/_/g, ' ')}
+                    </Badge>
+                  )}
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
-                Created {formatDate(invoice.createdAt)}
+                {t('created', { date: formatDate(invoice.createdAt) })}
                 {invoice.issueDate && (() => {
                   const d = new Date(invoice.issueDate);
                   const periodIdx = Math.floor(d.getMonth() / 2);
@@ -307,7 +323,10 @@ export function InvoiceDetailPage() {
                         to={`/tax-reports?tab=sales-tax&year=${d.getFullYear()}&period=${periodIdx}`}
                         className="inline-flex items-center gap-1 text-primary hover:underline"
                       >
-                        {period.label} {d.getFullYear()} tax period
+                        {t('taxPeriod', {
+                          period: period.label,
+                          year: d.getFullYear(),
+                        })}
                       </Link>
                     </>
                   );
@@ -317,17 +336,29 @@ export function InvoiceDetailPage() {
           </div>
 
           {/* Desktop actions */}
+          {invoice.status !== 'written_off' && (
           <div className="hidden items-center gap-2 lg:flex">
             <Link to={`/invoices/${invoice.id}/edit`}>
               <Button variant="outline" size="sm">
                 <Pencil className="h-4 w-4" />
-                Edit
+                {tc('edit')}
               </Button>
             </Link>
             {invoice.status === 'draft' && (
               <Button size="sm" onClick={() => setShowSend(true)}>
                 <Send className="h-4 w-4" />
-                Send
+                {tc('send')}
+              </Button>
+            )}
+            {invoice.status !== 'paid' && invoice.status !== 'draft' && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800"
+                onClick={() => setShowReminder(true)}
+              >
+                <Bell className="h-4 w-4" />
+                {t('sendReminder')}
               </Button>
             )}
             <Button
@@ -353,7 +384,7 @@ export function InvoiceDetailPage() {
               }}
             >
               <Download className="h-4 w-4" />
-              PDF
+              {tc('pdf')}
             </Button>
             {remaining > 0 && (
               <Button
@@ -365,22 +396,23 @@ export function InvoiceDetailPage() {
                 }}
               >
                 <CreditCard className="h-4 w-4" />
-                Record Payment
+                {t('recordPayment')}
               </Button>
             )}
             {settings?.jofotaraEnabled &&
               invoice.isTaxable &&
               invoice.jofotaraStatus !== 'submitted' && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleJofotaraOpen}
-              >
-                <Globe className="h-4 w-4" />
-                Export to JoFotara
-              </Button>
-            )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleJofotaraOpen}
+                >
+                  <Globe className="h-4 w-4" />
+                  {t('exportToJofotara')}
+                </Button>
+              )}
           </div>
+          )}
 
           {/* More menu (always visible) */}
           <DropdownMenu>
@@ -391,17 +423,24 @@ export function InvoiceDetailPage() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {/* Mobile-only quick actions */}
+              {invoice.status !== 'written_off' && (
               <div className="lg:hidden">
                 <DropdownMenuItem asChild>
                   <Link to={`/invoices/${invoice.id}/edit`}>
                     <Pencil className="h-4 w-4" />
-                    Edit
+                    {tc('edit')}
                   </Link>
                 </DropdownMenuItem>
                 {invoice.status === 'draft' && (
                   <DropdownMenuItem onClick={() => setShowSend(true)}>
                     <Send className="h-4 w-4" />
-                    Send
+                    {tc('send')}
+                  </DropdownMenuItem>
+                )}
+                {invoice.status !== 'paid' && invoice.status !== 'draft' && (
+                  <DropdownMenuItem onClick={() => setShowReminder(true)}>
+                    <Bell className="h-4 w-4" />
+                    {t('sendReminder')}
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem
@@ -425,7 +464,7 @@ export function InvoiceDetailPage() {
                   }}
                 >
                   <Download className="h-4 w-4" />
-                  Download PDF
+                  {t('downloadPdf')}
                 </DropdownMenuItem>
                 {remaining > 0 && (
                   <DropdownMenuItem
@@ -435,21 +474,24 @@ export function InvoiceDetailPage() {
                     }}
                   >
                     <CreditCard className="h-4 w-4" />
-                    Record Payment
+                    {t('recordPayment')}
                   </DropdownMenuItem>
                 )}
                 {settings?.jofotaraEnabled &&
                   invoice.isTaxable &&
                   invoice.jofotaraStatus !== 'submitted' && (
-                  <DropdownMenuItem onClick={handleJofotaraOpen}>
-                    <Globe className="h-4 w-4" />
-                    Export to JoFotara
-                  </DropdownMenuItem>
-                )}
+                    <DropdownMenuItem onClick={handleJofotaraOpen}>
+                      <Globe className="h-4 w-4" />
+                      {t('exportToJofotara')}
+                    </DropdownMenuItem>
+                  )}
                 <DropdownMenuSeparator />
               </div>
+              )}
 
-              {INVOICE_STATUSES.map((s) => (
+              {invoice.status !== 'written_off' && INVOICE_STATUSES
+                .filter((s) => s !== 'written_off')
+                .map((s) => (
                 <DropdownMenuItem
                   key={s}
                   onClick={() => handleStatusChange(s)}
@@ -469,28 +511,34 @@ export function InvoiceDetailPage() {
               {settings?.jofotaraEnabled &&
                 invoice.isTaxable &&
                 invoice.jofotaraStatus === 'submitted' && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => setShowCreditNote(true)}
-                  >
-                    <Globe className="h-4 w-4" />
-                    Issue Credit Note
-                  </DropdownMenuItem>
-                </>
-              )}
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => setShowCreditNote(true)}
+                    >
+                      <Globe className="h-4 w-4" />
+                      {t('issueCreditNote')}
+                    </DropdownMenuItem>
+                  </>
+                )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 variant="destructive"
                 onClick={() => setShowDelete(true)}
               >
                 <Trash2 className="h-4 w-4" />
-                Delete Invoice
+                {t('deleteInvoice')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
+
+      {invoice.status === 'written_off' && (
+        <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-700">
+          {t('writtenOffNotice')}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-3">
         <div className="space-y-4 sm:space-y-6 xl:col-span-2">
@@ -499,10 +547,10 @@ export function InvoiceDetailPage() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Bill To
+                    {t('billTo')}
                   </p>
                   <p className="mt-1 font-medium">
-                    {invoice.client?.name || 'No client'}
+                    {invoice.client?.name || tc('noClient')}
                   </p>
                   {invoice.client?.email && (
                     <p className="text-sm text-muted-foreground">
@@ -518,7 +566,7 @@ export function InvoiceDetailPage() {
                 <div className="flex flex-wrap gap-4 sm:flex-col sm:gap-3 sm:text-right">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Issue Date
+                      {t('issueDate')}
                     </p>
                     <p className="text-sm">
                       {formatDate(invoice.issueDate)}
@@ -526,7 +574,7 @@ export function InvoiceDetailPage() {
                   </div>
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Due Date
+                      {t('dueDate')}
                     </p>
                     <p className="text-sm">
                       {formatDate(invoice.dueDate)}
@@ -534,7 +582,7 @@ export function InvoiceDetailPage() {
                   </div>
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Currency
+                      {tc('currency')}
                     </p>
                     <p className="text-sm">{invoice.currency}</p>
                   </div>
@@ -545,18 +593,18 @@ export function InvoiceDetailPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Line Items</CardTitle>
+              <CardTitle>{tc('lineItems')}</CardTitle>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="text-right">Qty</TableHead>
+                    <TableHead>{tc('description')}</TableHead>
+                    <TableHead className="text-right">{tc('qty')}</TableHead>
                     <TableHead className="text-right">
-                      Unit Price
+                      {tc('unitPrice')}
                     </TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="text-right">{tc('amount')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -581,7 +629,7 @@ export function InvoiceDetailPage() {
                 <div className="w-full space-y-2 pt-4 sm:w-64">
                   <Separator />
                   <div className="flex justify-between pt-2 text-sm">
-                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="text-muted-foreground">{tc('subtotal')}</span>
                     <span>
                       {formatCurrency(
                         invoice.subtotal,
@@ -592,7 +640,7 @@ export function InvoiceDetailPage() {
                   {invoice.taxRate > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">
-                        Tax ({invoice.taxRate}%)
+                        {tc('taxWithRate', { rate: invoice.taxRate })}
                       </span>
                       <span>
                         {formatCurrency(
@@ -605,7 +653,7 @@ export function InvoiceDetailPage() {
                   {invoice.discountAmount > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">
-                        Discount
+                        {tc('discount')}
                       </span>
                       <span className="text-destructive">
                         -
@@ -618,7 +666,7 @@ export function InvoiceDetailPage() {
                   )}
                   <Separator />
                   <div className="flex justify-between pt-2 font-bold">
-                    <span>Total</span>
+                    <span>{tc('total')}</span>
                     <span>
                       {formatCurrency(invoice.total, invoice.currency)}
                     </span>
@@ -626,7 +674,7 @@ export function InvoiceDetailPage() {
                   {invoice.amountPaid > 0 && (
                     <>
                       <div className="flex justify-between text-sm text-green-600">
-                        <span>Paid</span>
+                        <span>{t('paid')}</span>
                         <span>
                           -
                           {formatCurrency(
@@ -637,7 +685,7 @@ export function InvoiceDetailPage() {
                       </div>
                       <Separator />
                       <div className="flex justify-between pt-2 font-bold text-primary">
-                        <span>Balance Due</span>
+                        <span>{t('balanceDue')}</span>
                         <span>
                           {formatCurrency(remaining, invoice.currency)}
                         </span>
@@ -655,7 +703,7 @@ export function InvoiceDetailPage() {
                 {invoice.notes && (
                   <div className="mb-4">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Notes
+                      {tc('notes')}
                     </p>
                     <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
                       {invoice.notes}
@@ -665,7 +713,7 @@ export function InvoiceDetailPage() {
                 {invoice.terms && (
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Terms & Conditions
+                      {tc('termsAndConditions')}
                     </p>
                     <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
                       {invoice.terms}
@@ -680,12 +728,12 @@ export function InvoiceDetailPage() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Payment History</CardTitle>
+              <CardTitle>{t('paymentHistory')}</CardTitle>
             </CardHeader>
             <CardContent>
               {!payments?.length ? (
                 <p className="py-4 text-center text-sm text-muted-foreground">
-                  No payments recorded
+                  {t('noPaymentsRecorded')}
                 </p>
               ) : (
                 <ul className="space-y-3">
@@ -704,11 +752,11 @@ export function InvoiceDetailPage() {
                         <p className="text-xs text-muted-foreground">
                           {formatDate(payment.paymentDate)}
                           {payment.paymentMethod &&
-                            ` via ${payment.paymentMethod.replace(/_/g, ' ')}`}
+                            ` ${t('via', { method: payment.paymentMethod.replace(/_/g, ' ') })}`}
                         </p>
                         {payment.reference && (
                           <p className="text-xs text-muted-foreground">
-                            Ref: {payment.reference}
+                            {t('ref', { reference: payment.reference })}
                           </p>
                         )}
                       </div>
@@ -717,7 +765,7 @@ export function InvoiceDetailPage() {
                         size="icon-xs"
                         className="text-muted-foreground hover:text-destructive"
                         onClick={() => setDeletePaymentId(payment.id)}
-                        aria-label="Delete payment"
+                        aria-label={t('deletePayment')}
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>
@@ -730,129 +778,131 @@ export function InvoiceDetailPage() {
 
           {settings?.jofotaraEnabled &&
             invoice.jofotaraStatus !== 'not_submitted' && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Globe className="h-4 w-4" />
-                  JoFotara E-Invoice
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">
-                    Status
-                  </span>
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      JOFOTARA_STATUS_COLORS[invoice.jofotaraStatus],
-                      'border-transparent',
-                    )}
-                  >
-                    {invoice.jofotaraStatus.replace(/_/g, ' ')}
-                  </Badge>
-                </div>
-                {invoice.jofotaraUuid && (
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      UUID
-                    </p>
-                    <p className="break-all text-xs font-mono">
-                      {invoice.jofotaraUuid}
-                    </p>
-                  </div>
-                )}
-                {invoice.jofotaraInvoiceNumber && (
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      Invoice Number
-                    </p>
-                    <p className="text-sm font-medium">
-                      {invoice.jofotaraInvoiceNumber}
-                    </p>
-                  </div>
-                )}
-                {invoice.jofotaraSubmittedAt && (
-                  <div>
-                    <p className="text-xs text-muted-foreground">
-                      Submitted
-                    </p>
-                    <p className="text-sm">
-                      {formatDate(invoice.jofotaraSubmittedAt)}
-                    </p>
-                  </div>
-                )}
-                {invoice.jofotaraQrCode && (
-                  <div className="pt-2">
-                    <p className="mb-2 text-xs text-muted-foreground">
-                      QR Code
-                    </p>
-                    <div className="flex justify-center rounded-lg bg-white p-3">
-                      <img
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(invoice.jofotaraQrCode)}`}
-                        alt="JoFotara QR Code"
-                        className="h-[150px] w-[150px]"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {jofotaraSubmissions && jofotaraSubmissions.length > 0 && (
-                  <div className="pt-2">
-                    <button
-                      type="button"
-                      className="flex w-full items-center justify-between text-sm font-medium"
-                      onClick={() =>
-                        setShowJofotaraHistory(!showJofotaraHistory)
-                      }
-                    >
-                      Submission History ({jofotaraSubmissions.length})
-                      {showJofotaraHistory ? (
-                        <ChevronUp className="h-4 w-4" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4" />
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Globe className="h-4 w-4" />
+                    {t('jofotaraEInvoice')}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">
+                      {tc('status')}
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        JOFOTARA_STATUS_COLORS[invoice.jofotaraStatus],
+                        'border-transparent',
                       )}
-                    </button>
-                    {showJofotaraHistory && (
-                      <ul className="mt-2 space-y-2">
-                        {jofotaraSubmissions.map((sub) => (
-                          <li
-                            key={sub.id}
-                            className="rounded-lg bg-muted/50 p-2"
-                          >
-                            <div className="flex items-center justify-between">
-                              <Badge
-                                variant="outline"
-                                className={cn(
-                                  JOFOTARA_STATUS_COLORS[sub.status],
-                                  'border-transparent text-xs',
-                                )}
-                              >
-                                {sub.status.replace(/_/g, ' ')}
-                              </Badge>
-                              <span className="text-xs text-muted-foreground">
-                                {formatDate(sub.createdAt)}
-                              </span>
-                            </div>
-                            {sub.errorMessage && (
-                              <p className="mt-1 text-xs text-destructive">
-                                {sub.errorMessage}
-                              </p>
-                            )}
-                            {sub.isCreditInvoice && (
-                              <p className="mt-1 text-xs text-muted-foreground">
-                                Credit note
-                              </p>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                    >
+                      {invoice.jofotaraStatus.replace(/_/g, ' ')}
+                    </Badge>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+                  {invoice.jofotaraUuid && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        {t('jofotaraUuid')}
+                      </p>
+                      <p className="break-all text-xs font-mono">
+                        {invoice.jofotaraUuid}
+                      </p>
+                    </div>
+                  )}
+                  {invoice.jofotaraInvoiceNumber && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        {t('jofotaraInvoiceNumber')}
+                      </p>
+                      <p className="text-sm font-medium">
+                        {invoice.jofotaraInvoiceNumber}
+                      </p>
+                    </div>
+                  )}
+                  {invoice.jofotaraSubmittedAt && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        {t('jofotaraSubmitted')}
+                      </p>
+                      <p className="text-sm">
+                        {formatDate(invoice.jofotaraSubmittedAt)}
+                      </p>
+                    </div>
+                  )}
+                  {invoice.jofotaraQrCode && (
+                    <div className="pt-2">
+                      <p className="mb-2 text-xs text-muted-foreground">
+                        {t('jofotaraQrCode')}
+                      </p>
+                      <div className="flex justify-center rounded-lg bg-white p-3">
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(invoice.jofotaraQrCode)}`}
+                          alt="JoFotara QR Code"
+                          className="h-[150px] w-[150px]"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {jofotaraSubmissions && jofotaraSubmissions.length > 0 && (
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-between text-sm font-medium"
+                        onClick={() =>
+                          setShowJofotaraHistory(!showJofotaraHistory)
+                        }
+                      >
+                        {t('submissionHistory', {
+                          count: jofotaraSubmissions.length,
+                        })}
+                        {showJofotaraHistory ? (
+                          <ChevronUp className="h-4 w-4" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4" />
+                        )}
+                      </button>
+                      {showJofotaraHistory && (
+                        <ul className="mt-2 space-y-2">
+                          {jofotaraSubmissions.map((sub) => (
+                            <li
+                              key={sub.id}
+                              className="rounded-lg bg-muted/50 p-2"
+                            >
+                              <div className="flex items-center justify-between">
+                                <Badge
+                                  variant="outline"
+                                  className={cn(
+                                    JOFOTARA_STATUS_COLORS[sub.status],
+                                    'border-transparent text-xs',
+                                  )}
+                                >
+                                  {sub.status.replace(/_/g, ' ')}
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  {formatDate(sub.createdAt)}
+                                </span>
+                              </div>
+                              {sub.errorMessage && (
+                                <p className="mt-1 text-xs text-destructive">
+                                  {sub.errorMessage}
+                                </p>
+                              )}
+                              {sub.isCreditInvoice && (
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {t('creditNote')}
+                                </p>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
         </div>
       </div>
 
@@ -863,10 +913,9 @@ export function InvoiceDetailPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Invoice</DialogTitle>
+            <DialogTitle>{t('deleteInvoice')}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this invoice? This action
-              cannot be undone.
+              {t('deleteInvoiceConfirm')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -874,14 +923,14 @@ export function InvoiceDetailPage() {
               variant="outline"
               onClick={() => setShowDelete(false)}
             >
-              Cancel
+              {tc('cancel')}
             </Button>
             <Button
               variant="destructive"
               onClick={handleDelete}
               disabled={deleteInvoice.isPending}
             >
-              {deleteInvoice.isPending ? 'Deleting...' : 'Delete'}
+              {deleteInvoice.isPending ? tc('deleting') : tc('delete')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -894,10 +943,11 @@ export function InvoiceDetailPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Send Invoice</DialogTitle>
+            <DialogTitle>{t('sendInvoice')}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to send this invoice to{' '}
-              {invoice.client?.email || 'the client'}?
+              {invoice.client?.email
+                ? t('sendInvoiceConfirm', { email: invoice.client.email })
+                : t('sendInvoiceConfirmGeneric')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -905,13 +955,91 @@ export function InvoiceDetailPage() {
               variant="outline"
               onClick={() => setShowSend(false)}
             >
-              Cancel
+              {tc('cancel')}
             </Button>
             <Button
               onClick={handleSend}
               disabled={sendInvoice.isPending}
             >
-              {sendInvoice.isPending ? 'Sending...' : 'Send Invoice'}
+              {sendInvoice.isPending ? tc('sending') : t('sendInvoice')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send reminder dialog */}
+      <Dialog
+        open={showReminder}
+        onOpenChange={(open) => !open && setShowReminder(false)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bell className="h-5 w-5 text-amber-600" />
+              {t('sendPaymentReminder')}
+            </DialogTitle>
+            <DialogDescription>
+              {t('sendReminderConfirm', {
+                email: invoice.client?.email || 'the client',
+                invoice: invoice.invoiceNumber,
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-amber-700">{t('amountDue')}</span>
+              <span className="font-semibold text-amber-800">
+                {formatCurrency(remaining, invoice.currency)}
+              </span>
+            </div>
+            <div className="mt-1 flex items-center justify-between text-sm">
+              <span className="text-amber-700">{t('dueDate')}</span>
+              <span className="font-medium text-amber-800">
+                {formatDate(invoice.dueDate)}
+              </span>
+            </div>
+            {(() => {
+              const now = new Date();
+              const dueDate = new Date(invoice.dueDate);
+              const daysOverdue = Math.floor(
+                (now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24),
+              );
+              if (daysOverdue > 0) {
+                return (
+                  <div className="mt-1 flex items-center justify-between text-sm">
+                    <span className="text-red-600">{t('overdueLabel')}</span>
+                    <span className="font-semibold text-red-700">
+                      {t('overdueDays', { count: daysOverdue })}
+                    </span>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowReminder(false)}
+            >
+              {tc('cancel')}
+            </Button>
+            <Button
+              className="bg-amber-600 text-white hover:bg-amber-700"
+              onClick={handleSendReminder}
+              disabled={sendReminder.isPending}
+            >
+              {sendReminder.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {tc('sending')}
+                </>
+              ) : (
+                <>
+                  <Bell className="h-4 w-4" />
+                  {t('sendReminder')}
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -924,9 +1052,11 @@ export function InvoiceDetailPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Record Payment</DialogTitle>
+            <DialogTitle>{t('recordPayment')}</DialogTitle>
             <DialogDescription>
-              Record a payment for invoice {invoice.invoiceNumber}.
+              {t('recordPaymentDesc', {
+                invoice: invoice.invoiceNumber,
+              })}
             </DialogDescription>
           </DialogHeader>
           <form
@@ -934,7 +1064,7 @@ export function InvoiceDetailPage() {
             className="space-y-4"
           >
             <div className="space-y-2">
-              <Label htmlFor="payment-amount">Amount</Label>
+              <Label htmlFor="payment-amount">{t('paymentAmount')}</Label>
               <Input
                 id="payment-amount"
                 type="number"
@@ -946,7 +1076,7 @@ export function InvoiceDetailPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="payment-date">Payment Date</Label>
+              <Label htmlFor="payment-date">{t('paymentDate')}</Label>
               <Input
                 id="payment-date"
                 type="date"
@@ -954,7 +1084,7 @@ export function InvoiceDetailPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Payment Method</Label>
+              <Label>{tc('paymentMethod')}</Label>
               <Select
                 value={paymentForm.watch('paymentMethod')}
                 onValueChange={(val) =>
@@ -962,7 +1092,7 @@ export function InvoiceDetailPage() {
                 }
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select method" />
+                  <SelectValue placeholder={tc('selectMethod')} />
                 </SelectTrigger>
                 <SelectContent>
                   {PAYMENT_METHODS.map((m) => (
@@ -977,7 +1107,7 @@ export function InvoiceDetailPage() {
             </div>
             {bankAccountsList && bankAccountsList.length > 0 && (
               <div className="space-y-2">
-                <Label>Deposit To</Label>
+                <Label>{t('depositTo')}</Label>
                 <Select
                   value={
                     paymentForm.watch('bankAccountId')
@@ -992,30 +1122,30 @@ export function InvoiceDetailPage() {
                   }
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select bank account" />
+                    <SelectValue placeholder={t('selectBankAccount')} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">
-                      No account (don&apos;t track)
+                      {t('noAccountDontTrack')}
                     </SelectItem>
                     {bankAccountsList.map((acc) => (
                       <SelectItem key={acc.id} value={String(acc.id)}>
                         {acc.name}
-                        {acc.bankName ? ` — ${acc.bankName}` : ''}
+                        {acc.bankName ? ` -- ${acc.bankName}` : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  Selecting an account auto-creates an income transaction
+                  {t('depositAutoCreate')}
                 </p>
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="payment-reference">Reference</Label>
+              <Label htmlFor="payment-reference">{tc('reference')}</Label>
               <Input
                 id="payment-reference"
-                placeholder="Transaction ID, check number, etc."
+                placeholder={t('referencePlaceholder')}
                 {...paymentForm.register('reference')}
               />
             </div>
@@ -1025,15 +1155,15 @@ export function InvoiceDetailPage() {
                 variant="ghost"
                 onClick={() => setShowPayment(false)}
               >
-                Cancel
+                {tc('cancel')}
               </Button>
               <Button
                 type="submit"
                 disabled={createPayment.isPending}
               >
                 {createPayment.isPending
-                  ? 'Recording...'
-                  : 'Record Payment'}
+                  ? tc('recording')
+                  : t('recordPayment')}
               </Button>
             </DialogFooter>
           </form>
@@ -1047,10 +1177,9 @@ export function InvoiceDetailPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Payment</DialogTitle>
+            <DialogTitle>{t('deletePayment')}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this payment record? This
-              action cannot be undone.
+              {t('deletePaymentConfirm')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -1058,14 +1187,14 @@ export function InvoiceDetailPage() {
               variant="outline"
               onClick={() => setDeletePaymentId(null)}
             >
-              Cancel
+              {tc('cancel')}
             </Button>
             <Button
               variant="destructive"
               onClick={handleDeletePayment}
               disabled={deletePayment.isPending}
             >
-              {deletePayment.isPending ? 'Deleting...' : 'Delete'}
+              {deletePayment.isPending ? tc('deleting') : tc('delete')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1080,10 +1209,10 @@ export function InvoiceDetailPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Globe className="h-5 w-5" />
-              Export to JoFotara
+              {t('exportToJofotara')}
             </DialogTitle>
             <DialogDescription>
-              Submit this invoice to Jordan&apos;s e-invoicing system.
+              {t('jofotaraSubmitDesc')}
             </DialogDescription>
           </DialogHeader>
 
@@ -1091,7 +1220,7 @@ export function InvoiceDetailPage() {
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               <span className="ml-2 text-sm text-muted-foreground">
-                Validating invoice...
+                {t('validatingInvoice')}
               </span>
             </div>
           )}
@@ -1101,7 +1230,7 @@ export function InvoiceDetailPage() {
               <div className="flex items-center gap-2 text-destructive">
                 <AlertCircle className="h-5 w-5" />
                 <p className="font-medium">
-                  Invoice cannot be submitted
+                  {t('invoiceCannotBeSubmitted')}
                 </p>
               </div>
               <ul className="space-y-1">
@@ -1120,7 +1249,7 @@ export function InvoiceDetailPage() {
                   variant="outline"
                   onClick={() => setShowJofotara(false)}
                 >
-                  Close
+                  {tc('close')}
                 </Button>
               </DialogFooter>
             </div>
@@ -1131,11 +1260,11 @@ export function InvoiceDetailPage() {
               <div className="flex items-center gap-2 text-green-600">
                 <CheckCircle2 className="h-5 w-5" />
                 <p className="font-medium">
-                  Invoice is valid for submission
+                  {t('invoiceValidForSubmission')}
                 </p>
               </div>
               <div className="space-y-2">
-                <Label>Payment Method</Label>
+                <Label>{tc('paymentMethod')}</Label>
                 <Select
                   value={jofotaraPaymentMethod}
                   onValueChange={(val) =>
@@ -1148,9 +1277,9 @@ export function InvoiceDetailPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="cash">Cash</SelectItem>
+                    <SelectItem value="cash">{t('jofotaraCash')}</SelectItem>
                     <SelectItem value="receivable">
-                      Receivable (Credit)
+                      {t('jofotaraReceivable')}
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -1160,7 +1289,7 @@ export function InvoiceDetailPage() {
                   variant="outline"
                   onClick={() => setShowJofotara(false)}
                 >
-                  Cancel
+                  {tc('cancel')}
                 </Button>
                 <Button
                   onClick={handleJofotaraSubmit}
@@ -1169,10 +1298,10 @@ export function InvoiceDetailPage() {
                   {jofotaraSubmit.isPending ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Submitting...
+                      {tc('submitting')}
                     </>
                   ) : (
-                    'Submit to JoFotara'
+                    t('jofotaraSubmit')
                   )}
                 </Button>
               </DialogFooter>
@@ -1188,20 +1317,20 @@ export function InvoiceDetailPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Issue Credit Note</DialogTitle>
+            <DialogTitle>{t('issueCreditNote')}</DialogTitle>
             <DialogDescription>
-              Submit a credit note to JoFotara for invoice{' '}
-              {invoice.invoiceNumber}. This will reverse the original
-              e-invoice.
+              {t('issueCreditNoteDesc', {
+                invoice: invoice.invoiceNumber,
+              })}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="credit-reason">Reason for Return</Label>
+              <Label htmlFor="credit-reason">{t('reasonForReturn')}</Label>
               <Textarea
                 id="credit-reason"
                 rows={3}
-                placeholder="Enter the reason for issuing this credit note..."
+                placeholder={t('reasonPlaceholder')}
                 value={creditNoteReason}
                 onChange={(e) => setCreditNoteReason(e.target.value)}
               />
@@ -1212,13 +1341,13 @@ export function InvoiceDetailPage() {
               variant="outline"
               onClick={() => setShowCreditNote(false)}
             >
-              Cancel
+              {tc('cancel')}
             </Button>
             <Button
               onClick={handleCreditNoteSubmit}
               disabled={!creditNoteReason.trim()}
             >
-              Submit Credit Note
+              {t('submitCreditNote')}
             </Button>
           </DialogFooter>
         </DialogContent>

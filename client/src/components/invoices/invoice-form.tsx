@@ -2,6 +2,7 @@ import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format, addDays } from 'date-fns';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { createInvoiceSchema, CURRENCIES } from '@vibe/shared';
 import type { z } from 'zod';
 import { Input } from '@/components/ui/input';
@@ -28,7 +29,7 @@ import { ClientPicker } from '@/components/clients/client-picker';
 
 type InvoiceFormValues = z.infer<typeof createInvoiceSchema>;
 
-export type InvoiceAction = 'draft' | 'publish' | 'send';
+export type InvoiceAction = 'draft' | 'publish' | 'send' | 'write_off';
 
 export interface InvoiceFormProps {
   defaultValues?: Partial<InvoiceFormValues> & { clientName?: string };
@@ -41,6 +42,8 @@ export function InvoiceForm({
   onSubmit,
   isLoading,
 }: InvoiceFormProps) {
+  const { t } = useTranslation('invoices');
+  const { t: tc } = useTranslation('common');
   const [submitAction, setSubmitAction] = useState<InvoiceAction>('draft');
 
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -103,18 +106,18 @@ export function InvoiceForm({
           <div className="space-y-6 xl:col-span-3">
             <Card>
               <CardHeader>
-                <CardTitle>Invoice Details</CardTitle>
+                <CardTitle>{t('invoiceDetails')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between rounded-lg border p-3">
                   <div>
                     <Label htmlFor="isTaxable" className="text-sm font-medium">
-                      Subject to Tax
+                      {t('subjectToTax')}
                     </Label>
                     <p className="text-xs text-muted-foreground">
                       {isTaxable
-                        ? 'Taxable invoice (INV) — 16% GST, submittable to JoFotara'
-                        : 'Exempt invoice (EINV) — 0% tax, not submitted to JoFotara'}
+                        ? t('taxableDescription')
+                        : t('exemptDescription')}
                     </p>
                   </div>
                   <button
@@ -146,7 +149,7 @@ export function InvoiceForm({
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="issueDate">Issue Date</Label>
+                    <Label htmlFor="issueDate">{t('issueDate')}</Label>
                     <Input
                       id="issueDate"
                       type="date"
@@ -160,7 +163,7 @@ export function InvoiceForm({
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="dueDate">Due Date</Label>
+                    <Label htmlFor="dueDate">{t('dueDate')}</Label>
                     <Input
                       id="dueDate"
                       type="date"
@@ -176,7 +179,7 @@ export function InvoiceForm({
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Currency</Label>
+                  <Label>{tc('currency')}</Label>
                   <Select
                     value={currency}
                     onValueChange={(val) =>
@@ -187,7 +190,7 @@ export function InvoiceForm({
                     }
                   >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select currency" />
+                      <SelectValue placeholder={t('selectCurrency')} />
                     </SelectTrigger>
                     <SelectContent>
                       {CURRENCIES.map((c) => (
@@ -214,12 +217,12 @@ export function InvoiceForm({
 
             <Card>
               <CardHeader>
-                <CardTitle>Summary</CardTitle>
+                <CardTitle>{tc('summary')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="taxRate">Tax Rate (%)</Label>
+                    <Label htmlFor="taxRate">{t('taxRatePercent')}</Label>
                     <Input
                       id="taxRate"
                       type="number"
@@ -229,11 +232,11 @@ export function InvoiceForm({
                       className="bg-muted"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Controlled by the tax toggle above
+                      {t('taxRateHint')}
                     </p>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="discountAmount">Discount Amount</Label>
+                    <Label htmlFor="discountAmount">{t('discountAmount')}</Label>
                     <Input
                       id="discountAmount"
                       type="number"
@@ -254,20 +257,20 @@ export function InvoiceForm({
                 <div className="mt-4 space-y-2 pt-4">
                   <Separator />
                   <div className="flex justify-between pt-2 text-sm">
-                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="text-muted-foreground">{tc('subtotal')}</span>
                     <span>{formatCurrencyValue(subtotal)}</span>
                   </div>
                   {isTaxable && (
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">
-                        Tax ({taxRate}%)
+                        {tc('tax')} ({taxRate}%)
                       </span>
                       <span>{formatCurrencyValue(taxAmount)}</span>
                     </div>
                   )}
                   {discount > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Discount</span>
+                      <span className="text-muted-foreground">{tc('discount')}</span>
                       <span className="text-destructive">
                         -{formatCurrencyValue(discount)}
                       </span>
@@ -275,7 +278,7 @@ export function InvoiceForm({
                   )}
                   <Separator />
                   <div className="flex justify-between pt-2 text-base font-bold">
-                    <span>Total</span>
+                    <span>{tc('total')}</span>
                     <span>{formatCurrencyValue(total)}</span>
                   </div>
                 </div>
@@ -284,24 +287,24 @@ export function InvoiceForm({
 
             <Card>
               <CardHeader>
-                <CardTitle>Additional Info</CardTitle>
+                <CardTitle>{t('additionalInfo')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="notes">Notes</Label>
+                  <Label htmlFor="notes">{tc('notes')}</Label>
                   <Textarea
                     id="notes"
                     rows={3}
-                    placeholder="Notes visible to the client..."
+                    placeholder={t('notesPlaceholder')}
                     {...register('notes')}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="terms">Terms & Conditions</Label>
+                  <Label htmlFor="terms">{t('termsAndConditions')}</Label>
                   <Textarea
                     id="terms"
                     rows={3}
-                    placeholder="Payment terms, late fees, etc..."
+                    placeholder={t('termsPlaceholder')}
                     {...register('terms')}
                   />
                 </div>
@@ -316,8 +319,8 @@ export function InvoiceForm({
                 onClick={() => setSubmitAction('draft')}
               >
                 {isLoading && submitAction === 'draft'
-                  ? 'Saving...'
-                  : 'Save as Draft'}
+                  ? tc('saving')
+                  : t('saveAsDraft')}
               </Button>
               <Button
                 type="submit"
@@ -325,8 +328,8 @@ export function InvoiceForm({
                 onClick={() => setSubmitAction('publish')}
               >
                 {isLoading && submitAction === 'publish'
-                  ? 'Publishing...'
-                  : 'Save & Publish'}
+                  ? t('publishing')
+                  : t('saveAndPublish')}
               </Button>
               <Button
                 type="submit"
@@ -335,8 +338,19 @@ export function InvoiceForm({
                 onClick={() => setSubmitAction('send')}
               >
                 {isLoading && submitAction === 'send'
-                  ? 'Sending...'
-                  : 'Save & Send Email'}
+                  ? t('sending')
+                  : t('saveAndSendEmail')}
+              </Button>
+              <Button
+                type="submit"
+                variant="outline"
+                disabled={isLoading}
+                onClick={() => setSubmitAction('write_off')}
+                className="border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100 hover:text-orange-800"
+              >
+                {isLoading && submitAction === 'write_off'
+                  ? tc('saving')
+                  : t('saveAsWriteOff')}
               </Button>
             </div>
           </div>
@@ -344,7 +358,7 @@ export function InvoiceForm({
           <div className="hidden xl:col-span-2 xl:block">
             <div className="sticky top-24">
               <h3 className="mb-3 text-sm font-semibold text-muted-foreground">
-                Live Preview
+                {t('livePreview')}
               </h3>
               <InvoicePreview />
             </div>

@@ -1,0 +1,21 @@
+{
+  "totalRevenue": "Total Revenue",
+  "outstanding": "Outstanding",
+  "overdue": "Overdue",
+  "bankBalance": "Bank Balance",
+  "expensesMonth": "Expenses (Month)",
+  "revenueOverview": "Revenue Overview",
+  "recentActivity": "Recent Activity",
+  "noRecentActivity": "No recent activity",
+  "taxDeadlines": "Tax Deadlines",
+  "viewReports": "View Reports",
+  "noUpcomingDeadlines": "No upcoming deadlines",
+  "gstSummary": "GST Summary",
+  "gstSummaryPeriod": "GST Summary — {{period}}",
+  "fullReport": "Full Report",
+  "taxableSales": "Taxable Sales",
+  "outputTax": "Output Tax",
+  "inputTax": "Input Tax",
+  "netDue": "Net Due",
+  "daysShort": "{{days}}d"
+}

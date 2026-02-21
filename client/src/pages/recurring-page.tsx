@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Plus,
   MoreHorizontal,
@@ -101,6 +102,8 @@ const emptyForm: RecurringFormData = {
 };
 
 export function RecurringPage() {
+  const { t } = useTranslation('recurring');
+  const { t: tc } = useTranslation('common');
   const { data, isLoading } = useRecurring();
   const createRecurring = useCreateRecurring();
   const updateRecurring = useUpdateRecurring();
@@ -228,16 +231,16 @@ export function RecurringPage() {
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
-            Recurring Invoices
+            {t('title')}
           </h2>
           <p className="mt-0.5 hidden text-sm text-muted-foreground sm:block">
-            Automate your invoicing schedule
+            {t('subtitle')}
           </p>
         </div>
         <Button size="sm" className="shrink-0 sm:size-default" onClick={openCreate}>
           <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">New Recurring</span>
-          <span className="sm:hidden">New</span>
+          <span className="hidden sm:inline">{t('newRecurring')}</span>
+          <span className="sm:hidden">{tc('new')}</span>
         </Button>
       </div>
 
@@ -246,9 +249,9 @@ export function RecurringPage() {
       ) : items.length === 0 ? (
         <EmptyState
           icon={RefreshCw}
-          title="No recurring invoices"
-          description="Set up recurring invoices to automate your billing schedule."
-          actionLabel="Create Recurring"
+          title={t('emptyTitle')}
+          description={t('emptyDescription')}
+          actionLabel={t('createRecurring')}
           onAction={openCreate}
         />
       ) : (
@@ -256,12 +259,12 @@ export function RecurringPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Client</TableHead>
-                <TableHead>Frequency</TableHead>
-                <TableHead>Next Run</TableHead>
-                <TableHead>Last Run</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
+                <TableHead>{tc('client')}</TableHead>
+                <TableHead>{t('frequency')}</TableHead>
+                <TableHead>{t('nextRun')}</TableHead>
+                <TableHead>{t('lastRun')}</TableHead>
+                <TableHead>{tc('status')}</TableHead>
+                <TableHead className="text-right">{tc('amount')}</TableHead>
                 <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
@@ -269,10 +272,10 @@ export function RecurringPage() {
               {items.map((item: any) => (
                 <TableRow key={item.id}>
                   <TableCell className="font-medium">
-                    {item.client?.name || 'No client'}
+                    {item.client?.name || t('noClient')}
                   </TableCell>
                   <TableCell className="capitalize">
-                    {item.frequency?.replace(/_/g, ' ')}
+                    {t(item.frequency)}
                   </TableCell>
                   <TableCell>
                     {item.nextRunDate ? formatDate(item.nextRunDate) : '--'}
@@ -284,7 +287,7 @@ export function RecurringPage() {
                     <Badge
                       variant={item.isActive ? 'default' : 'secondary'}
                     >
-                      {item.isActive ? 'Active' : 'Inactive'}
+                      {item.isActive ? t('active') : t('inactive')}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right font-medium">
@@ -300,15 +303,15 @@ export function RecurringPage() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => setDetailItem(item)}>
                           <Eye className="h-4 w-4" />
-                          View Details
+                          {t('viewDetails')}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleToggle(item.id)}>
                           <Power className="h-4 w-4" />
-                          {item.isActive ? 'Deactivate' : 'Activate'}
+                          {item.isActive ? t('deactivate') : t('activate')}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => openEdit(item)}>
                           <Pencil className="h-4 w-4" />
-                          Edit
+                          {tc('edit')}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -316,7 +319,7 @@ export function RecurringPage() {
                           onClick={() => setDeleteId(item.id)}
                         >
                           <Trash2 className="h-4 w-4" />
-                          Delete
+                          {tc('delete')}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -335,31 +338,31 @@ export function RecurringPage() {
       >
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Recurring Invoice Details</DialogTitle>
+            <DialogTitle>{t('detailsTitle')}</DialogTitle>
             <DialogDescription>
-              {detailItem?.client?.name || 'No client'} -{' '}
-              {detailItem?.frequency?.replace(/_/g, ' ')}
+              {detailItem?.client?.name || t('noClient')} -{' '}
+              {t(detailItem?.frequency)}
             </DialogDescription>
           </DialogHeader>
           {detailItem && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
                 <div>
-                  <p className="text-muted-foreground">Frequency</p>
+                  <p className="text-muted-foreground">{t('frequency')}</p>
                   <p className="font-medium capitalize">
-                    {detailItem.frequency?.replace(/_/g, ' ')}
+                    {t(detailItem.frequency)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Status</p>
+                  <p className="text-muted-foreground">{tc('status')}</p>
                   <Badge
                     variant={detailItem.isActive ? 'default' : 'secondary'}
                   >
-                    {detailItem.isActive ? 'Active' : 'Inactive'}
+                    {detailItem.isActive ? t('active') : t('inactive')}
                   </Badge>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Start Date</p>
+                  <p className="text-muted-foreground">{t('startDate')}</p>
                   <p className="font-medium">
                     {detailItem.startDate
                       ? formatDate(detailItem.startDate)
@@ -367,15 +370,15 @@ export function RecurringPage() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">End Date</p>
+                  <p className="text-muted-foreground">{t('endDate')}</p>
                   <p className="font-medium">
                     {detailItem.endDate
                       ? formatDate(detailItem.endDate)
-                      : 'No end date'}
+                      : t('noEndDate')}
                   </p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Next Run</p>
+                  <p className="text-muted-foreground">{t('nextRun')}</p>
                   <p className="font-medium">
                     {detailItem.nextRunDate
                       ? formatDate(detailItem.nextRunDate)
@@ -383,9 +386,9 @@ export function RecurringPage() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Auto-send</p>
+                  <p className="text-muted-foreground">{t('autoSend')}</p>
                   <p className="font-medium">
-                    {detailItem.autoSend ? 'Yes' : 'No'}
+                    {detailItem.autoSend ? tc('yes') : tc('no')}
                   </p>
                 </div>
               </div>
@@ -393,7 +396,7 @@ export function RecurringPage() {
                 <>
                   <Separator />
                   <div>
-                    <p className="mb-2 text-sm font-medium">Line Items</p>
+                    <p className="mb-2 text-sm font-medium">{tc('lineItems')}</p>
                     <div className="space-y-1 text-sm">
                       {detailItem.lineItems.map((li: any, i: number) => (
                         <div key={i} className="flex justify-between">
@@ -414,7 +417,7 @@ export function RecurringPage() {
               )}
               <Separator />
               <div className="flex justify-between font-bold">
-                <span>Total</span>
+                <span>{tc('total')}</span>
                 <span>
                   {formatCurrency(
                     detailItem.total ?? 0,
@@ -441,12 +444,12 @@ export function RecurringPage() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editId ? 'Edit Recurring Invoice' : 'New Recurring Invoice'}
+              {editId ? t('editTitle') : t('newTitle')}
             </DialogTitle>
             <DialogDescription>
               {editId
-                ? 'Update the recurring invoice configuration below.'
-                : 'Set up a new recurring invoice schedule.'}
+                ? t('editDescription')
+                : t('newDescription')}
             </DialogDescription>
           </DialogHeader>
 
@@ -458,31 +461,31 @@ export function RecurringPage() {
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Frequency</Label>
+                <Label>{t('frequency')}</Label>
                 <Select
                   value={form.frequency}
                   onValueChange={(val) => setForm({ ...form, frequency: val })}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select frequency" />
+                    <SelectValue placeholder={t('selectFrequency')} />
                   </SelectTrigger>
                   <SelectContent>
                     {RECURRING_FREQUENCIES.map((f) => (
                       <SelectItem key={f} value={f}>
-                        {f.charAt(0).toUpperCase() + f.slice(1)}
+                        {t(f)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Currency</Label>
+                <Label>{tc('currency')}</Label>
                 <Select
                   value={form.currency}
                   onValueChange={(val) => setForm({ ...form, currency: val })}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select currency" />
+                    <SelectValue placeholder={tc('selectCurrency')} />
                   </SelectTrigger>
                   <SelectContent>
                     {CURRENCIES.map((c) => (
@@ -497,7 +500,7 @@ export function RecurringPage() {
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="rec-startDate">Start Date</Label>
+                <Label htmlFor="rec-startDate">{t('startDate')}</Label>
                 <Input
                   id="rec-startDate"
                   type="date"
@@ -508,7 +511,7 @@ export function RecurringPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="rec-endDate">End Date (optional)</Label>
+                <Label htmlFor="rec-endDate">{t('endDateOptional')}</Label>
                 <Input
                   id="rec-endDate"
                   type="date"
@@ -523,12 +526,12 @@ export function RecurringPage() {
             <div className="flex items-center justify-between rounded-lg border p-3">
               <div>
                 <Label htmlFor="rec-isTaxable" className="text-sm font-medium">
-                  Subject to Tax
+                  {t('subjectToTax')}
                 </Label>
                 <p className="text-xs text-muted-foreground">
                   {form.isTaxable
-                    ? 'Taxable (INV) — 16% GST'
-                    : 'Exempt (EINV) — 0% tax'}
+                    ? t('taxableLabel')
+                    : t('exemptLabel')}
                 </p>
               </div>
               <button
@@ -558,7 +561,7 @@ export function RecurringPage() {
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="rec-taxRate">Tax Rate (%)</Label>
+                <Label htmlFor="rec-taxRate">{tc('taxRate')}</Label>
                 <Input
                   id="rec-taxRate"
                   type="number"
@@ -578,13 +581,13 @@ export function RecurringPage() {
                   }
                   className="h-4 w-4 rounded border-input"
                 />
-                <Label htmlFor="rec-autoSend">Auto-send invoices</Label>
+                <Label htmlFor="rec-autoSend">{t('autoSendInvoices')}</Label>
               </div>
             </div>
 
             <div>
               <div className="mb-2 flex items-center justify-between">
-                <Label>Line Items</Label>
+                <Label>{tc('lineItems')}</Label>
                 <Button
                   type="button"
                   variant="ghost"
@@ -592,15 +595,15 @@ export function RecurringPage() {
                   onClick={addLineItem}
                 >
                   <Plus className="h-4 w-4" />
-                  Add Item
+                  {tc('addItem')}
                 </Button>
               </div>
               <div className="space-y-3">
                 <div className="grid grid-cols-12 gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  <div className="col-span-5">Description</div>
-                  <div className="col-span-2">Qty</div>
-                  <div className="col-span-2">Price</div>
-                  <div className="col-span-2 text-right">Amount</div>
+                  <div className="col-span-5">{tc('description')}</div>
+                  <div className="col-span-2">{tc('qty')}</div>
+                  <div className="col-span-2">{tc('price')}</div>
+                  <div className="col-span-2 text-right">{tc('amount')}</div>
                   <div className="col-span-1" />
                 </div>
                 {form.lineItems.map((item, index) => {
@@ -613,7 +616,7 @@ export function RecurringPage() {
                     >
                       <div className="col-span-5">
                         <Input
-                          placeholder="Description"
+                          placeholder={tc('description')}
                           value={item.description}
                           onChange={(e) =>
                             updateLineItem(index, 'description', e.target.value)
@@ -674,20 +677,20 @@ export function RecurringPage() {
                 <div className="w-56 space-y-2 pt-2">
                   <Separator />
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="text-muted-foreground">{tc('subtotal')}</span>
                     <span>{formatCurrency(subtotal, form.currency)}</span>
                   </div>
                   {form.isTaxable && (
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">
-                        Tax ({form.isTaxable ? 16 : 0}%)
+                        {tc('tax')} ({form.isTaxable ? 16 : 0}%)
                       </span>
                       <span>{formatCurrency(taxAmount, form.currency)}</span>
                     </div>
                   )}
                   <Separator />
                   <div className="flex justify-between font-bold">
-                    <span>Total</span>
+                    <span>{tc('total')}</span>
                     <span>{formatCurrency(total, form.currency)}</span>
                   </div>
                 </div>
@@ -696,11 +699,11 @@ export function RecurringPage() {
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="rec-notes">Notes</Label>
+                <Label htmlFor="rec-notes">{tc('notes')}</Label>
                 <Textarea
                   id="rec-notes"
                   rows={2}
-                  placeholder="Notes for the invoice..."
+                  placeholder={t('notesPlaceholder')}
                   value={form.notes}
                   onChange={(e) =>
                     setForm({ ...form, notes: e.target.value })
@@ -708,11 +711,11 @@ export function RecurringPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="rec-terms">Terms & Conditions</Label>
+                <Label htmlFor="rec-terms">{tc('termsAndConditions')}</Label>
                 <Textarea
                   id="rec-terms"
                   rows={2}
-                  placeholder="Terms and conditions..."
+                  placeholder={t('termsPlaceholder')}
                   value={form.terms}
                   onChange={(e) =>
                     setForm({ ...form, terms: e.target.value })
@@ -730,7 +733,7 @@ export function RecurringPage() {
                 setEditId(null);
               }}
             >
-              Cancel
+              {tc('cancel')}
             </Button>
             <Button
               onClick={handleSubmitForm}
@@ -739,7 +742,7 @@ export function RecurringPage() {
               {(createRecurring.isPending || updateRecurring.isPending) && (
                 <Loader2 className="h-4 w-4 animate-spin" />
               )}
-              {editId ? 'Update' : 'Create'}
+              {editId ? tc('update') : tc('create')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -749,9 +752,9 @@ export function RecurringPage() {
         isOpen={deleteId !== null}
         onClose={() => setDeleteId(null)}
         onConfirm={handleDelete}
-        title="Delete Recurring Invoice"
-        message="Are you sure you want to delete this recurring invoice? This action cannot be undone."
-        confirmText="Delete"
+        title={t('deleteTitle')}
+        message={t('deleteMessage')}
+        confirmText={tc('delete')}
         variant="danger"
         loading={deleteRecurring.isPending}
       />

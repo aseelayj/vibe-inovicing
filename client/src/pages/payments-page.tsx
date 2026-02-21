@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import {
   CreditCard,
   MoreHorizontal,
@@ -29,6 +30,7 @@ import { usePayments, useDeletePayment } from '@/hooks/use-payments';
 import { formatCurrency, formatDate } from '@/lib/format';
 
 export function PaymentsPage() {
+  const { t } = useTranslation('payments');
   const navigate = useNavigate();
   const { data, isLoading } = usePayments();
   const deletePayment = useDeletePayment();
@@ -49,9 +51,9 @@ export function PaymentsPage() {
   return (
     <div className="space-y-4 sm:space-y-6">
       <div>
-        <h2 className="text-xl font-bold tracking-tight sm:text-2xl">Payments</h2>
+        <h2 className="text-xl font-bold tracking-tight sm:text-2xl">{t('title')}</h2>
         <p className="mt-0.5 hidden text-sm text-muted-foreground sm:block">
-          All payment transactions across invoices
+          {t('subtitle')}
         </p>
       </div>
 
@@ -60,20 +62,20 @@ export function PaymentsPage() {
       ) : payments.length === 0 ? (
         <EmptyState
           icon={CreditCard}
-          title="No payments yet"
-          description="Payments will appear here when you record them against invoices."
+          title={t('noPaymentsYet')}
+          description={t('noPaymentsDesc')}
         />
       ) : (
         <div className="rounded-xl border bg-card shadow-sm">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="hidden md:table-cell">Date</TableHead>
-                <TableHead>Invoice</TableHead>
-                <TableHead className="hidden lg:table-cell">Client</TableHead>
-                <TableHead className="hidden md:table-cell">Method</TableHead>
-                <TableHead className="hidden lg:table-cell">Reference</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
+                <TableHead className="hidden md:table-cell">{t('date')}</TableHead>
+                <TableHead>{t('invoice')}</TableHead>
+                <TableHead className="hidden lg:table-cell">{t('client')}</TableHead>
+                <TableHead className="hidden md:table-cell">{t('method')}</TableHead>
+                <TableHead className="hidden lg:table-cell">{t('reference')}</TableHead>
+                <TableHead className="text-right">{t('amount', { ns: 'common' })}</TableHead>
                 <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
@@ -128,7 +130,7 @@ export function PaymentsPage() {
                             }
                           >
                             <Eye className="h-4 w-4" />
-                            View Invoice
+                            {t('viewInvoice')}
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuSeparator />
@@ -137,7 +139,7 @@ export function PaymentsPage() {
                           onClick={() => setDeleteId(payment.id)}
                         >
                           <Trash2 className="h-4 w-4" />
-                          Delete Payment
+                          {t('deletePayment')}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -153,9 +155,9 @@ export function PaymentsPage() {
         isOpen={deleteId !== null}
         onClose={() => setDeleteId(null)}
         onConfirm={handleDelete}
-        title="Delete Payment"
-        message="Are you sure you want to delete this payment? This action cannot be undone."
-        confirmText="Delete"
+        title={t('deletePayment')}
+        message={t('deletePaymentConfirm')}
+        confirmText={t('delete', { ns: 'common' })}
         variant="danger"
         loading={deletePayment.isPending}
       />

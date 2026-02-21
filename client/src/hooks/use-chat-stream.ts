@@ -59,9 +59,9 @@ export function useChatStream() {
       let buffer = '';
 
       const SSE_TIMEOUT = 60_000; // 60s inactivity timeout
-      let timeoutHandle: ReturnType<typeof setTimeout>;
+      let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
       const resetTimeout = () => {
-        clearTimeout(timeoutHandle);
+        if (timeoutHandle) clearTimeout(timeoutHandle);
         timeoutHandle = setTimeout(() => {
           reader.cancel();
         }, SSE_TIMEOUT);
@@ -204,7 +204,7 @@ export function useChatStream() {
   );
 
   const confirmAction = useCallback(
-    async (conversationId: number, messageId: number) => {
+    async (conversationId: number, messageId: number, overrideArgs?: Record<string, any>) => {
       const gen = ++genRef.current;
       hadMutationInStream = true;
 
@@ -225,6 +225,7 @@ export function useChatStream() {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
+          body: overrideArgs ? JSON.stringify({ args: overrideArgs }) : undefined,
         },
       );
 

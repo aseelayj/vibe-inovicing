@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { useTranslation } from 'react-i18next';
 import { useChat } from '@/contexts/chat-context';
 import {
   useConversations, useCreateConversation, useDeleteConversation,
@@ -18,9 +18,7 @@ import { toast } from 'sonner';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
-// Context-aware suggestion chips
 function getSuggestions(section: string, entityType?: string, entityId?: number): string[] {
-  const base = ['Show my dashboard stats', 'Show tax deadlines'];
   if (section === 'invoices') {
     return ['Create a new invoice', 'Show overdue invoices', 'List unpaid invoices'];
   }
@@ -40,7 +38,7 @@ function getSuggestions(section: string, entityType?: string, entityId?: number)
     return [`Send quote #${entityId}`, `Convert quote #${entityId} to invoice`];
   }
   if (section === 'dashboard') {
-    return ['Show my revenue chart', 'Get GST summary', 'Show tax deadlines'];
+    return ['Show my dashboard stats', 'Get GST summary', 'Show tax deadlines'];
   }
   if (section === 'payments') {
     return ['List all payments', 'Record a new payment'];
@@ -54,10 +52,15 @@ function getSuggestions(section: string, entityType?: string, entityId?: number)
   if (section === 'settings') {
     return ['Show my settings', 'Show JoFotara config'];
   }
-  return base;
+  return ['Show my dashboard stats', 'Show tax deadlines'];
 }
 
-export function ChatPanel() {
+interface ChatPanelProps {
+  variant?: 'sidebar' | 'fullscreen';
+}
+
+export function ChatPanel({ variant = 'sidebar' }: ChatPanelProps) {
+  const { t } = useTranslation('chat');
   const {
     isOpen, activeConversationId, pendingMessage,
     setActiveConversation, closeChat, startNewChat, clearPendingMessage,
@@ -82,6 +85,8 @@ export function ChatPanel() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
+  const isFullscreen = variant === 'fullscreen';
+
   const messages: ChatMessage[] = conversationData?.messages || [];
   const suggestions = useMemo(
     () => getSuggestions(pageContext.section, pageContext.entityType, pageContext.entityId),
@@ -90,44 +95,40 @@ export function ChatPanel() {
 
   // Focus input when chat opens
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen || isFullscreen) {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [isOpen]);
+  }, [isOpen, isFullscreen]);
 
-  // Close on Escape
+  // Close on Escape — sidebar only
   useEffect(() => {
+    if (isFullscreen) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        closeChat();
-      }
+      if (e.key === 'Escape' && isOpen) closeChat();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [isOpen, closeChat]);
+  }, [isOpen, closeChat, isFullscreen]);
 
-  // Clear pending attachments when switching conversations
   useEffect(() => {
     setPendingAttachments([]);
   }, [activeConversationId]);
 
-  // Handle deleted/missing conversation — reset to new chat
   useEffect(() => {
     if (messagesError && activeConversationId) {
       setActiveConversation(null);
     }
   }, [messagesError, activeConversationId, setActiveConversation]);
 
-  // Auto-send pending message when chat opens
   useEffect(() => {
-    if (isOpen && pendingMessage && !isStreaming) {
+    const shouldSend = isFullscreen ? !isStreaming : isOpen && !isStreaming;
+    if (shouldSend && pendingMessage) {
       clearPendingMessage();
       handleSend(pendingMessage);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, pendingMessage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, pendingMessage, isFullscreen]);
 
-  // Listen for AI navigation commands
   useEffect(() => {
     const handler = (e: Event) => {
       const path = (e as CustomEvent).detail;
@@ -139,28 +140,22 @@ export function ChatPanel() {
     return () => window.removeEventListener('chat-navigate', handler);
   }, [navigate]);
 
-  // Prevent body scroll on mobile when chat is open
+  // Body scroll lock — sidebar only
   useEffect(() => {
+    if (isFullscreen) return;
     if (isOpen && window.innerWidth < 1024) {
       document.body.style.overflow = 'hidden';
       return () => { document.body.style.overflow = ''; };
     }
-  }, [isOpen]);
+  }, [isOpen, isFullscreen]);
 
-  // When the stream finishes, refetch to pick up new DB messages
   useEffect(() => {
-    if (!isStreaming && activeConversationId) {
-      refetch();
-    }
+    if (!isStreaming && activeConversationId) refetch();
   }, [isStreaming, activeConversationId, refetch]);
 
   const ensureConversation = useCallback(async (): Promise<number> => {
     if (activeConversationId) return activeConversationId;
-
-    const conv = await createConversation.mutateAsync({
-      title: 'New Chat',
-      pageContext,
-    });
+    const conv = await createConversation.mutateAsync({ title: 'New Chat', pageContext });
     setActiveConversation(conv.id);
     return conv.id;
   }, [activeConversationId, createConversation, pageContext, setActiveConversation]);
@@ -181,15 +176,13 @@ export function ChatPanel() {
   }, [ensureConversation, sendMessage, pageContext, pendingAttachments]);
 
   const handleRetry = useCallback(() => {
-    if (lastFailedMessage) {
-      handleSend(lastFailedMessage);
-    }
+    if (lastFailedMessage) handleSend(lastFailedMessage);
   }, [lastFailedMessage, handleSend]);
 
-  const handleConfirm = useCallback(async (messageId: number) => {
+  const handleConfirm = useCallback(async (messageId: number, overrideArgs?: Record<string, any>) => {
     if (!activeConversationId) return;
     try {
-      await confirmAction(activeConversationId, messageId);
+      await confirmAction(activeConversationId, messageId, overrideArgs);
     } catch {
       toast.error('Failed to execute action');
     }
@@ -205,16 +198,13 @@ export function ChatPanel() {
   }, [activeConversationId, rejectAction]);
 
   const handleUpload = useCallback(async (file: File) => {
-    // Client-side size validation
     if (file.size > MAX_FILE_SIZE) {
       toast.error(`File too large (max ${MAX_FILE_SIZE / 1024 / 1024}MB)`);
       return;
     }
-
     const token = localStorage.getItem('token');
     const formData = new FormData();
     formData.append('file', file);
-
     try {
       const response = await fetch('/api/chat/upload', {
         method: 'POST',
@@ -242,7 +232,6 @@ export function ChatPanel() {
     }
   }, [updateConversation]);
 
-  // Drag-and-drop handlers
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -252,7 +241,6 @@ export function ChatPanel() {
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Only hide if leaving the panel entirely
     if (!panelRef.current?.contains(e.relatedTarget as Node)) {
       setIsDragging(false);
     }
@@ -273,20 +261,114 @@ export function ChatPanel() {
   const handleDeleteConversation = useCallback(async (id: number) => {
     try {
       await deleteConversation.mutateAsync(id);
-      if (id === activeConversationId) {
-        setActiveConversation(null);
-      }
+      if (id === activeConversationId) setActiveConversation(null);
     } catch {
       toast.error('Failed to delete conversation');
     }
   }, [deleteConversation, activeConversationId, setActiveConversation]);
 
+  // Fullscreen mode — always visible, different layout
+  if (isFullscreen) {
+    return (
+      <div
+        ref={panelRef}
+        role="main"
+        aria-label="AI Chat"
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        className="flex h-full w-full flex-col bg-background"
+      >
+        {/* Drag overlay */}
+        {isDragging && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center
+            rounded-lg border-2 border-dashed border-primary/40 bg-primary/5">
+            <p className="text-sm font-medium text-primary/70">{t('dropFilesHere')}</p>
+          </div>
+        )}
+
+        {/* Header */}
+        <div className="flex h-14 items-center justify-center border-b px-3">
+          <div className="mx-auto w-full max-w-3xl">
+            <ConversationSwitcher
+              conversations={conversations}
+              activeId={activeConversationId}
+              onSelect={setActiveConversation}
+              onNew={startNewChat}
+              onDelete={handleDeleteConversation}
+              onRename={handleRenameConversation}
+            />
+          </div>
+        </div>
+
+        {/* Messages — centered */}
+        <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col overflow-hidden">
+          <ChatMessageList
+            messages={messages}
+            streamingText={streamingText}
+            isStreaming={isStreaming}
+            isLoading={messagesLoading && !!activeConversationId}
+            executingMessageId={executingMessageId}
+            suggestions={suggestions}
+            onConfirm={handleConfirm}
+            onReject={handleReject}
+            onSuggestionClick={handleSend}
+          />
+
+          {/* Retry bar */}
+          {lastFailedMessage && !isStreaming && (
+            <div className="flex items-center justify-between border-t bg-destructive/5 px-3 py-2">
+              <span className="text-xs text-destructive/80">{t('messageFailed')}</span>
+              <button
+                onClick={handleRetry}
+                className="text-xs font-medium text-destructive hover:underline"
+              >
+                {t('retry')}
+              </button>
+            </div>
+          )}
+
+          {/* Pending attachments */}
+          {pendingAttachments.length > 0 && (
+            <div className="flex gap-1.5 border-t px-3 py-2">
+              {pendingAttachments.map((att, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-1.5 rounded-lg bg-muted/80 px-2.5 py-1 text-xs"
+                >
+                  <span className="max-w-[100px] truncate">{att.name}</span>
+                  <button
+                    onClick={() => setPendingAttachments((prev) => prev.filter((_, j) => j !== i))}
+                    className="text-muted-foreground hover:text-destructive"
+                    aria-label={t('removeAttachment', { name: att.name })}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Input */}
+          <ChatInput
+            ref={inputRef}
+            onSend={handleSend}
+            onUpload={handleUpload}
+            isStreaming={isStreaming}
+            onStop={stopStream}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Sidebar mode — original layout
   return (
     <>
-      {/* Mobile backdrop overlay */}
+      {/* Mobile backdrop */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-30 bg-black/50 lg:hidden"
+          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-[2px] lg:hidden"
           onClick={closeChat}
           aria-hidden="true"
         />
@@ -301,8 +383,8 @@ export function ChatPanel() {
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={cn(
-          'fixed right-0 top-0 z-40 flex h-screen w-full flex-col border-l',
-          'bg-background shadow-xl transition-transform duration-300 ease-in-out',
+          'fixed right-0 top-0 z-40 flex h-screen w-full flex-col',
+          'border-l bg-background transition-transform duration-300 ease-in-out',
           'lg:w-[420px]',
           isOpen ? 'translate-x-0' : 'translate-x-full',
         )}
@@ -310,13 +392,13 @@ export function ChatPanel() {
         {/* Drag overlay */}
         {isDragging && (
           <div className="absolute inset-0 z-50 flex items-center justify-center
-            rounded-lg border-2 border-dashed border-primary bg-primary/10">
-            <p className="text-sm font-medium text-primary">Drop files here</p>
+            rounded-lg border-2 border-dashed border-primary/40 bg-primary/5">
+            <p className="text-sm font-medium text-primary/70">{t('dropFilesHere')}</p>
           </div>
         )}
 
         {/* Header */}
-        <div className="flex items-center justify-between border-b px-3 py-2.5">
+        <div className="flex h-14 items-center justify-between border-b px-3">
           <ConversationSwitcher
             conversations={conversations}
             activeId={activeConversationId}
@@ -325,15 +407,14 @@ export function ChatPanel() {
             onDelete={handleDeleteConversation}
             onRename={handleRenameConversation}
           />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
+          <button
             onClick={closeChat}
-            aria-label="Close chat"
+            aria-label={t('closeChat')}
+            className="flex h-8 w-8 items-center justify-center rounded-lg
+              text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <X className="h-4 w-4" />
-          </Button>
+          </button>
         </div>
 
         {/* Messages */}
@@ -349,32 +430,32 @@ export function ChatPanel() {
           onSuggestionClick={handleSend}
         />
 
-        {/* Retry bar for failed messages */}
+        {/* Retry bar */}
         {lastFailedMessage && !isStreaming && (
-          <div className="flex items-center justify-between border-t bg-destructive/10 px-3 py-2">
-            <span className="text-xs text-destructive">Message failed to send</span>
+          <div className="flex items-center justify-between border-t bg-destructive/5 px-3 py-2">
+            <span className="text-xs text-destructive/80">{t('messageFailed')}</span>
             <button
               onClick={handleRetry}
               className="text-xs font-medium text-destructive hover:underline"
             >
-              Retry
+              {t('retry')}
             </button>
           </div>
         )}
 
-        {/* Pending attachments preview */}
+        {/* Pending attachments */}
         {pendingAttachments.length > 0 && (
           <div className="flex gap-1.5 border-t px-3 py-2">
             {pendingAttachments.map((att, i) => (
               <div
                 key={i}
-                className="flex items-center gap-1 rounded bg-muted px-2 py-1 text-xs"
+                className="flex items-center gap-1.5 rounded-lg bg-muted/80 px-2.5 py-1 text-xs"
               >
                 <span className="max-w-[100px] truncate">{att.name}</span>
                 <button
                   onClick={() => setPendingAttachments((prev) => prev.filter((_, j) => j !== i))}
                   className="text-muted-foreground hover:text-destructive"
-                  aria-label={`Remove ${att.name}`}
+                  aria-label={t('removeAttachment', { name: att.name })}
                 >
                   <X className="h-3 w-3" />
                 </button>

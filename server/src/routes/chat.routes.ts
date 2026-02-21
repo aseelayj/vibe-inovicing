@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and, lt, ne } from 'drizzle-orm';
 import multer from 'multer';
 import * as XLSX from 'xlsx';
 import { GoogleGenAI } from '@google/genai';
 import { db } from '../db/index.js';
-import { conversations, chatMessages } from '../db/schema.js';
+import { conversations, chatMessages, invoices } from '../db/schema.js';
 import { env } from '../env.js';
 import { buildSystemPrompt, buildGeminiContents } from '../services/chat.service.js';
 import {
@@ -63,6 +63,71 @@ async function autoTitleConversation(conversationId: number) {
       .where(eq(conversations.id, conversationId));
   }
 }
+
+// GET /proactive-alerts - Check for notifications to ping the user
+router.get('/proactive-alerts', async (req, res, next) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const overdueInvoices = await db.select({ id: invoices.id }).from(invoices)
+      .where(
+        and(
+          lt(invoices.dueDate, today),
+          ne(invoices.status, 'paid'),
+          ne(invoices.status, 'cancelled')
+        )
+      );
+
+    const overdueCount = overdueInvoices.length;
+    if (overdueCount > 0) {
+      res.json({
+        data: {
+          hasAlerts: true,
+          message: `You have ${overdueCount} overdue invoice${overdueCount > 1 ? 's' : ''} that need attention.`
+        }
+      });
+    } else {
+      res.json({ data: { hasAlerts: false } });
+    }
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /transcribe - Transcribe audio via Gemini
+router.post('/transcribe', upload.single('audio'), async (req, res, next) => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ error: 'No audio file provided' });
+      return;
+    }
+
+    const base64Audio = req.file.buffer.toString('base64');
+
+    const result = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { text: 'Transcribe this audio precisely. Return ONLY the transcribed text. Do not include any conversational filler, markdown formatting, or introductory words.' },
+            {
+              inlineData: {
+                data: base64Audio,
+                mimeType: req.file.mimetype || 'audio/webm',
+              }
+            }
+          ]
+        }
+      ]
+    });
+
+    const text = result.text?.trim() || '';
+    res.json({ data: { text } });
+  } catch (err) {
+    console.error('Transcription error:', err);
+    next(err);
+  }
+});
 
 // POST / - Create new conversation
 router.post('/', async (req, res, next) => {
@@ -306,6 +371,22 @@ async function streamGeminiResponse(
           );
           return;
         } catch (err: any) {
+          if (depth < 2) {
+            console.error(`Self-correction retry for ${toolName}:`, err.message);
+            // Feed error back to Gemini for self-correction without notifying user
+            contents.push({
+              role: 'model',
+              parts: [{ functionCall: { name: toolName, args: toolArgs } }],
+            });
+            contents.push({
+              role: 'user',
+              parts: [{ functionResponse: { name: toolName, response: { error: err.message, advice: 'Please fix the arguments and try again.' } } }],
+            });
+
+            await streamGeminiResponse(res, conversationId, contents, systemPrompt, depth + 1);
+            return;
+          }
+
           sendSSE(res, 'error', { message: err.message || 'Tool execution failed' });
 
           // Save error as assistant message
@@ -385,6 +466,11 @@ router.post('/:id/confirm/:msgId', async (req, res, next) => {
     if (!toolCall) {
       res.status(400).json({ error: 'No tool call to execute' });
       return;
+    }
+
+    // Support overriding arguments from the client before execution
+    if (req.body && req.body.args) {
+      toolCall.args = { ...toolCall.args, ...req.body.args };
     }
 
     // Set up SSE

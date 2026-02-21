@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams, useNavigate } from 'react-router';
 import {
   Download,
@@ -51,56 +52,6 @@ import {
 import { formatCurrency, formatDate } from '@/lib/format';
 import { BIMONTHLY_PERIODS } from '@vibe/shared';
 import { toast } from 'sonner';
-
-const CATEGORY_LABELS: Record<string, string> = {
-  office_supplies: 'Office Supplies',
-  rent: 'Rent',
-  utilities: 'Utilities',
-  software: 'Software',
-  travel: 'Travel',
-  meals: 'Meals',
-  salary: 'Salary',
-  marketing: 'Marketing',
-  insurance: 'Insurance',
-  professional_services: 'Professional Services',
-  equipment: 'Equipment',
-  shipping: 'Shipping',
-  taxes: 'Taxes',
-  invoice_payment: 'Invoice Payment',
-  other: 'Other',
-};
-
-const DATE_PRESETS = [
-  { label: 'This Year', getRange: () => {
-    const y = new Date().getFullYear();
-    return { start: `${y}-01-01`, end: new Date().toISOString().split('T')[0] };
-  }},
-  { label: 'Last Year', getRange: () => {
-    const y = new Date().getFullYear() - 1;
-    return { start: `${y}-01-01`, end: `${y}-12-31` };
-  }},
-  { label: 'This Quarter', getRange: () => {
-    const now = new Date();
-    const q = Math.floor(now.getMonth() / 3);
-    const start = new Date(now.getFullYear(), q * 3, 1);
-    return {
-      start: start.toISOString().split('T')[0],
-      end: now.toISOString().split('T')[0],
-    };
-  }},
-  { label: 'Last Quarter', getRange: () => {
-    const now = new Date();
-    const q = Math.floor(now.getMonth() / 3) - 1;
-    const year = q < 0 ? now.getFullYear() - 1 : now.getFullYear();
-    const qIdx = q < 0 ? 3 : q;
-    const start = new Date(year, qIdx * 3, 1);
-    const end = new Date(year, qIdx * 3 + 3, 0);
-    return {
-      start: start.toISOString().split('T')[0],
-      end: end.toISOString().split('T')[0],
-    };
-  }},
-];
 
 // Simple prev/next period picker with clear labels
 function PeriodPicker({
@@ -191,6 +142,8 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
   initialYear?: number;
   initialPeriod?: number;
 }) {
+  const { t } = useTranslation('tax-reports');
+  const { t: tc } = useTranslation('common');
   const now = new Date();
   const [year, setYear] = useState(initialYear ?? now.getFullYear());
   const [period, setPeriod] = useState(
@@ -239,7 +192,7 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
             onClick={() => handleExport('gst-summary')}
           >
             <Download className="h-3.5 w-3.5" />
-            Summary
+            {t('summary')}
           </Button>
           <Button
             variant="outline"
@@ -247,7 +200,7 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
             onClick={() => handleExport('sales-tax')}
           >
             <Download className="h-3.5 w-3.5" />
-            Full Report
+            {t('fullReport')}
           </Button>
         </div>
       </div>
@@ -265,10 +218,10 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
         <CardContent className="px-6 pt-0 text-center">
           <p className="text-sm font-medium text-muted-foreground">
             {netTax > 0
-              ? 'You owe the tax authority'
+              ? t('youOwe')
               : netTax < 0
-                ? 'Tax authority owes you (credit)'
-                : 'Nothing to pay this period'}
+                ? t('taxAuthorityOwes')
+                : t('nothingToPay')}
           </p>
           <p
             className={`mt-2 text-4xl font-bold tracking-tight ${
@@ -284,7 +237,7 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
           {daysLeft != null && daysLeft >= 0 && (
             <p className="mt-2 text-sm text-muted-foreground">
               <Calendar className="mr-1 inline h-3.5 w-3.5" />
-              Due by {formatDate(gst!.period.deadline)}
+              {t('dueBy', { date: formatDate(gst!.period.deadline) })}
               {daysLeft <= 30 && (
                 <Badge
                   variant="secondary"
@@ -294,7 +247,7 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
                       : 'bg-yellow-100 text-yellow-700'
                   }`}
                 >
-                  {daysLeft} days left
+                  {t('daysLeft', { count: daysLeft })}
                 </Badge>
               )}
             </p>
@@ -305,12 +258,11 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
       {/* How we got there - visual math */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">How this was calculated</CardTitle>
+          <CardTitle className="text-base">{t('howCalculated')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <Hint>
-            Every 2 months, you subtract the tax you paid on purchases from
-            the tax you collected on sales. The difference is what you owe (or get back).
+            {t('calculationHint')}
           </Hint>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -318,13 +270,15 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
             <div className="rounded-lg border p-4">
               <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                 <TrendingUp className="h-3.5 w-3.5 text-red-500" />
-                Tax you collected from clients
+                {t('taxCollectedFromClients')}
               </div>
               <p className="mt-2 text-2xl font-bold text-red-600">
                 {formatCurrency(gst?.outputTax ?? 0, 'JOD')}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                16% on {formatCurrency(gst?.taxableSales ?? 0, 'JOD')} taxable sales
+                {t('onTaxableSales', {
+                  amount: formatCurrency(gst?.taxableSales ?? 0, 'JOD'),
+                })}
               </p>
             </div>
 
@@ -332,13 +286,15 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
             <div className="rounded-lg border p-4">
               <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                 <TrendingDown className="h-3.5 w-3.5 text-green-500" />
-                Tax you paid on purchases
+                {t('taxPaidOnPurchases')}
               </div>
               <p className="mt-2 text-2xl font-bold text-green-600">
                 {formatCurrency(gst?.inputTax ?? 0, 'JOD')}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                From {formatCurrency(gst?.totalPurchases ?? 0, 'JOD')} in expenses
+                {t('fromExpenses', {
+                  amount: formatCurrency(gst?.totalPurchases ?? 0, 'JOD'),
+                })}
               </p>
             </div>
 
@@ -346,7 +302,7 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
             <div className="rounded-lg border bg-muted/30 p-4">
               <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                 <Equal className="h-3.5 w-3.5" />
-                Net amount
+                {t('netAmount')}
               </div>
               <p
                 className={`mt-2 text-2xl font-bold ${
@@ -356,15 +312,20 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
                 {formatCurrency(netTax, 'JOD')}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {netTax > 0 ? 'You owe this amount' : netTax < 0 ? 'Credit to claim' : 'Zero balance'}
+                {netTax > 0
+                  ? t('youOweThisAmount')
+                  : netTax < 0
+                    ? t('creditToClaim')
+                    : t('zeroBalance')}
               </p>
             </div>
           </div>
 
           {(gst?.exemptSales ?? 0) > 0 && (
             <p className="text-xs text-muted-foreground">
-              + {formatCurrency(gst!.exemptSales, 'JOD')} in exempt
-              (tax-free) sales not included above.
+              {t('exemptSalesNote', {
+                amount: formatCurrency(gst!.exemptSales, 'JOD'),
+              })}
             </p>
           )}
         </CardContent>
@@ -372,16 +333,16 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
 
       {/* Collapsible invoice list - with links */}
       {hasInvoices ? (
-        <Details label="Your invoices this period" count={sales.invoices.length}>
+        <Details label={t('yourInvoicesThisPeriod')} count={sales.invoices.length}>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Invoice</TableHead>
-                <TableHead>Client</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead className="text-right">Tax</TableHead>
-                <TableHead>Type</TableHead>
+                <TableHead>{t('invoice')}</TableHead>
+                <TableHead>{t('client')}</TableHead>
+                <TableHead>{t('date')}</TableHead>
+                <TableHead className="text-right">{t('amount')}</TableHead>
+                <TableHead className="text-right">{t('tax')}</TableHead>
+                <TableHead>{t('type')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -396,7 +357,7 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
                       <ExternalLink className="h-3 w-3" />
                     </Link>
                   </TableCell>
-                  <TableCell>{inv.clientName ?? '—'}</TableCell>
+                  <TableCell>{inv.clientName ?? '--'}</TableCell>
                   <TableCell className="whitespace-nowrap">
                     {formatDate(inv.issueDate)}
                   </TableCell>
@@ -415,7 +376,7 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
                           : 'border-gray-200 bg-gray-50 text-gray-600'
                       }
                     >
-                      {inv.isTaxable ? 'Taxable' : 'Exempt'}
+                      {inv.isTaxable ? tc('taxable') : tc('exempt')}
                     </Badge>
                   </TableCell>
                 </TableRow>
@@ -428,16 +389,18 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
           <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
             <FileText className="h-8 w-8 text-muted-foreground/50" />
             <div>
-              <p className="text-sm font-medium">No invoices this period</p>
+              <p className="text-sm font-medium">{t('noInvoicesThisPeriod')}</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Invoices you create during {BIMONTHLY_PERIODS[period].label} {year} will
-                appear here automatically.
+                {t('noInvoicesThisPeriodDesc', {
+                  period: BIMONTHLY_PERIODS[period].label,
+                  year,
+                })}
               </p>
             </div>
             <Link to="/invoices/new">
               <Button variant="outline" size="sm">
                 <Plus className="h-3.5 w-3.5" />
-                Create Invoice
+                {t('createInvoice')}
               </Button>
             </Link>
           </CardContent>
@@ -446,16 +409,16 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
 
       {/* Collapsible purchases list - with links */}
       {hasExpenses ? (
-        <Details label="Your expenses this period" count={purchases.transactions.length}>
+        <Details label={t('yourExpensesThisPeriod')} count={purchases.transactions.length}>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>What</TableHead>
-                <TableHead>Supplier</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead className="text-right">Tax Paid</TableHead>
+                <TableHead>{t('date')}</TableHead>
+                <TableHead>{t('what')}</TableHead>
+                <TableHead>{t('supplier')}</TableHead>
+                <TableHead>{t('category')}</TableHead>
+                <TableHead className="text-right">{t('amount')}</TableHead>
+                <TableHead className="text-right">{t('taxPaid')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -467,7 +430,7 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
                   <TableCell className="max-w-[200px] truncate">
                     {txn.description}
                   </TableCell>
-                  <TableCell>{txn.supplierName ?? '—'}</TableCell>
+                  <TableCell>{txn.supplierName ?? '--'}</TableCell>
                   <TableCell>
                     <Badge variant="outline" className="text-xs">
                       {CATEGORY_LABELS[txn.category] || txn.category}
@@ -479,7 +442,7 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
                   <TableCell className="text-right font-mono">
                     {txn.taxAmount
                       ? formatCurrency(txn.taxAmount, 'JOD')
-                      : <span className="text-muted-foreground">—</span>}
+                      : <span className="text-muted-foreground">--</span>}
                   </TableCell>
                 </TableRow>
               ))}
@@ -491,7 +454,7 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
               className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
             >
               <ArrowLeftRight className="h-3 w-3" />
-              View all transactions
+              {t('viewAllTransactions')}
             </Link>
           </div>
         </Details>
@@ -500,16 +463,15 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
           <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
             <ArrowLeftRight className="h-8 w-8 text-muted-foreground/50" />
             <div>
-              <p className="text-sm font-medium">No expenses recorded this period</p>
+              <p className="text-sm font-medium">{t('noExpensesThisPeriod')}</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Add expenses with tax details to track your input tax
-                and reduce what you owe.
+                {t('noExpensesDesc')}
               </p>
             </div>
             <Link to="/transactions">
               <Button variant="outline" size="sm">
                 <Plus className="h-3.5 w-3.5" />
-                Add Expense
+                {t('addExpense')}
               </Button>
             </Link>
           </CardContent>
@@ -522,6 +484,7 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
 // ---- Tab 2: Annual Income Tax ----
 
 function IncomeTaxTab({ initialYear }: { initialYear?: number }) {
+  const { t } = useTranslation('tax-reports');
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(initialYear ?? currentYear);
   const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
@@ -543,8 +506,8 @@ function IncomeTaxTab({ initialYear }: { initialYear?: number }) {
     return (
       <EmptyState
         icon={Calculator}
-        title="No data yet"
-        description="Once you have invoices and expenses, your tax estimate will show up here."
+        title={t('noDataYet')}
+        description={t('noDataYetIncomeTax')}
       />
     );
   }
@@ -553,7 +516,7 @@ function IncomeTaxTab({ initialYear }: { initialYear?: number }) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Year:</span>
+          <span className="text-sm text-muted-foreground">{t('year')}</span>
           <select
             value={year}
             onChange={(e) => setYear(Number(e.target.value))}
@@ -566,7 +529,7 @@ function IncomeTaxTab({ initialYear }: { initialYear?: number }) {
         </div>
         <Button variant="outline" size="sm" onClick={handleExport}>
           <Download className="h-3.5 w-3.5" />
-          Export Excel
+          {t('exportExcel')}
         </Button>
       </div>
 
@@ -574,43 +537,42 @@ function IncomeTaxTab({ initialYear }: { initialYear?: number }) {
       <Card className="border-2 border-muted py-6">
         <CardContent className="px-6 pt-0 text-center">
           <p className="text-sm font-medium text-muted-foreground">
-            Estimated income tax for {year}
+            {t('estimatedIncomeTax', { year })}
           </p>
           <p className="mt-2 text-4xl font-bold tracking-tight text-red-600">
             {formatCurrency(data.totalLiability, 'JOD')}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
             <Calendar className="mr-1 inline h-3.5 w-3.5" />
-            Due by April 30, {year + 1}
+            {t('dueByDate', { year: year + 1 })}
           </p>
         </CardContent>
       </Card>
 
       <Hint>
-        This is an estimate based on your invoices and expenses.
-        Your actual tax may differ — consult an accountant for your final filing.
+        {t('incomeEstimateHint')}
       </Hint>
 
       {/* The simple story: earned -> spent -> profit -> exemptions -> tax */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">The breakdown</CardTitle>
+          <CardTitle className="text-base">{t('theBreakdown')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-1">
-            <Row label="Money you earned (paid invoices)" value={data.totalRevenue} color="green" />
-            <Row label="Money you spent (expenses)" value={-data.totalExpenses} color="red" sign="-" />
+            <Row label={t('moneyEarned')} value={data.totalRevenue} color="green" />
+            <Row label={t('moneySpent')} value={-data.totalExpenses} color="red" sign="-" />
             <Divider />
-            <Row label="Your profit" value={data.grossProfit} bold />
-            <Row label="Tax-free amount (personal exemption)" value={-data.personalExemption} color="green" sign="-" />
+            <Row label={t('yourProfit')} value={data.grossProfit} bold />
+            <Row label={t('personalExemptionLabel')} value={-data.personalExemption} color="green" sign="-" />
             {data.familyExemption > 0 && (
-              <Row label="Tax-free amount (family)" value={-data.familyExemption} color="green" sign="-" />
+              <Row label={t('familyExemptionLabel')} value={-data.familyExemption} color="green" sign="-" />
             )}
             {data.additionalExemptions > 0 && (
-              <Row label="Additional exemptions (medical, edu, rent)" value={-data.additionalExemptions} color="green" sign="-" />
+              <Row label={t('additionalExemptionsLabel')} value={-data.additionalExemptions} color="green" sign="-" />
             )}
             <Divider />
-            <Row label="Income that gets taxed" value={data.taxableIncome} bold />
+            <Row label={t('incomeThatGetsTaxed')} value={data.taxableIncome} bold />
           </div>
           <div className="mt-3 flex gap-2">
             <Link
@@ -618,7 +580,7 @@ function IncomeTaxTab({ initialYear }: { initialYear?: number }) {
               className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
             >
               <FileText className="h-3 w-3" />
-              View invoices
+              {t('viewInvoices')}
             </Link>
             <span className="text-xs text-muted-foreground">|</span>
             <Link
@@ -626,14 +588,14 @@ function IncomeTaxTab({ initialYear }: { initialYear?: number }) {
               className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
             >
               <ArrowLeftRight className="h-3 w-3" />
-              View expenses
+              {t('viewExpenses')}
             </Link>
             <span className="text-xs text-muted-foreground">|</span>
             <Link
               to="/settings"
               className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
             >
-              Change exemptions
+              {t('changeExemptions')}
             </Link>
           </div>
         </CardContent>
@@ -641,11 +603,10 @@ function IncomeTaxTab({ initialYear }: { initialYear?: number }) {
 
       {/* Tax brackets - simplified */}
       {data.taxBrackets.length > 0 && (
-        <Details label="How the tax is calculated" count={data.taxBrackets.length}>
+        <Details label={t('howTaxCalculated')} count={data.taxBrackets.length}>
           <div className="p-4">
             <Hint>
-              Jordan uses progressive tax brackets — you pay a higher percentage
-              only on the income above each threshold, not on all your income.
+              {t('progressiveBracketsHint')}
             </Hint>
             <div className="mt-3 space-y-2">
               {data.taxBrackets.map((b, i) => (
@@ -653,7 +614,10 @@ function IncomeTaxTab({ initialYear }: { initialYear?: number }) {
                   <div>
                     <p className="text-sm font-medium">{b.range}</p>
                     <p className="text-xs text-muted-foreground">
-                      {formatCurrency(b.income, 'JOD')} taxed at {b.rate}%
+                      {t('taxedAtRate', {
+                        amount: formatCurrency(b.income, 'JOD'),
+                        rate: b.rate,
+                      })}
                     </p>
                   </div>
                   <p className="font-mono text-sm font-semibold">
@@ -662,7 +626,7 @@ function IncomeTaxTab({ initialYear }: { initialYear?: number }) {
                 </div>
               ))}
               <div className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2">
-                <p className="text-sm font-bold">Total tax</p>
+                <p className="text-sm font-bold">{t('totalTax')}</p>
                 <p className="font-mono text-sm font-bold text-red-600">
                   {formatCurrency(data.totalLiability, 'JOD')}
                 </p>
@@ -674,7 +638,7 @@ function IncomeTaxTab({ initialYear }: { initialYear?: number }) {
 
       {/* Expense categories */}
       {data.expensesByCategory.length > 0 && (
-        <Details label="Where your money went" count={data.expensesByCategory.length}>
+        <Details label={t('whereMoneyWent')} count={data.expensesByCategory.length}>
           <div className="p-4 space-y-2">
             {data.expensesByCategory.map((cat) => {
               const pct = data.totalExpenses > 0
@@ -710,12 +674,45 @@ function IncomeTaxTab({ initialYear }: { initialYear?: number }) {
 // ---- Tab 3: Profit & Loss ----
 
 function ProfitLossTab() {
+  const { t } = useTranslation('tax-reports');
   const currentYear = new Date().getFullYear();
   const [startDate, setStartDate] = useState(`${currentYear}-01-01`);
   const [endDate, setEndDate] = useState(
     new Date().toISOString().split('T')[0],
   );
-  const [activePreset, setActivePreset] = useState('This Year');
+  const [activePreset, setActivePreset] = useState(t('thisYear'));
+
+  const DATE_PRESETS = [
+    { label: t('thisYear'), getRange: () => {
+      const y = new Date().getFullYear();
+      return { start: `${y}-01-01`, end: new Date().toISOString().split('T')[0] };
+    }},
+    { label: t('lastYear'), getRange: () => {
+      const y = new Date().getFullYear() - 1;
+      return { start: `${y}-01-01`, end: `${y}-12-31` };
+    }},
+    { label: t('thisQuarter'), getRange: () => {
+      const now = new Date();
+      const q = Math.floor(now.getMonth() / 3);
+      const start = new Date(now.getFullYear(), q * 3, 1);
+      return {
+        start: start.toISOString().split('T')[0],
+        end: now.toISOString().split('T')[0],
+      };
+    }},
+    { label: t('lastQuarter'), getRange: () => {
+      const now = new Date();
+      const q = Math.floor(now.getMonth() / 3) - 1;
+      const year = q < 0 ? now.getFullYear() - 1 : now.getFullYear();
+      const qIdx = q < 0 ? 3 : q;
+      const start = new Date(year, qIdx * 3, 1);
+      const end = new Date(year, qIdx * 3 + 3, 0);
+      return {
+        start: start.toISOString().split('T')[0],
+        end: end.toISOString().split('T')[0],
+      };
+    }},
+  ];
 
   const { data, isLoading } = useProfitLossReport({ startDate, endDate });
   const exportReport = useExportReport();
@@ -741,8 +738,8 @@ function ProfitLossTab() {
     return (
       <EmptyState
         icon={BarChart3}
-        title="No data yet"
-        description="Add invoices and expenses to see your profit & loss."
+        title={t('noDataYet')}
+        description={t('noDataYetProfitLoss')}
       />
     );
   }
@@ -765,12 +762,12 @@ function ProfitLossTab() {
         </div>
         <Button variant="outline" size="sm" onClick={handleExport}>
           <Download className="h-3.5 w-3.5" />
-          Export
+          {t('export')}
         </Button>
       </div>
 
       {/* Custom date range (collapsed by default) */}
-      <Details label="Custom date range">
+      <Details label={t('customDateRange')}>
         <div className="flex items-center gap-2 px-4 py-3">
           <input
             type="date"
@@ -793,7 +790,7 @@ function ProfitLossTab() {
         <Card className="py-5">
           <CardContent className="px-4 pt-0 text-center">
             <TrendingUp className="mx-auto h-5 w-5 text-green-500" />
-            <p className="mt-2 text-xs text-muted-foreground">Money In</p>
+            <p className="mt-2 text-xs text-muted-foreground">{t('moneyIn')}</p>
             <p className="mt-1 text-xl font-bold text-green-600">
               {formatCurrency(data.revenue.total, 'JOD')}
             </p>
@@ -801,14 +798,14 @@ function ProfitLossTab() {
               to="/invoices"
               className="mt-1 inline-block text-[10px] text-muted-foreground hover:text-foreground"
             >
-              View invoices →
+              {t('viewInvoicesLink')} →
             </Link>
           </CardContent>
         </Card>
         <Card className="py-5">
           <CardContent className="px-4 pt-0 text-center">
             <TrendingDown className="mx-auto h-5 w-5 text-red-500" />
-            <p className="mt-2 text-xs text-muted-foreground">Money Out</p>
+            <p className="mt-2 text-xs text-muted-foreground">{t('moneyOut')}</p>
             <p className="mt-1 text-xl font-bold text-red-600">
               {formatCurrency(data.expenses.total, 'JOD')}
             </p>
@@ -816,7 +813,7 @@ function ProfitLossTab() {
               to="/transactions"
               className="mt-1 inline-block text-[10px] text-muted-foreground hover:text-foreground"
             >
-              View transactions →
+              {t('viewTransactionsLink')} →
             </Link>
           </CardContent>
         </Card>
@@ -830,7 +827,7 @@ function ProfitLossTab() {
           <CardContent className="px-4 pt-0 text-center">
             <Equal className="mx-auto h-5 w-5" />
             <p className="mt-2 text-xs text-muted-foreground">
-              {data.netProfit >= 0 ? 'Profit' : 'Loss'}
+              {data.netProfit >= 0 ? t('profit') : t('loss')}
             </p>
             <p
               className={`mt-1 text-xl font-bold ${
@@ -846,14 +843,14 @@ function ProfitLossTab() {
       {/* Monthly breakdown */}
       {(data.revenue.byMonth.length > 0
         || data.expenses.byMonth.length > 0) && (
-        <Details label="Month by month">
+        <Details label={t('monthByMonth')}>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Month</TableHead>
-                <TableHead className="text-right">In</TableHead>
-                <TableHead className="text-right">Out</TableHead>
-                <TableHead className="text-right">Net</TableHead>
+                <TableHead>{t('month')}</TableHead>
+                <TableHead className="text-right">{t('in')}</TableHead>
+                <TableHead className="text-right">{t('out')}</TableHead>
+                <TableHead className="text-right">{t('net')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -897,7 +894,7 @@ function ProfitLossTab() {
 
       {/* Expense categories with bars */}
       {data.expenses.byCategory.length > 0 && (
-        <Details label="Where your money went" count={data.expenses.byCategory.length}>
+        <Details label={t('whereMoneyWent')} count={data.expenses.byCategory.length}>
           <div className="p-4 space-y-2">
             {data.expenses.byCategory.map((cat) => {
               const pct = data.expenses.total > 0
@@ -931,6 +928,24 @@ function ProfitLossTab() {
 }
 
 // ---- Shared row helpers ----
+
+const CATEGORY_LABELS: Record<string, string> = {
+  office_supplies: 'Office Supplies',
+  rent: 'Rent',
+  utilities: 'Utilities',
+  software: 'Software',
+  travel: 'Travel',
+  meals: 'Meals',
+  salary: 'Salary',
+  marketing: 'Marketing',
+  insurance: 'Insurance',
+  professional_services: 'Professional Services',
+  equipment: 'Equipment',
+  shipping: 'Shipping',
+  taxes: 'Taxes',
+  invoice_payment: 'Invoice Payment',
+  other: 'Other',
+};
 
 function Row({
   label,
@@ -969,6 +984,7 @@ function Divider() {
 // ---- Main page ----
 
 export function TaxReportsPage() {
+  const { t } = useTranslation('tax-reports');
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { data: deadlines } = useTaxDeadlines();
@@ -993,9 +1009,9 @@ export function TaxReportsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Tax Reports</h2>
+          <h2 className="text-2xl font-bold tracking-tight">{t('title')}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            See what you owe and export reports for tax filing
+            {t('subtitle')}
           </p>
         </div>
         {nextDeadline && (
@@ -1018,8 +1034,14 @@ export function TaxReportsPage() {
           >
             <Calendar className="h-4 w-4" />
             <span>
-              Next deadline: <strong>{formatDate(nextDeadline.deadline)}</strong>
-              {' '}({nextDeadline.daysUntil}d)
+              {t('nextDeadline', {
+                date: formatDate(nextDeadline.deadline),
+                days: nextDeadline.daysUntil,
+                interpolation: { escapeValue: false },
+              }).replace(
+                /<strong>(.*?)<\/strong>/,
+                (_, text) => text,
+              )}
             </span>
           </button>
         )}
@@ -1029,15 +1051,15 @@ export function TaxReportsPage() {
         <TabsList>
           <TabsTrigger value="sales-tax">
             <Receipt className="mr-1.5 h-3.5 w-3.5" />
-            Sales Tax
+            {t('salesTax')}
           </TabsTrigger>
           <TabsTrigger value="income-tax">
             <Calculator className="mr-1.5 h-3.5 w-3.5" />
-            Income Tax
+            {t('incomeTax')}
           </TabsTrigger>
           <TabsTrigger value="profit-loss">
             <BarChart3 className="mr-1.5 h-3.5 w-3.5" />
-            Profit & Loss
+            {t('profitLoss')}
           </TabsTrigger>
         </TabsList>
 

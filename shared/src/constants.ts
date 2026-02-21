@@ -6,6 +6,7 @@ export const INVOICE_STATUSES = [
   'partially_paid',
   'overdue',
   'cancelled',
+  'written_off',
 ] as const;
 
 export const QUOTE_STATUSES = [
@@ -22,8 +23,16 @@ export const PAYMENT_METHODS = [
   'bank_transfer',
   'credit_card',
   'check',
+  'paypal',
   'other',
 ] as const;
+
+export const BANK_ACCOUNT_PROVIDERS = [
+  'manual',
+  'paypal',
+  'bank_al_etihad',
+] as const;
+export type BankAccountProvider = typeof BANK_ACCOUNT_PROVIDERS[number];
 
 export const RECURRING_FREQUENCIES = [
   'weekly',

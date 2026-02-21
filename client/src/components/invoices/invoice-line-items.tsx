@@ -1,10 +1,12 @@
 import { useFieldArray, useFormContext } from 'react-hook-form';
 import { Plus, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/format';
 
 export function InvoiceLineItems() {
+  const { t } = useTranslation('common');
   const {
     register,
     control,
@@ -23,7 +25,7 @@ export function InvoiceLineItems() {
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold">Line Items</h3>
+        <h3 className="text-sm font-semibold">{t('lineItems')}</h3>
         <Button
           type="button"
           variant="ghost"
@@ -33,13 +35,13 @@ export function InvoiceLineItems() {
           }
         >
           <Plus className="h-4 w-4" />
-          Add Item
+          {t('addItem')}
         </Button>
       </div>
 
       {fields.length === 0 && (
         <div className="rounded-lg border-2 border-dashed py-8 text-center">
-          <p className="text-sm text-muted-foreground">No line items yet.</p>
+          <p className="text-sm text-muted-foreground">{t('noLineItems')}</p>
           <Button
             type="button"
             variant="ghost"
@@ -50,7 +52,7 @@ export function InvoiceLineItems() {
             }
           >
             <Plus className="h-4 w-4" />
-            Add your first item
+            {t('addFirstItem')}
           </Button>
         </div>
       )}
@@ -58,10 +60,10 @@ export function InvoiceLineItems() {
       {fields.length > 0 && (
         <div className="space-y-3">
           <div className="grid grid-cols-12 gap-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            <div className="col-span-5">Description</div>
-            <div className="col-span-2">Quantity</div>
-            <div className="col-span-2">Unit Price</div>
-            <div className="col-span-2 text-right">Amount</div>
+            <div className="col-span-5">{t('description')}</div>
+            <div className="col-span-2">{t('quantity')}</div>
+            <div className="col-span-2">{t('unitPrice')}</div>
+            <div className="col-span-2 text-right">{t('amount')}</div>
             <div className="col-span-1" />
           </div>
 
@@ -82,7 +84,7 @@ export function InvoiceLineItems() {
               >
                 <div className="col-span-5">
                   <Input
-                    placeholder="Item description"
+                    placeholder={t('itemDescription')}
                     aria-invalid={!!lineErrors?.description}
                     {...register(`lineItems.${index}.description`)}
                   />
@@ -135,7 +137,7 @@ export function InvoiceLineItems() {
                     variant="ghost"
                     size="icon-xs"
                     onClick={() => remove(index)}
-                    aria-label="Remove item"
+                    aria-label={t('removeItem')}
                     className="text-muted-foreground hover:text-destructive"
                   >
                     <Trash2 className="h-4 w-4" />

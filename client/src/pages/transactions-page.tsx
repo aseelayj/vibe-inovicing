@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import {
   Plus,
@@ -52,24 +53,6 @@ import {
   TRANSACTION_CATEGORIES,
 } from '@vibe/shared';
 
-const CATEGORY_LABELS: Record<string, string> = {
-  office_supplies: 'Office Supplies',
-  rent: 'Rent',
-  utilities: 'Utilities',
-  software: 'Software',
-  travel: 'Travel',
-  meals: 'Meals',
-  salary: 'Salary',
-  marketing: 'Marketing',
-  insurance: 'Insurance',
-  professional_services: 'Professional Services',
-  equipment: 'Equipment',
-  shipping: 'Shipping',
-  taxes: 'Taxes',
-  invoice_payment: 'Invoice Payment',
-  other: 'Other',
-};
-
 interface ParsedTransaction {
   date: string;
   description: string;
@@ -90,6 +73,8 @@ function TransactionForm({
   onCancel: () => void;
   isLoading: boolean;
 }) {
+  const { t } = useTranslation('transactions');
+  const { t: tc } = useTranslation('common');
   const [bankAccountId, setBankAccountId] = useState(
     bankAccounts[0]?.id?.toString() ?? '',
   );
@@ -123,7 +108,7 @@ function TransactionForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label className="mb-1.5 block text-sm font-medium">
-          Bank Account *
+          {t('bankAccountRequired')}
         </label>
         <select
           value={bankAccountId}
@@ -131,7 +116,7 @@ function TransactionForm({
           className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
           required
         >
-          <option value="">Select account</option>
+          <option value="">{t('selectAccount')}</option>
           {bankAccounts.map((a) => (
             <option key={a.id} value={a.id}>{a.name}</option>
           ))}
@@ -139,22 +124,24 @@ function TransactionForm({
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label className="mb-1.5 block text-sm font-medium">Type *</label>
+          <label className="mb-1.5 block text-sm font-medium">
+            {t('typeRequired')}
+          </label>
           <select
             value={type}
             onChange={(e) => setType(e.target.value)}
             className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
           >
-            {TRANSACTION_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t.charAt(0).toUpperCase() + t.slice(1)}
+            {TRANSACTION_TYPES.map((tp) => (
+              <option key={tp} value={tp}>
+                {tp.charAt(0).toUpperCase() + tp.slice(1)}
               </option>
             ))}
           </select>
         </div>
         <div>
           <label className="mb-1.5 block text-sm font-medium">
-            Category *
+            {t('categoryRequired')}
           </label>
           <select
             value={category}
@@ -163,7 +150,7 @@ function TransactionForm({
           >
             {TRANSACTION_CATEGORIES.map((c) => (
               <option key={c} value={c}>
-                {CATEGORY_LABELS[c] || c}
+                {t(`categories.${c}`)}
               </option>
             ))}
           </select>
@@ -171,19 +158,23 @@ function TransactionForm({
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label className="mb-1.5 block text-sm font-medium">Amount *</label>
+          <label className="mb-1.5 block text-sm font-medium">
+            {t('amountRequired')}
+          </label>
           <Input
             type="number"
             step="0.01"
             min="0.01"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            placeholder="0.00"
+            placeholder={t('amountPlaceholder')}
             required
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-sm font-medium">Date *</label>
+          <label className="mb-1.5 block text-sm font-medium">
+            {t('dateRequired')}
+          </label>
           <Input
             type="date"
             value={date}
@@ -194,33 +185,35 @@ function TransactionForm({
       </div>
       <div>
         <label className="mb-1.5 block text-sm font-medium">
-          Description *
+          {t('descriptionRequired')}
         </label>
         <Input
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="What was this transaction for?"
+          placeholder={t('descriptionPlaceholder')}
           required
         />
       </div>
       <div>
-        <label className="mb-1.5 block text-sm font-medium">Notes</label>
+        <label className="mb-1.5 block text-sm font-medium">
+          {t('notesLabel')}
+        </label>
         <Input
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="Optional notes"
+          placeholder={t('notesPlaceholder')}
         />
       </div>
       {/* Tax fields for expense transactions (GST input tax tracking) */}
       {type === 'expense' && (
         <div className="space-y-4 rounded-lg border border-dashed p-4">
           <p className="text-xs font-medium text-muted-foreground">
-            Tax Details (for GST input tax tracking)
+            {t('taxDetails')}
           </p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
               <label className="mb-1.5 block text-sm font-medium">
-                GST Paid (ضريبة المدخلات)
+                {t('gstPaid')}
               </label>
               <Input
                 type="number"
@@ -228,27 +221,27 @@ function TransactionForm({
                 min="0"
                 value={taxAmount}
                 onChange={(e) => setTaxAmount(e.target.value)}
-                placeholder="0.00"
+                placeholder={t('amountPlaceholder')}
               />
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium">
-                Supplier Name
+                {t('supplierName')}
               </label>
               <Input
                 value={supplierName}
                 onChange={(e) => setSupplierName(e.target.value)}
-                placeholder="Vendor / supplier"
+                placeholder={t('supplierPlaceholder')}
               />
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium">
-                Invoice Ref #
+                {t('invoiceRef')}
               </label>
               <Input
                 value={invoiceReference}
                 onChange={(e) => setInvoiceReference(e.target.value)}
-                placeholder="Supplier invoice #"
+                placeholder={t('invoiceRefPlaceholder')}
               />
             </div>
           </div>
@@ -256,13 +249,13 @@ function TransactionForm({
       )}
       <div className="flex justify-end gap-2 pt-2">
         <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
+          {tc('cancel')}
         </Button>
         <Button
           type="submit"
           disabled={isLoading || !bankAccountId || !amount || !description.trim()}
         >
-          {isLoading ? 'Saving...' : 'Create'}
+          {isLoading ? t('saving') : tc('create')}
         </Button>
       </div>
     </form>
@@ -278,6 +271,8 @@ function ImportDialog({
   onOpenChange: (open: boolean) => void;
   bankAccounts: { id: number; name: string }[];
 }) {
+  const { t } = useTranslation('transactions');
+  const { t: tc } = useTranslation('common');
   const [step, setStep] = useState<'upload' | 'review'>('upload');
   const [parsed, setParsed] = useState<ParsedTransaction[]>([]);
   const [bankAccountId, setBankAccountId] = useState(
@@ -289,8 +284,8 @@ function ImportDialog({
   const handleFile = useCallback(async (file: File) => {
     try {
       const result = await importMutation.mutateAsync(file);
-      const items = (result as ParsedTransaction[]).map((t) => ({
-        ...t,
+      const items = (result as ParsedTransaction[]).map((txn) => ({
+        ...txn,
         selected: true,
       }));
       setParsed(items);
@@ -307,13 +302,13 @@ function ImportDialog({
   }, [handleFile]);
 
   const handleConfirm = async () => {
-    const selected = parsed.filter((t) => t.selected);
+    const selected = parsed.filter((txn) => txn.selected);
     if (selected.length === 0) return;
 
     try {
       await batchCreate.mutateAsync({
         bankAccountId: parseInt(bankAccountId, 10),
-        transactions: selected.map(({ selected: _, ...t }) => t),
+        transactions: selected.map(({ selected: _, ...txn }) => txn),
       });
       onOpenChange(false);
       setStep('upload');
@@ -325,13 +320,13 @@ function ImportDialog({
 
   const toggleRow = (idx: number) => {
     setParsed((prev) =>
-      prev.map((t, i) => (i === idx ? { ...t, selected: !t.selected } : t)),
+      prev.map((txn, i) => (i === idx ? { ...txn, selected: !txn.selected } : txn)),
     );
   };
 
   const updateCategory = (idx: number, category: string) => {
     setParsed((prev) =>
-      prev.map((t, i) => (i === idx ? { ...t, category } : t)),
+      prev.map((txn, i) => (i === idx ? { ...txn, category } : txn)),
     );
   };
 
@@ -347,11 +342,11 @@ function ImportDialog({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Import Bank Statement</DialogTitle>
+          <DialogTitle>{t('importBankStatement')}</DialogTitle>
           <DialogDescription>
             {step === 'upload'
-              ? 'Upload a CSV, Excel, or PDF bank statement for AI-powered parsing.'
-              : 'Review the parsed transactions before importing.'}
+              ? t('importUploadDesc')
+              : t('importReviewDesc')}
           </DialogDescription>
         </DialogHeader>
 
@@ -365,17 +360,17 @@ function ImportDialog({
               <>
                 <Loader2 className="mb-3 h-8 w-8 animate-spin text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">
-                  AI is parsing your statement...
+                  {t('aiParsing')}
                 </p>
               </>
             ) : (
               <>
                 <Upload className="mb-3 h-8 w-8 text-muted-foreground" />
                 <p className="mb-2 text-sm font-medium">
-                  Drag & drop your file here
+                  {t('dragAndDrop')}
                 </p>
                 <p className="mb-4 text-xs text-muted-foreground">
-                  CSV, Excel (.xlsx), or PDF
+                  {t('fileTypes')}
                 </p>
                 <Button
                   variant="outline"
@@ -390,7 +385,7 @@ function ImportDialog({
                     input.click();
                   }}
                 >
-                  Choose File
+                  {t('chooseFile')}
                 </Button>
               </>
             )}
@@ -399,7 +394,7 @@ function ImportDialog({
           <div className="space-y-4">
             <div>
               <label className="mb-1.5 block text-sm font-medium">
-                Import into account
+                {t('importIntoAccount')}
               </label>
               <select
                 value={bankAccountId}
@@ -417,11 +412,13 @@ function ImportDialog({
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-10" />
-                    <TableHead>Date</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead>Category</TableHead>
+                    <TableHead>{t('date')}</TableHead>
+                    <TableHead>{t('description')}</TableHead>
+                    <TableHead>{t('type')}</TableHead>
+                    <TableHead className="text-right">
+                      {tc('amount')}
+                    </TableHead>
+                    <TableHead>{t('category')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -470,7 +467,7 @@ function ImportDialog({
                         >
                           {TRANSACTION_CATEGORIES.map((c) => (
                             <option key={c} value={c}>
-                              {CATEGORY_LABELS[c] || c}
+                              {t(`categories.${c}`)}
                             </option>
                           ))}
                         </select>
@@ -483,23 +480,25 @@ function ImportDialog({
 
             <DialogFooter>
               <Button variant="outline" onClick={() => handleClose(false)}>
-                Cancel
+                {tc('cancel')}
               </Button>
               <Button
                 onClick={handleConfirm}
                 disabled={
                   batchCreate.isPending
                   || !bankAccountId
-                  || parsed.filter((t) => t.selected).length === 0
+                  || parsed.filter((txn) => txn.selected).length === 0
                 }
               >
                 {batchCreate.isPending ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Importing...
+                    {t('importing')}
                   </>
                 ) : (
-                  `Import ${parsed.filter((t) => t.selected).length} Transactions`
+                  t('importCount', {
+                    count: parsed.filter((txn) => txn.selected).length,
+                  })
                 )}
               </Button>
             </DialogFooter>
@@ -511,6 +510,8 @@ function ImportDialog({
 }
 
 export function TransactionsPage() {
+  const { t } = useTranslation('transactions');
+  const { t: tc } = useTranslation('common');
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [accountFilter, setAccountFilter] = useState('');
@@ -553,37 +554,37 @@ export function TransactionsPage() {
   };
 
   const typeTabs = [
-    { key: 'all', label: 'All' },
-    { key: 'income', label: 'Income' },
-    { key: 'expense', label: 'Expenses' },
+    { key: 'all', label: t('allFilter') },
+    { key: 'income', label: t('income') },
+    { key: 'expense', label: t('expenses') },
   ];
 
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-xl font-bold sm:text-2xl">Transactions</h2>
+          <h2 className="text-xl font-bold sm:text-2xl">{t('title')}</h2>
           <p className="mt-0.5 hidden text-sm text-muted-foreground sm:block">
-            Track income and expenses
+            {t('subtitle')}
             {' · '}
             <Link
               to={`/tax-reports?tab=sales-tax&year=${new Date().getFullYear()}&period=${Math.floor(new Date().getMonth() / 2)}`}
               className="inline-flex items-center gap-1 text-primary hover:underline"
             >
               <FileSpreadsheet className="inline h-3 w-3" />
-              View tax report
+              {t('viewTaxReport')}
             </Link>
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
           <Button variant="outline" size="sm" className="sm:size-default" onClick={() => setShowImport(true)}>
             <Upload className="h-4 w-4" />
-            <span className="hidden sm:inline">Import</span>
+            <span className="hidden sm:inline">{t('import')}</span>
           </Button>
           <Button size="sm" className="sm:size-default" onClick={() => setShowCreate(true)}>
             <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Add Transaction</span>
-            <span className="sm:hidden">Add</span>
+            <span className="hidden sm:inline">{t('addTransaction')}</span>
+            <span className="sm:hidden">{t('add')}</span>
           </Button>
         </div>
       </div>
@@ -611,7 +612,7 @@ export function TransactionsPage() {
           onChange={(e) => setAccountFilter(e.target.value)}
           className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm"
         >
-          <option value="">All Accounts</option>
+          <option value="">{t('allAccounts')}</option>
           {bankAccounts.map((a) => (
             <option key={a.id} value={a.id}>{a.name}</option>
           ))}
@@ -621,7 +622,7 @@ export function TransactionsPage() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Search transactions..."
+            placeholder={t('searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-60 pl-9"
@@ -634,15 +635,15 @@ export function TransactionsPage() {
       ) : txns.length === 0 ? (
         <EmptyState
           icon={ArrowLeftRight}
-          title="No transactions found"
+          title={t('noTransactions')}
           description={
             search || typeFilter !== 'all' || accountFilter
-              ? 'Try adjusting your filters.'
-              : 'Add your first transaction to get started.'
+              ? t('noTransactionsFilterDesc')
+              : t('noTransactionsDesc')
           }
           actionLabel={
             !search && typeFilter === 'all' && !accountFilter
-              ? 'Add Transaction'
+              ? t('addTransaction')
               : undefined
           }
           onAction={
@@ -656,11 +657,13 @@ export function TransactionsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Account</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
+                <TableHead>{t('date')}</TableHead>
+                <TableHead>{t('description')}</TableHead>
+                <TableHead>{t('account')}</TableHead>
+                <TableHead>{t('category')}</TableHead>
+                <TableHead className="text-right">
+                  {tc('amount')}
+                </TableHead>
                 <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
@@ -678,7 +681,9 @@ export function TransactionsPage() {
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline" className="text-xs">
-                      {CATEGORY_LABELS[txn.category] || txn.category}
+                      {t(`categories.${txn.category}`, {
+                        defaultValue: txn.category,
+                      })}
                     </Badge>
                   </TableCell>
                   <TableCell
@@ -697,7 +702,7 @@ export function TransactionsPage() {
                         <Button
                           variant="ghost"
                           size="icon-xs"
-                          aria-label="Actions"
+                          aria-label={tc('actions')}
                         >
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
@@ -708,7 +713,7 @@ export function TransactionsPage() {
                           onClick={() => setDeleteId(txn.id)}
                         >
                           <Trash2 className="h-4 w-4" />
-                          Delete
+                          {tc('delete')}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -727,9 +732,9 @@ export function TransactionsPage() {
       >
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>New Transaction</DialogTitle>
+            <DialogTitle>{t('newTransactionDialog')}</DialogTitle>
             <DialogDescription>
-              Record a new income or expense.
+              {t('newTransactionDesc')}
             </DialogDescription>
           </DialogHeader>
           <TransactionForm
@@ -755,21 +760,21 @@ export function TransactionsPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Transaction</DialogTitle>
+            <DialogTitle>{t('deleteTransaction')}</DialogTitle>
             <DialogDescription>
-              Are you sure? The bank account balance will be recalculated.
+              {t('deleteTransactionConfirm')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteId(null)}>
-              Cancel
+              {tc('cancel')}
             </Button>
             <Button
               variant="destructive"
               onClick={handleDelete}
               disabled={deleteTransaction.isPending}
             >
-              {deleteTransaction.isPending ? 'Deleting...' : 'Delete'}
+              {deleteTransaction.isPending ? tc('deleting') : tc('delete')}
             </Button>
           </DialogFooter>
         </DialogContent>

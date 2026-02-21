@@ -1,5 +1,6 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useTranslation } from 'react-i18next';
 import { createClientSchema, JORDAN_CITY_CODES } from '@vibe/shared';
 import type { z } from 'zod';
 import { Input } from '@/components/ui/input';
@@ -35,6 +36,8 @@ export function ClientForm({
   isLoading,
   onCancel,
 }: ClientFormProps) {
+  const { t } = useTranslation('clients');
+  const { t: tc } = useTranslation('common');
   const {
     register,
     handleSubmit,
@@ -64,14 +67,14 @@ export function ClientForm({
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Contact Information</CardTitle>
+          <CardTitle>{t('contactInformation')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
+            <Label htmlFor="name">{tc('name')}</Label>
             <Input
               id="name"
-              placeholder="Client name"
+              placeholder={t('clientName')}
               aria-invalid={!!errors.name}
               {...register('name')}
             />
@@ -82,11 +85,11 @@ export function ClientForm({
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{tc('email')}</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="email@example.com"
+                placeholder={t('emailPlaceholder')}
                 aria-invalid={!!errors.email}
                 {...register('email')}
               />
@@ -97,11 +100,11 @@ export function ClientForm({
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="phone">{tc('phone')}</Label>
               <Input
                 id="phone"
                 type="tel"
-                placeholder="+1 (555) 000-0000"
+                placeholder={t('phonePlaceholder')}
                 aria-invalid={!!errors.phone}
                 {...register('phone')}
               />
@@ -114,10 +117,10 @@ export function ClientForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="company">Company</Label>
+            <Label htmlFor="company">{tc('company')}</Label>
             <Input
               id="company"
-              placeholder="Company name"
+              placeholder={t('companyName')}
               aria-invalid={!!errors.company}
               {...register('company')}
             />
@@ -132,14 +135,14 @@ export function ClientForm({
 
       <Card>
         <CardHeader>
-          <CardTitle>Address</CardTitle>
+          <CardTitle>{t('address')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="addressLine1">Address Line 1</Label>
+            <Label htmlFor="addressLine1">{t('addressLine1')}</Label>
             <Input
               id="addressLine1"
-              placeholder="Street address"
+              placeholder={t('streetAddress')}
               aria-invalid={!!errors.addressLine1}
               {...register('addressLine1')}
             />
@@ -151,10 +154,10 @@ export function ClientForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="addressLine2">Address Line 2</Label>
+            <Label htmlFor="addressLine2">{t('addressLine2')}</Label>
             <Input
               id="addressLine2"
-              placeholder="Apt, suite, unit, etc."
+              placeholder={t('addressLine2Placeholder')}
               aria-invalid={!!errors.addressLine2}
               {...register('addressLine2')}
             />
@@ -167,10 +170,10 @@ export function ClientForm({
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="city">City</Label>
+              <Label htmlFor="city">{t('city')}</Label>
               <Input
                 id="city"
-                placeholder="City"
+                placeholder={t('city')}
                 aria-invalid={!!errors.city}
                 {...register('city')}
               />
@@ -181,10 +184,10 @@ export function ClientForm({
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="state">State / Region</Label>
+              <Label htmlFor="state">{t('stateRegion')}</Label>
               <Input
                 id="state"
-                placeholder="State"
+                placeholder={t('state')}
                 aria-invalid={!!errors.state}
                 {...register('state')}
               />
@@ -198,7 +201,7 @@ export function ClientForm({
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="postalCode">Postal Code</Label>
+              <Label htmlFor="postalCode">{t('postalCode')}</Label>
               <Input
                 id="postalCode"
                 placeholder="00000"
@@ -212,10 +215,10 @@ export function ClientForm({
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="country">Country</Label>
+              <Label htmlFor="country">{t('country')}</Label>
               <Input
                 id="country"
-                placeholder="Country"
+                placeholder={t('country')}
                 aria-invalid={!!errors.country}
                 {...register('country')}
               />
@@ -231,23 +234,23 @@ export function ClientForm({
 
       <Card>
         <CardHeader>
-          <CardTitle>E-Invoicing (JoFotara)</CardTitle>
+          <CardTitle>{t('eInvoicingJoFotara')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="taxId">Tax ID (TIN)</Label>
+              <Label htmlFor="taxId">{t('taxIdTin')}</Label>
               <Input
                 id="taxId"
                 placeholder="e.g. 10662162"
                 {...register('taxId')}
               />
               <p className="text-xs text-muted-foreground">
-                Required for JoFotara e-invoicing
+                {t('taxIdHint')}
               </p>
             </div>
             <div className="space-y-2">
-              <Label>City Code</Label>
+              <Label>{t('cityCode')}</Label>
               <Select
                 value={watch('cityCode') || ''}
                 onValueChange={(val) =>
@@ -255,7 +258,7 @@ export function ClientForm({
                 }
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select governorate" />
+                  <SelectValue placeholder={t('selectGovernorate')} />
                 </SelectTrigger>
                 <SelectContent>
                   {JORDAN_CITY_CODES.map((c) => (
@@ -272,12 +275,12 @@ export function ClientForm({
 
       <Card>
         <CardHeader>
-          <CardTitle>Notes</CardTitle>
+          <CardTitle>{tc('notes')}</CardTitle>
         </CardHeader>
         <CardContent>
           <Textarea
             rows={4}
-            placeholder="Internal notes about this client..."
+            placeholder={t('notesPlaceholder')}
             {...register('notes')}
           />
         </CardContent>
@@ -286,11 +289,11 @@ export function ClientForm({
       <div className="flex gap-3">
         {onCancel && (
           <Button type="button" variant="ghost" onClick={onCancel}>
-            Cancel
+            {tc('cancel')}
           </Button>
         )}
         <Button type="submit" disabled={isLoading}>
-          {isLoading ? 'Saving...' : 'Save Client'}
+          {isLoading ? tc('saving') : t('saveClient')}
         </Button>
       </div>
     </form>

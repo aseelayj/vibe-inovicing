@@ -1,0 +1,14 @@
+{
+  "title": "Payments",
+  "subtitle": "All payment transactions across invoices",
+  "noPaymentsYet": "No payments yet",
+  "noPaymentsDesc": "Payments will appear here when you record them against invoices.",
+  "date": "Date",
+  "invoice": "Invoice",
+  "client": "Client",
+  "method": "Method",
+  "reference": "Reference",
+  "viewInvoice": "View Invoice",
+  "deletePayment": "Delete Payment",
+  "deletePaymentConfirm": "Are you sure you want to delete this payment? This action cannot be undone."
+}

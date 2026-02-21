@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,7 @@ import { api } from '@/lib/api-client';
 import { toast } from 'sonner';
 
 export function InvoiceCreatePage() {
+  const { t } = useTranslation('invoices');
   const navigate = useNavigate();
   const createInvoice = useCreateInvoice();
   const sendInvoice = useSendInvoice();
@@ -18,7 +20,10 @@ export function InvoiceCreatePage() {
     action: InvoiceAction,
   ) => {
     try {
-      const invoice = await createInvoice.mutateAsync(data);
+      const payload = action === 'write_off'
+        ? { ...data, isWriteOff: true }
+        : data;
+      const invoice = await createInvoice.mutateAsync(payload);
       if (action === 'publish') {
         try {
           await api.patch(`/invoices/${invoice.id}/status`, { status: 'sent' });
@@ -48,9 +53,11 @@ export function InvoiceCreatePage() {
           </Button>
         </Link>
         <div className="min-w-0">
-          <h2 className="text-xl font-bold sm:text-2xl">Create Invoice</h2>
+          <h2 className="text-xl font-bold sm:text-2xl">
+            {t('createInvoiceTitle')}
+          </h2>
           <p className="mt-0.5 hidden text-sm text-muted-foreground sm:block">
-            Fill in the details to create a new invoice
+            {t('createInvoiceSubtitle')}
           </p>
         </div>
       </div>

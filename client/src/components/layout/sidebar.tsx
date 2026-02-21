@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Link, useLocation } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard,
   FileText,
@@ -47,6 +48,7 @@ interface SidebarProps {
 export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
   const location = useLocation();
   const { logout } = useAuth();
+  const { t } = useTranslation('nav');
 
   // Close sidebar on route change (mobile)
   useEffect(() => {
@@ -74,10 +76,14 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-64 flex-col',
-          'border-r bg-background transition-transform duration-300 ease-in-out',
+          'fixed inset-y-0 z-50 flex w-64 flex-col',
+          'ltr:left-0 rtl:right-0',
+          'ltr:border-r rtl:border-l',
+          'bg-background transition-transform duration-300 ease-in-out',
           // Mobile: slide in/out
-          mobileOpen ? 'translate-x-0' : '-translate-x-full',
+          mobileOpen
+            ? 'translate-x-0'
+            : 'ltr:-translate-x-full rtl:translate-x-full',
           // Desktop: always visible
           'lg:z-30 lg:translate-x-0',
         )}
@@ -92,7 +98,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
             <Zap className="h-4 w-4 text-primary-foreground" />
           </div>
           <span className="text-lg font-bold tracking-tight">
-            Vibe Invoicing
+            {t('appName')}
           </span>
         </div>
 
@@ -106,6 +112,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
                 item.path === '/'
                   ? location.pathname === '/'
                   : location.pathname.startsWith(item.path);
+              const label = t(item.labelKey);
 
               return (
                 <li key={item.path}>
@@ -132,11 +139,11 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
                             )}
                           />
                         )}
-                        {item.label}
+                        {label}
                       </Link>
                     </TooltipTrigger>
                     <TooltipContent side="right" sideOffset={8}>
-                      {item.label}
+                      {label}
                     </TooltipContent>
                   </Tooltip>
                 </li>
@@ -157,7 +164,7 @@ export function Sidebar({ mobileOpen = false, onClose }: SidebarProps) {
             onClick={logout}
           >
             <LogOut className="h-4 w-4" />
-            Logout
+            {t('logout')}
           </Button>
         </div>
       </aside>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router';
 import {
   Plus,
@@ -53,6 +54,8 @@ import { STATUS_COLORS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 
 export function InvoicesPage() {
+  const { t } = useTranslation('invoices');
+  const { t: tc } = useTranslation('common');
   const navigate = useNavigate();
   const [status, setStatus] = useState('all');
   const [taxFilter, setTaxFilter] = useState<string>('all');
@@ -98,14 +101,14 @@ export function InvoicesPage() {
       return (
         <EmptyState
           icon={FileText}
-          title="No invoices found"
+          title={t('noInvoicesFound')}
           description={
             search || status !== 'all'
-              ? 'Try adjusting your filters or search term.'
-              : 'Create your first invoice to get started.'
+              ? t('adjustFilters')
+              : t('createFirstInvoice')
           }
           actionLabel={
-            !search && status === 'all' ? 'Create Invoice' : undefined
+            !search && status === 'all' ? t('createInvoice') : undefined
           }
           onAction={
             !search && status === 'all'
@@ -121,12 +124,12 @@ export function InvoicesPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Invoice</TableHead>
-              <TableHead>Client</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="hidden md:table-cell">Issue Date</TableHead>
-              <TableHead className="hidden lg:table-cell">Due Date</TableHead>
-              <TableHead className="text-right">Total</TableHead>
+              <TableHead>{t('invoice')}</TableHead>
+              <TableHead>{t('client')}</TableHead>
+              <TableHead>{tc('status')}</TableHead>
+              <TableHead className="hidden md:table-cell">{t('issueDate')}</TableHead>
+              <TableHead className="hidden lg:table-cell">{t('dueDate')}</TableHead>
+              <TableHead className="text-right">{tc('total')}</TableHead>
               <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
@@ -150,12 +153,12 @@ export function InvoicesPage() {
                           : 'bg-gray-100 text-gray-600',
                       )}
                     >
-                      {invoice.isTaxable ? 'Tax' : 'Exempt'}
+                      {invoice.isTaxable ? tc('tax') : tc('exempt')}
                     </Badge>
                   </div>
                 </TableCell>
                 <TableCell>
-                  {invoice.client?.name || 'No client'}
+                  {invoice.client?.name || tc('noClient')}
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1.5">
@@ -174,7 +177,7 @@ export function InvoicesPage() {
                         className="border-transparent bg-green-100 text-green-700"
                       >
                         <Globe className="mr-0.5 h-3 w-3" />
-                        E-Invoice
+                        {tc('eInvoice')}
                       </Badge>
                     )}
                   </div>
@@ -206,7 +209,7 @@ export function InvoicesPage() {
                         }
                       >
                         <Eye className="h-4 w-4" />
-                        View
+                        {tc('view')}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() =>
@@ -214,7 +217,7 @@ export function InvoicesPage() {
                         }
                       >
                         <Pencil className="h-4 w-4" />
-                        Edit
+                        {tc('edit')}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={async () => {
@@ -223,14 +226,14 @@ export function InvoicesPage() {
                         }}
                       >
                         <Copy className="h-4 w-4" />
-                        Duplicate
+                        {tc('duplicate')}
                       </DropdownMenuItem>
                       {invoice.status === 'draft' && (
                         <DropdownMenuItem
                           onClick={() => setSendId(invoice.id)}
                         >
                           <Send className="h-4 w-4" />
-                          Send
+                          {tc('send')}
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuSeparator />
@@ -239,7 +242,7 @@ export function InvoicesPage() {
                         onClick={() => setDeleteId(invoice.id)}
                       >
                         <Trash2 className="h-4 w-4" />
-                        Delete
+                        {tc('delete')}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -256,24 +259,24 @@ export function InvoicesPage() {
     <div className="space-y-4 sm:space-y-6">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-xl font-bold sm:text-2xl">Invoices</h2>
+          <h2 className="text-xl font-bold sm:text-2xl">{t('title')}</h2>
           <p className="mt-0.5 hidden text-sm text-muted-foreground sm:block">
-            Manage and track your invoices
+            {t('subtitle')}
             {' · '}
             <Link
               to={`/tax-reports?tab=sales-tax&year=${new Date().getFullYear()}&period=${Math.floor(new Date().getMonth() / 2)}`}
               className="inline-flex items-center gap-1 text-primary hover:underline"
             >
               <FileSpreadsheet className="inline h-3 w-3" />
-              Tax report
+              {t('taxReport')}
             </Link>
           </p>
         </div>
         <Link to="/invoices/new">
           <Button size="sm" className="shrink-0 sm:size-default">
             <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">New Invoice</span>
-            <span className="sm:hidden">New</span>
+            <span className="hidden sm:inline">{t('newInvoice')}</span>
+            <span className="sm:hidden">{tc('new')}</span>
           </Button>
         </Link>
       </div>
@@ -283,18 +286,19 @@ export function InvoicesPage() {
           <div className="flex items-center gap-3">
             <Tabs value={status} onValueChange={setStatus}>
               <TabsList>
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="draft">Draft</TabsTrigger>
-                <TabsTrigger value="sent">Sent</TabsTrigger>
-                <TabsTrigger value="paid">Paid</TabsTrigger>
-                <TabsTrigger value="overdue">Overdue</TabsTrigger>
+                <TabsTrigger value="all">{tc('all')}</TabsTrigger>
+                <TabsTrigger value="draft">{t('statusDraft')}</TabsTrigger>
+                <TabsTrigger value="sent">{t('statusSent')}</TabsTrigger>
+                <TabsTrigger value="paid">{t('statusPaid')}</TabsTrigger>
+                <TabsTrigger value="overdue">{t('statusOverdue')}</TabsTrigger>
+                <TabsTrigger value="written_off">{t('statusWrittenOff')}</TabsTrigger>
               </TabsList>
             </Tabs>
             <Tabs value={taxFilter} onValueChange={setTaxFilter}>
               <TabsList>
-                <TabsTrigger value="all">All Types</TabsTrigger>
-                <TabsTrigger value="true">Taxable</TabsTrigger>
-                <TabsTrigger value="false">Exempt</TabsTrigger>
+                <TabsTrigger value="all">{t('allTypes')}</TabsTrigger>
+                <TabsTrigger value="true">{tc('taxable')}</TabsTrigger>
+                <TabsTrigger value="false">{tc('exempt')}</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
@@ -304,7 +308,7 @@ export function InvoicesPage() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Search invoices..."
+            placeholder={t('searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 sm:w-64"
@@ -321,22 +325,21 @@ export function InvoicesPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Invoice</DialogTitle>
+            <DialogTitle>{t('deleteInvoice')}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this invoice? This action
-              cannot be undone.
+              {t('deleteInvoiceConfirm')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteId(null)}>
-              Cancel
+              {tc('cancel')}
             </Button>
             <Button
               variant="destructive"
               onClick={handleDelete}
               disabled={deleteInvoice.isPending}
             >
-              {deleteInvoice.isPending ? 'Deleting...' : 'Delete'}
+              {deleteInvoice.isPending ? tc('deleting') : tc('delete')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -349,20 +352,20 @@ export function InvoicesPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Send Invoice</DialogTitle>
+            <DialogTitle>{t('sendInvoice')}</DialogTitle>
             <DialogDescription>
-              Are you sure you want to send this invoice to the client?
+              {t('sendInvoiceConfirmGeneric')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSendId(null)}>
-              Cancel
+              {tc('cancel')}
             </Button>
             <Button
               onClick={handleSend}
               disabled={sendInvoice.isPending}
             >
-              {sendInvoice.isPending ? 'Sending...' : 'Send'}
+              {sendInvoice.isPending ? tc('sending') : tc('send')}
             </Button>
           </DialogFooter>
         </DialogContent>

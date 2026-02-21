@@ -7,10 +7,13 @@ import {
   type ReactNode,
 } from 'react';
 
+export type DashboardMode = 'default' | 'chat';
+
 interface ChatContextValue {
   isOpen: boolean;
   activeConversationId: number | null;
   pendingMessage: string | null;
+  dashboardMode: DashboardMode;
   toggleChat: () => void;
   openChat: (conversationId?: number) => void;
   openChatWithMessage: (message: string) => void;
@@ -18,6 +21,8 @@ interface ChatContextValue {
   setActiveConversation: (id: number | null) => void;
   startNewChat: () => void;
   clearPendingMessage: () => void;
+  setDashboardMode: (mode: DashboardMode) => void;
+  toggleDashboardMode: () => void;
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null);
@@ -32,6 +37,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     const id = parseInt(stored, 10);
     return isNaN(id) ? null : id;
   });
+  const [dashboardMode, setDashboardModeState] = useState<DashboardMode>(() => {
+    const stored = localStorage.getItem('dashboard-mode');
+    return stored === 'chat' ? 'chat' : 'default';
+  });
 
   useEffect(() => {
     localStorage.setItem('chat-open', String(isOpen));
@@ -45,17 +54,26 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }
   }, [activeConversationId]);
 
-  // Cmd+. keyboard shortcut
+  useEffect(() => {
+    localStorage.setItem('dashboard-mode', dashboardMode);
+  }, [dashboardMode]);
+
+  // Cmd+. → toggle chat sidebar (default mode only)
+  // Cmd+Shift+. → toggle dashboard mode (works in both modes)
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === '.' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        setIsOpen((prev) => !prev);
+        if (e.shiftKey) {
+          toggleDashboardMode();
+        } else if (dashboardMode === 'default') {
+          setIsOpen((prev) => !prev);
+        }
       }
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, []);
+  }, [dashboardMode, toggleDashboardMode]);
 
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
 
@@ -79,12 +97,28 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   }, []);
   const clearPendingMessage = useCallback(() => setPendingMessage(null), []);
 
+  const setDashboardMode = useCallback((mode: DashboardMode) => {
+    setDashboardModeState(mode);
+    if (mode === 'chat') {
+      setIsOpen(true);
+    }
+  }, []);
+
+  const toggleDashboardMode = useCallback(() => {
+    setDashboardModeState((prev) => {
+      const next = prev === 'default' ? 'chat' : 'default';
+      if (next === 'chat') setIsOpen(true);
+      return next;
+    });
+  }, []);
+
   return (
     <ChatContext.Provider
       value={{
         isOpen,
         activeConversationId,
         pendingMessage,
+        dashboardMode,
         toggleChat,
         openChat,
         openChatWithMessage,
@@ -92,6 +126,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         setActiveConversation,
         startNewChat,
         clearPendingMessage,
+        setDashboardMode,
+        toggleDashboardMode,
       }}
     >
       {children}

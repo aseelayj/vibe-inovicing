@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate, Link } from 'react-router';
 import {
   ArrowLeft,
@@ -49,6 +50,8 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export function QuoteDetailPage() {
+  const { t } = useTranslation('quotes');
+  const { t: tc } = useTranslation('common');
   const { id } = useParams();
   const navigate = useNavigate();
   const { data: quote, isLoading } = useQuote(id);
@@ -78,7 +81,7 @@ export function QuoteDetailPage() {
         id: quote.id,
         isTaxable: convertTaxable,
       });
-      toast.success('Quote converted to invoice');
+      toast.success(t('convertedSuccess'));
       navigate(`/invoices/${invoice.id}`);
     } catch {
       // handled by mutation
@@ -108,7 +111,7 @@ export function QuoteDetailPage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      toast.error('Failed to download PDF');
+      toast.error(t('pdfError'));
     }
   };
 
@@ -136,7 +139,7 @@ export function QuoteDetailPage() {
                 </Badge>
               </div>
               <p className="text-sm text-muted-foreground">
-                Created {formatDate(quote.createdAt)}
+                {t('created', { date: formatDate(quote.createdAt) })}
               </p>
             </div>
           </div>
@@ -146,12 +149,12 @@ export function QuoteDetailPage() {
             <Link to={`/quotes/${quote.id}/edit`}>
               <Button variant="outline" size="sm">
                 <Pencil className="h-4 w-4" />
-                Edit
+                {tc('edit')}
               </Button>
             </Link>
             <Button variant="outline" size="sm" onClick={handleDownloadPdf}>
               <Download className="h-4 w-4" />
-              PDF
+              {t('pdf')}
             </Button>
             {quote.status === 'draft' && (
               <Button
@@ -165,14 +168,14 @@ export function QuoteDetailPage() {
                 ) : (
                   <Send className="h-4 w-4" />
                 )}
-                Send
+                {tc('send')}
               </Button>
             )}
             {(quote.status === 'accepted' || quote.status === 'sent') &&
               !quote.convertedInvoiceId && (
                 <Button size="sm" onClick={() => setShowConvert(true)}>
                   <FileText className="h-4 w-4" />
-                  Convert
+                  {t('convert')}
                 </Button>
               )}
             <Button
@@ -181,7 +184,7 @@ export function QuoteDetailPage() {
               onClick={() => setShowDelete(true)}
           >
             <Trash2 className="h-4 w-4" />
-            Delete
+            {tc('delete')}
           </Button>
         </div>
         </div>
@@ -191,12 +194,12 @@ export function QuoteDetailPage() {
           <Link to={`/quotes/${quote.id}/edit`}>
             <Button variant="outline" size="sm">
               <Pencil className="h-4 w-4" />
-              Edit
+              {tc('edit')}
             </Button>
           </Link>
           <Button variant="outline" size="sm" onClick={handleDownloadPdf}>
             <Download className="h-4 w-4" />
-            PDF
+            {t('pdf')}
           </Button>
           {quote.status === 'draft' && (
             <Button
@@ -206,14 +209,14 @@ export function QuoteDetailPage() {
               disabled={sendQuote.isPending}
             >
               <Send className="h-4 w-4" />
-              Send
+              {tc('send')}
             </Button>
           )}
           {(quote.status === 'accepted' || quote.status === 'sent') &&
             !quote.convertedInvoiceId && (
               <Button size="sm" onClick={() => setShowConvert(true)}>
                 <FileText className="h-4 w-4" />
-                Convert
+                {t('convert')}
               </Button>
             )}
           <Button
@@ -222,7 +225,7 @@ export function QuoteDetailPage() {
             onClick={() => setShowDelete(true)}
           >
             <Trash2 className="h-4 w-4" />
-            Delete
+            {tc('delete')}
           </Button>
         </div>
       </div>
@@ -234,10 +237,10 @@ export function QuoteDetailPage() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Client
+                    {tc('client')}
                   </p>
                   <p className="mt-1 font-medium">
-                    {quote.client?.name || 'No client'}
+                    {quote.client?.name || t('noClient')}
                   </p>
                   {quote.client?.email && (
                     <p className="text-sm text-muted-foreground">
@@ -253,14 +256,14 @@ export function QuoteDetailPage() {
                 <div className="flex flex-wrap gap-4 sm:flex-col sm:gap-3 sm:text-right">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Issue Date
+                      {t('issueDate')}
                     </p>
                     <p className="text-sm">{formatDate(quote.issueDate)}</p>
                   </div>
                   {quote.expiryDate && (
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Expiry Date
+                        {t('expiryDate')}
                       </p>
                       <p className="text-sm">
                         {formatDate(quote.expiryDate)}
@@ -269,7 +272,7 @@ export function QuoteDetailPage() {
                   )}
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Currency
+                      {tc('currency')}
                     </p>
                     <p className="text-sm">{quote.currency}</p>
                   </div>
@@ -280,16 +283,16 @@ export function QuoteDetailPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Line Items</CardTitle>
+              <CardTitle>{tc('lineItems')}</CardTitle>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="text-right">Qty</TableHead>
-                    <TableHead className="text-right">Unit Price</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead>{tc('description')}</TableHead>
+                    <TableHead className="text-right">{tc('qty')}</TableHead>
+                    <TableHead className="text-right">{tc('unitPrice')}</TableHead>
+                    <TableHead className="text-right">{tc('amount')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -314,7 +317,7 @@ export function QuoteDetailPage() {
                 <div className="w-64 space-y-2 pt-4">
                   <Separator />
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="text-muted-foreground">{tc('subtotal')}</span>
                     <span>
                       {formatCurrency(quote.subtotal, quote.currency)}
                     </span>
@@ -322,7 +325,7 @@ export function QuoteDetailPage() {
                   {quote.taxRate > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">
-                        Tax ({quote.taxRate}%)
+                        {tc('tax')} ({quote.taxRate}%)
                       </span>
                       <span>
                         {formatCurrency(quote.taxAmount, quote.currency)}
@@ -331,7 +334,7 @@ export function QuoteDetailPage() {
                   )}
                   {quote.discountAmount > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Discount</span>
+                      <span className="text-muted-foreground">{tc('discount')}</span>
                       <span className="text-destructive">
                         -{formatCurrency(quote.discountAmount, quote.currency)}
                       </span>
@@ -339,7 +342,7 @@ export function QuoteDetailPage() {
                   )}
                   <Separator />
                   <div className="flex justify-between font-bold">
-                    <span>Total</span>
+                    <span>{tc('total')}</span>
                     <span>
                       {formatCurrency(quote.total, quote.currency)}
                     </span>
@@ -355,7 +358,7 @@ export function QuoteDetailPage() {
                 {quote.notes && (
                   <div className="mb-4">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Notes
+                      {tc('notes')}
                     </p>
                     <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
                       {quote.notes}
@@ -365,7 +368,7 @@ export function QuoteDetailPage() {
                 {quote.terms && (
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Terms & Conditions
+                      {tc('termsAndConditions')}
                     </p>
                     <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
                       {quote.terms}
@@ -381,7 +384,7 @@ export function QuoteDetailPage() {
           {quote.convertedInvoiceId && (
             <Card>
               <CardHeader>
-                <CardTitle>Converted Invoice</CardTitle>
+                <CardTitle>{t('convertedInvoice')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <Link
@@ -389,7 +392,7 @@ export function QuoteDetailPage() {
                   className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
                 >
                   <FileText className="h-4 w-4" />
-                  View Invoice
+                  {t('viewInvoice')}
                 </Link>
               </CardContent>
             </Card>
@@ -401,9 +404,9 @@ export function QuoteDetailPage() {
         isOpen={showDelete}
         onClose={() => setShowDelete(false)}
         onConfirm={handleDelete}
-        title="Delete Quote"
-        message="Are you sure you want to delete this quote? This action cannot be undone."
-        confirmText="Delete"
+        title={t('deleteTitle')}
+        message={t('deleteMessage')}
+        confirmText={tc('delete')}
         variant="danger"
         loading={deleteQuote.isPending}
       />
@@ -414,19 +417,18 @@ export function QuoteDetailPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Convert to Invoice</DialogTitle>
+            <DialogTitle>{t('convertToInvoice')}</DialogTitle>
             <DialogDescription>
-              This will create a new invoice from this quote. Choose the
-              invoice type below.
+              {t('convertDescription')}
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div>
-              <Label className="text-sm font-medium">Subject to Tax</Label>
+              <Label className="text-sm font-medium">{t('subjectToTax')}</Label>
               <p className="text-xs text-muted-foreground">
                 {convertTaxable
-                  ? 'Taxable invoice (INV) — 16% GST'
-                  : 'Exempt invoice (EINV) — 0% tax'}
+                  ? t('taxableInvoiceLabel')
+                  : t('exemptInvoiceLabel')}
               </p>
             </div>
             <button
@@ -450,13 +452,13 @@ export function QuoteDetailPage() {
               variant="outline"
               onClick={() => setShowConvert(false)}
             >
-              Cancel
+              {tc('cancel')}
             </Button>
             <Button
               onClick={handleConvert}
               disabled={convertQuote.isPending}
             >
-              {convertQuote.isPending ? 'Converting...' : 'Convert'}
+              {convertQuote.isPending ? t('converting') : t('convert')}
             </Button>
           </DialogFooter>
         </DialogContent>

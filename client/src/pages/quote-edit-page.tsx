@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 import { useForm, FormProvider, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -31,6 +32,7 @@ import { formatCurrency } from '@/lib/format';
 type QuoteFormValues = z.infer<typeof createQuoteSchema>;
 
 export function QuoteEditPage() {
+  const { t } = useTranslation('quotes');
   const { id } = useParams();
   const navigate = useNavigate();
   const { data: quote, isLoading } = useQuote(id);
@@ -67,6 +69,8 @@ function QuoteEditForm({
   onSubmit: (data: QuoteFormValues) => Promise<void>;
   isSubmitting: boolean;
 }) {
+  const { t } = useTranslation('quotes');
+  const { t: tc } = useTranslation('common');
   const methods = useForm<QuoteFormValues>({
     resolver: zodResolver(createQuoteSchema),
     defaultValues: {
@@ -124,10 +128,10 @@ function QuoteEditForm({
         </Link>
         <div className="min-w-0">
           <h2 className="truncate text-xl font-bold tracking-tight sm:text-2xl">
-            Edit {quote.quoteNumber}
+            {t('editQuoteTitle', { number: quote.quoteNumber })}
           </h2>
           <p className="mt-0.5 hidden text-sm text-muted-foreground sm:block">
-            Update the quote details below
+            {t('editSubtitle')}
           </p>
         </div>
       </div>
@@ -136,7 +140,7 @@ function QuoteEditForm({
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Quote Details</CardTitle>
+              <CardTitle>{t('quoteDetails')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <ClientPicker
@@ -145,7 +149,7 @@ function QuoteEditForm({
               />
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="issueDate">Issue Date</Label>
+                  <Label htmlFor="issueDate">{t('issueDate')}</Label>
                   <Input
                     id="issueDate"
                     type="date"
@@ -158,7 +162,7 @@ function QuoteEditForm({
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="expiryDate">Expiry Date</Label>
+                  <Label htmlFor="expiryDate">{t('expiryDate')}</Label>
                   <Input
                     id="expiryDate"
                     type="date"
@@ -172,13 +176,13 @@ function QuoteEditForm({
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Currency</Label>
+                <Label>{tc('currency')}</Label>
                 <Select
                   value={watch('currency') || 'USD'}
                   onValueChange={(val) => setValue('currency', val as any)}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select currency" />
+                    <SelectValue placeholder={tc('selectCurrency')} />
                   </SelectTrigger>
                   <SelectContent>
                     {CURRENCIES.map((c) => (
@@ -199,7 +203,7 @@ function QuoteEditForm({
 
           <Card>
             <CardHeader className="flex-row items-center justify-between">
-              <CardTitle>Line Items</CardTitle>
+              <CardTitle>{tc('lineItems')}</CardTitle>
               <Button
                 type="button"
                 variant="ghost"
@@ -209,17 +213,17 @@ function QuoteEditForm({
                 }
               >
                 <Plus className="h-4 w-4" />
-                Add Item
+                {tc('addItem')}
               </Button>
             </CardHeader>
             <CardContent>
               {fields.length > 0 && (
                 <div className="space-y-3">
                   <div className="grid grid-cols-12 gap-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    <div className="col-span-5">Description</div>
-                    <div className="col-span-2">Quantity</div>
-                    <div className="col-span-2">Unit Price</div>
-                    <div className="col-span-2 text-right">Amount</div>
+                    <div className="col-span-5">{tc('description')}</div>
+                    <div className="col-span-2">{tc('quantity')}</div>
+                    <div className="col-span-2">{tc('unitPrice')}</div>
+                    <div className="col-span-2 text-right">{tc('amount')}</div>
                     <div className="col-span-1" />
                   </div>
 
@@ -235,7 +239,7 @@ function QuoteEditForm({
                       >
                         <div className="col-span-5">
                           <Input
-                            placeholder="Item description"
+                            placeholder={t('itemDescriptionPlaceholder')}
                             {...register(`lineItems.${index}.description`)}
                           />
                         </div>
@@ -291,12 +295,12 @@ function QuoteEditForm({
 
           <Card>
             <CardHeader>
-              <CardTitle>Summary</CardTitle>
+              <CardTitle>{tc('summary')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="taxRate">Tax Rate (%)</Label>
+                  <Label htmlFor="taxRate">{tc('taxRate')}</Label>
                   <Input
                     id="taxRate"
                     type="number"
@@ -307,7 +311,7 @@ function QuoteEditForm({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="discountAmount">Discount Amount</Label>
+                  <Label htmlFor="discountAmount">{tc('discountAmount')}</Label>
                   <Input
                     id="discountAmount"
                     type="number"
@@ -321,20 +325,20 @@ function QuoteEditForm({
                 <div className="w-64 space-y-2 pt-4">
                   <Separator />
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="text-muted-foreground">{tc('subtotal')}</span>
                     <span>{formatCurrency(subtotal, currency)}</span>
                   </div>
                   {taxRate > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">
-                        Tax ({taxRate}%)
+                        {tc('tax')} ({taxRate}%)
                       </span>
                       <span>{formatCurrency(taxAmount, currency)}</span>
                     </div>
                   )}
                   {discount > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Discount</span>
+                      <span className="text-muted-foreground">{tc('discount')}</span>
                       <span className="text-destructive">
                         -{formatCurrency(discount, currency)}
                       </span>
@@ -342,7 +346,7 @@ function QuoteEditForm({
                   )}
                   <Separator />
                   <div className="flex justify-between font-bold">
-                    <span>Total</span>
+                    <span>{tc('total')}</span>
                     <span>{formatCurrency(total, currency)}</span>
                   </div>
                 </div>
@@ -352,24 +356,24 @@ function QuoteEditForm({
 
           <Card>
             <CardHeader>
-              <CardTitle>Additional Info</CardTitle>
+              <CardTitle>{t('additionalInfo')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
+                <Label htmlFor="notes">{tc('notes')}</Label>
                 <Textarea
                   id="notes"
                   rows={3}
-                  placeholder="Notes visible to the client..."
+                  placeholder={t('notesPlaceholder')}
                   {...register('notes')}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="terms">Terms & Conditions</Label>
+                <Label htmlFor="terms">{tc('termsAndConditions')}</Label>
                 <Textarea
                   id="terms"
                   rows={3}
-                  placeholder="Terms and conditions..."
+                  placeholder={t('termsPlaceholder')}
                   {...register('terms')}
                 />
               </div>
@@ -380,7 +384,7 @@ function QuoteEditForm({
             {isSubmitting && (
               <Loader2 className="h-4 w-4 animate-spin" />
             )}
-            Update Quote
+            {t('updateQuote')}
           </Button>
         </form>
       </FormProvider>

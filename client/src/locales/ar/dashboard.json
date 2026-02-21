@@ -1,0 +1,21 @@
+{
+  "totalRevenue": "إجمالي الإيرادات",
+  "outstanding": "المبالغ المستحقة",
+  "overdue": "المتأخرة",
+  "bankBalance": "رصيد البنك",
+  "expensesMonth": "المصروفات (الشهر)",
+  "revenueOverview": "نظرة عامة على الإيرادات",
+  "recentActivity": "النشاط الأخير",
+  "noRecentActivity": "لا يوجد نشاط حديث",
+  "taxDeadlines": "المواعيد الضريبية",
+  "viewReports": "عرض التقارير",
+  "noUpcomingDeadlines": "لا توجد مواعيد نهائية قادمة",
+  "gstSummary": "ملخص ضريبة المبيعات",
+  "gstSummaryPeriod": "ملخص ضريبة المبيعات — {{period}}",
+  "fullReport": "التقرير الكامل",
+  "taxableSales": "المبيعات الخاضعة للضريبة",
+  "outputTax": "ضريبة المخرجات",
+  "inputTax": "ضريبة المدخلات",
+  "netDue": "صافي المستحق",
+  "daysShort": "{{days}}ي"
+}

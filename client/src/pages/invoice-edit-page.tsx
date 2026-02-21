@@ -1,4 +1,5 @@
 import { useNavigate, useParams } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,7 @@ import { api } from '@/lib/api-client';
 import { toast } from 'sonner';
 
 export function InvoiceEditPage() {
+  const { t } = useTranslation('invoices');
   const { id } = useParams();
   const navigate = useNavigate();
   const { data: invoice, isLoading } = useInvoice(id);
@@ -78,10 +80,12 @@ export function InvoiceEditPage() {
         </Link>
         <div className="min-w-0">
           <h2 className="truncate text-xl font-bold sm:text-2xl">
-            Edit {invoice.invoiceNumber}
+            {t('editInvoiceTitle', {
+              invoiceNumber: invoice.invoiceNumber,
+            })}
           </h2>
           <p className="mt-0.5 hidden text-sm text-muted-foreground sm:block">
-            Update the invoice details below
+            {t('editInvoiceSubtitle')}
           </p>
         </div>
       </div>

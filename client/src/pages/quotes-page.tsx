@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router';
 import {
   Plus,
@@ -46,6 +47,8 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export function QuotesPage() {
+  const { t } = useTranslation('quotes');
+  const { t: tc } = useTranslation('common');
   const navigate = useNavigate();
   const [status, setStatus] = useState('all');
   const [search, setSearch] = useState('');
@@ -92,13 +95,13 @@ export function QuotesPage() {
       return (
         <EmptyState
           icon={FileCheck}
-          title="No quotes found"
+          title={t('emptyTitle')}
           description={
             search || status !== 'all'
-              ? 'Try adjusting your filters or search term.'
-              : 'Create your first quote to get started.'
+              ? t('emptyFilteredDescription')
+              : t('emptyDescription')
           }
-          actionLabel={!search && status === 'all' ? 'Create Quote' : undefined}
+          actionLabel={!search && status === 'all' ? t('createQuote') : undefined}
           onAction={
             !search && status === 'all'
               ? () => navigate('/quotes/new')
@@ -113,12 +116,12 @@ export function QuotesPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Quote</TableHead>
-              <TableHead>Client</TableHead>
-              <TableHead className="hidden md:table-cell">Issue Date</TableHead>
-              <TableHead className="hidden lg:table-cell">Expiry Date</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>{t('quote')}</TableHead>
+              <TableHead>{tc('client')}</TableHead>
+              <TableHead className="hidden md:table-cell">{t('issueDate')}</TableHead>
+              <TableHead className="hidden lg:table-cell">{t('expiryDate')}</TableHead>
+              <TableHead className="text-right">{tc('amount')}</TableHead>
+              <TableHead>{tc('status')}</TableHead>
               <TableHead className="w-12" />
             </TableRow>
           </TableHeader>
@@ -133,7 +136,7 @@ export function QuotesPage() {
                     {quote.quoteNumber}
                   </Link>
                 </TableCell>
-                <TableCell>{quote.client?.name || 'No client'}</TableCell>
+                <TableCell>{quote.client?.name || t('noClient')}</TableCell>
                 <TableCell className="hidden md:table-cell">
                   {formatDate(quote.issueDate)}
                 </TableCell>
@@ -166,18 +169,18 @@ export function QuotesPage() {
                         onClick={() => navigate(`/quotes/${quote.id}`)}
                       >
                         <Eye className="h-4 w-4" />
-                        View
+                        {tc('view')}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => navigate(`/quotes/${quote.id}/edit`)}
                       >
                         <Pencil className="h-4 w-4" />
-                        Edit
+                        {tc('edit')}
                       </DropdownMenuItem>
                       {quote.status === 'draft' && (
                         <DropdownMenuItem onClick={() => handleSend(quote.id)}>
                           <Send className="h-4 w-4" />
-                          Send Quote
+                          {t('sendQuote')}
                         </DropdownMenuItem>
                       )}
                       {(quote.status === 'accepted' || quote.status === 'sent') &&
@@ -186,7 +189,7 @@ export function QuotesPage() {
                             onClick={() => handleConvert(quote.id)}
                           >
                             <FileText className="h-4 w-4" />
-                            Convert to Invoice
+                            {t('convertToInvoice')}
                           </DropdownMenuItem>
                         )}
                       <DropdownMenuSeparator />
@@ -195,7 +198,7 @@ export function QuotesPage() {
                         onClick={() => setDeleteId(quote.id)}
                       >
                         <Trash2 className="h-4 w-4" />
-                        Delete
+                        {tc('delete')}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -212,16 +215,16 @@ export function QuotesPage() {
     <div className="space-y-4 sm:space-y-6">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-xl font-bold tracking-tight sm:text-2xl">Quotes</h2>
+          <h2 className="text-xl font-bold tracking-tight sm:text-2xl">{t('title')}</h2>
           <p className="mt-0.5 hidden text-sm text-muted-foreground sm:block">
-            Manage and track your quotes
+            {t('subtitle')}
           </p>
         </div>
         <Link to="/quotes/new">
           <Button size="sm" className="shrink-0 sm:size-default">
             <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">New Quote</span>
-            <span className="sm:hidden">New</span>
+            <span className="hidden sm:inline">{t('newQuote')}</span>
+            <span className="sm:hidden">{tc('new')}</span>
           </Button>
         </Link>
       </div>
@@ -234,11 +237,11 @@ export function QuotesPage() {
             className="w-full sm:w-auto"
           >
             <TabsList>
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="draft">Draft</TabsTrigger>
-              <TabsTrigger value="sent">Sent</TabsTrigger>
-              <TabsTrigger value="accepted">Accepted</TabsTrigger>
-              <TabsTrigger value="rejected">Rejected</TabsTrigger>
+              <TabsTrigger value="all">{tc('all')}</TabsTrigger>
+              <TabsTrigger value="draft">{tc('draft')}</TabsTrigger>
+              <TabsTrigger value="sent">{tc('sent')}</TabsTrigger>
+              <TabsTrigger value="accepted">{t('accepted')}</TabsTrigger>
+              <TabsTrigger value="rejected">{t('rejected')}</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
@@ -247,7 +250,7 @@ export function QuotesPage() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Search quotes..."
+            placeholder={t('searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 sm:w-64"
@@ -261,9 +264,9 @@ export function QuotesPage() {
         isOpen={deleteId !== null}
         onClose={() => setDeleteId(null)}
         onConfirm={handleDelete}
-        title="Delete Quote"
-        message="Are you sure you want to delete this quote? This action cannot be undone."
-        confirmText="Delete"
+        title={t('deleteTitle')}
+        message={t('deleteMessage')}
+        confirmText={tc('delete')}
         variant="danger"
         loading={deleteQuote.isPending}
       />
