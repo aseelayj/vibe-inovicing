@@ -48,5 +48,7 @@
   "messageFailed": "فشل إرسال الرسالة",
   "retry": "إعادة المحاولة",
   "removeAttachment": "إزالة {{name}}",
-  "closeChat": "إغلاق المحادثة"
+  "closeChat": "إغلاق المحادثة",
+  "confirmDelete": "تأكيد حذف \"{{title}}\"",
+  "renameConversation": "إعادة تسمية \"{{title}}\""
 }
