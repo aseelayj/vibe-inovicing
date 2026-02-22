@@ -15,6 +15,7 @@ import type {
   PayrollRunStatus,
   PayrollPaymentStatus,
   PartnerExpensePaymentMethod,
+  AccountType,
 } from './constants.js';
 
 // ---- User ----
@@ -731,4 +732,22 @@ export interface PartnerBalanceSummary {
   expenseCount: number;
   sskCount: number;
   paymentCount: number;
+}
+
+// ---- Chart of Accounts ----
+export interface Account {
+  id: number;
+  code: string;
+  name: string;
+  nameAr: string | null;
+  type: AccountType;
+  parentId: number | null;
+  parent?: Account | null;
+  children?: Account[];
+  description: string | null;
+  isActive: boolean;
+  isSystem: boolean;
+  balance: number;
+  createdAt: string;
+  updatedAt: string;
 }

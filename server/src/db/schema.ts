@@ -653,6 +653,27 @@ export const partnerSskEntries = pgTable('partner_ssk_entries', {
   uniqueIndex('uq_partner_ssk_year_month').on(table.year, table.month),
 ]);
 
+// ---- Chart of Accounts ----
+export const accounts = pgTable('accounts', {
+  id: serial('id').primaryKey(),
+  code: varchar('code', { length: 20 }).notNull().unique(),
+  name: varchar('name', { length: 255 }).notNull(),
+  nameAr: varchar('name_ar', { length: 255 }),
+  type: varchar('type', { length: 30 }).notNull(),
+  parentId: integer('parent_id'),
+  description: text('description'),
+  isActive: boolean('is_active').notNull().default(true),
+  isSystem: boolean('is_system').notNull().default(false),
+  balance: decimal('balance', { precision: 14, scale: 2 })
+    .notNull().default('0'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => [
+  index('idx_accounts_code').on(table.code),
+  index('idx_accounts_type').on(table.type),
+  index('idx_accounts_parent_id').on(table.parentId),
+]);
+
 // ---- Relations ----
 export const clientsRelations = relations(clients, ({ many }) => ({
   invoices: many(invoices),
@@ -844,3 +865,12 @@ export const partnerExpensesRelations = relations(
     }),
   }),
 );
+
+export const accountsRelations = relations(accounts, ({ one, many }) => ({
+  parent: one(accounts, {
+    fields: [accounts.parentId],
+    references: [accounts.id],
+    relationName: 'parentChild',
+  }),
+  children: many(accounts, { relationName: 'parentChild' }),
+}));
