@@ -58,7 +58,9 @@ async function generateQuoteNumber(
 
   const prefix = settingsRow.quotePrefix;
   const currentNum = settingsRow.nextQuoteNumber - 1;
-  return `${prefix}-${String(currentNum).padStart(4, '0')}`;
+  const sep = settingsRow.numberSeparator || '-';
+  const pad = settingsRow.numberPadding || 4;
+  return `${prefix}${sep}${String(currentNum).padStart(pad, '0')}`;
 }
 
 // Helper: generate invoice number from settings (for conversion, atomic)
@@ -86,7 +88,9 @@ async function generateInvoiceNumber(
     ? settingsRow.nextInvoiceNumber - 1
     : settingsRow.nextExemptInvoiceNumber - 1;
 
-  return `${prefix}-${String(currentNum).padStart(4, '0')}`;
+  const sep = settingsRow.numberSeparator || '-';
+  const pad = settingsRow.numberPadding || 4;
+  return `${prefix}${sep}${String(currentNum).padStart(pad, '0')}`;
 }
 
 // GET / - List quotes with filters and pagination

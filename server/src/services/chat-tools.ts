@@ -1600,9 +1600,12 @@ async function generateInvoiceNumber(
   const [s] = await tx.select().from(settings).limit(1);
   if (!s) throw new Error('Settings not found');
 
+  const sep = s.numberSeparator || '-';
+  const pad = s.numberPadding || 4;
+
   if (isWriteOff) {
     const num = s.nextWriteOffNumber;
-    const invoiceNumber = `${s.writeOffPrefix}-${String(num).padStart(4, '0')}`;
+    const invoiceNumber = `${s.writeOffPrefix}${sep}${String(num).padStart(pad, '0')}`;
     await tx.update(settings)
       .set({ nextWriteOffNumber: num + 1 })
       .where(eq(settings.id, s.id));
@@ -1611,7 +1614,7 @@ async function generateInvoiceNumber(
 
   const prefix = isTaxable ? s.invoicePrefix : s.exemptInvoicePrefix;
   const nextNum = isTaxable ? s.nextInvoiceNumber : s.nextExemptInvoiceNumber;
-  const invoiceNumber = `${prefix}-${String(nextNum).padStart(4, '0')}`;
+  const invoiceNumber = `${prefix}${sep}${String(nextNum).padStart(pad, '0')}`;
 
   const updateData = isTaxable
     ? { nextInvoiceNumber: nextNum + 1 }
@@ -1627,7 +1630,9 @@ async function generateQuoteNumber(
 ) {
   const [s] = await tx.select().from(settings).limit(1);
   if (!s) throw new Error('Settings not found');
-  const quoteNumber = `${s.quotePrefix}-${String(s.nextQuoteNumber).padStart(4, '0')}`;
+  const sep = s.numberSeparator || '-';
+  const pad = s.numberPadding || 4;
+  const quoteNumber = `${s.quotePrefix}${sep}${String(s.nextQuoteNumber).padStart(pad, '0')}`;
   await tx.update(settings).set({ nextQuoteNumber: s.nextQuoteNumber + 1 }).where(eq(settings.id, s.id));
   return quoteNumber;
 }

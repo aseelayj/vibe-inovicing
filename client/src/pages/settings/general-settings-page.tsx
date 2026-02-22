@@ -34,8 +34,26 @@ interface GeneralFormValues {
   defaultTaxRate: number;
   defaultPaymentTerms: number;
   invoicePrefix: string;
+  nextInvoiceNumber: number;
   exemptInvoicePrefix: string;
+  nextExemptInvoiceNumber: number;
+  writeOffPrefix: string;
+  nextWriteOffNumber: number;
   quotePrefix: string;
+  nextQuoteNumber: number;
+  numberSeparator: string;
+  numberPadding: number;
+}
+
+function NumberPreview({ prefix, nextNum, separator, padding }: {
+  prefix: string; nextNum: number; separator: string; padding: number;
+}) {
+  const formatted = `${prefix}${separator}${String(nextNum).padStart(padding, '0')}`;
+  return (
+    <span className="inline-block rounded bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
+      {formatted}
+    </span>
+  );
 }
 
 export function GeneralSettingsPage() {
@@ -64,8 +82,15 @@ export function GeneralSettingsPage() {
         defaultTaxRate: settings.defaultTaxRate || 0,
         defaultPaymentTerms: settings.defaultPaymentTerms || 30,
         invoicePrefix: settings.invoicePrefix || 'INV',
+        nextInvoiceNumber: settings.nextInvoiceNumber || 1,
         exemptInvoicePrefix: settings.exemptInvoicePrefix || 'EINV',
-        quotePrefix: settings.quotePrefix || 'QTE',
+        nextExemptInvoiceNumber: settings.nextExemptInvoiceNumber || 1,
+        writeOffPrefix: (settings as any).writeOffPrefix || 'WO',
+        nextWriteOffNumber: (settings as any).nextWriteOffNumber || 1,
+        quotePrefix: settings.quotePrefix || 'QUO',
+        nextQuoteNumber: settings.nextQuoteNumber || 1,
+        numberSeparator: (settings as any).numberSeparator || '-',
+        numberPadding: (settings as any).numberPadding || 4,
       });
     }
   }, [settings, reset]);
@@ -75,6 +100,9 @@ export function GeneralSettingsPage() {
   const onSubmit = (data: GeneralFormValues) => {
     updateSettings.mutate(data as Record<string, unknown>);
   };
+
+  const sep = watch('numberSeparator') || '-';
+  const pad = watch('numberPadding') || 4;
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="max-w-2xl space-y-6">
@@ -155,6 +183,7 @@ export function GeneralSettingsPage() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>{t('defaultCurrency')}</Label>
+              <input type="hidden" {...register('defaultCurrency')} />
               <Select
                 value={watch('defaultCurrency') || 'USD'}
                 onValueChange={(val) =>
@@ -196,37 +225,211 @@ export function GeneralSettingsPage() {
               {...register('defaultPaymentTerms', { valueAsNumber: true })}
             />
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('documentNumbering')}</CardTitle>
+          <CardDescription>{t('documentNumberingDesc')}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {/* Global format controls */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="invoicePrefix">{t('taxableInvoicePrefix')}</Label>
-              <Input
-                id="invoicePrefix"
-                placeholder="INV"
-                maxLength={10}
-                {...register('invoicePrefix')}
-              />
+              <Label htmlFor="numberSeparator">{t('separator')}</Label>
+              <input type="hidden" {...register('numberSeparator')} />
+              <Select
+                value={watch('numberSeparator') || '-'}
+                onValueChange={(val) =>
+                  setValue('numberSeparator', val, { shouldDirty: true })
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="-">{t('separatorDash')} (-)</SelectItem>
+                  <SelectItem value="/">{t('separatorSlash')} (/)</SelectItem>
+                  <SelectItem value=".">{t('separatorDot')} (.)</SelectItem>
+                  <SelectItem value="">{t('separatorNone')}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="exemptInvoicePrefix">
-                {t('exemptInvoicePrefix')}
-              </Label>
-              <Input
-                id="exemptInvoicePrefix"
-                placeholder="EINV"
-                maxLength={10}
-                {...register('exemptInvoicePrefix')}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="quotePrefix">{t('quotePrefix')}</Label>
-              <Input
-                id="quotePrefix"
-                placeholder="QTE"
-                maxLength={10}
-                {...register('quotePrefix')}
-              />
+              <Label htmlFor="numberPadding">{t('digitPadding')}</Label>
+              <input type="hidden" {...register('numberPadding', { valueAsNumber: true })} />
+              <Select
+                value={String(watch('numberPadding') || 4)}
+                onValueChange={(val) =>
+                  setValue('numberPadding', Number(val), { shouldDirty: true })
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+                    <SelectItem key={n} value={String(n)}>
+                      {n} {t('digits')} ({String(1).padStart(n, '0')})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
+
+          {/* Taxable Invoice sequence */}
+          <div className="rounded-lg border p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">{t('taxableInvoiceSequence')}</Label>
+              <NumberPreview
+                prefix={watch('invoicePrefix') || 'INV'}
+                nextNum={watch('nextInvoiceNumber') || 1}
+                separator={sep}
+                padding={pad}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="invoicePrefix" className="text-xs text-muted-foreground">
+                  {t('prefix')}
+                </Label>
+                <Input
+                  id="invoicePrefix"
+                  placeholder="INV"
+                  maxLength={10}
+                  {...register('invoicePrefix')}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="nextInvoiceNumber" className="text-xs text-muted-foreground">
+                  {t('nextNumber')}
+                </Label>
+                <Input
+                  id="nextInvoiceNumber"
+                  type="number"
+                  min="1"
+                  {...register('nextInvoiceNumber', { valueAsNumber: true })}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Exempt Invoice sequence */}
+          <div className="rounded-lg border p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">{t('exemptInvoiceSequence')}</Label>
+              <NumberPreview
+                prefix={watch('exemptInvoicePrefix') || 'EINV'}
+                nextNum={watch('nextExemptInvoiceNumber') || 1}
+                separator={sep}
+                padding={pad}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="exemptInvoicePrefix" className="text-xs text-muted-foreground">
+                  {t('prefix')}
+                </Label>
+                <Input
+                  id="exemptInvoicePrefix"
+                  placeholder="EINV"
+                  maxLength={10}
+                  {...register('exemptInvoicePrefix')}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="nextExemptInvoiceNumber" className="text-xs text-muted-foreground">
+                  {t('nextNumber')}
+                </Label>
+                <Input
+                  id="nextExemptInvoiceNumber"
+                  type="number"
+                  min="1"
+                  {...register('nextExemptInvoiceNumber', { valueAsNumber: true })}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Write-off sequence */}
+          <div className="rounded-lg border p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">{t('writeOffSequence')}</Label>
+              <NumberPreview
+                prefix={watch('writeOffPrefix') || 'WO'}
+                nextNum={watch('nextWriteOffNumber') || 1}
+                separator={sep}
+                padding={pad}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="writeOffPrefix" className="text-xs text-muted-foreground">
+                  {t('prefix')}
+                </Label>
+                <Input
+                  id="writeOffPrefix"
+                  placeholder="WO"
+                  maxLength={10}
+                  {...register('writeOffPrefix')}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="nextWriteOffNumber" className="text-xs text-muted-foreground">
+                  {t('nextNumber')}
+                </Label>
+                <Input
+                  id="nextWriteOffNumber"
+                  type="number"
+                  min="1"
+                  {...register('nextWriteOffNumber', { valueAsNumber: true })}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Quote sequence */}
+          <div className="rounded-lg border p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">{t('quoteSequence')}</Label>
+              <NumberPreview
+                prefix={watch('quotePrefix') || 'QUO'}
+                nextNum={watch('nextQuoteNumber') || 1}
+                separator={sep}
+                padding={pad}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="quotePrefix" className="text-xs text-muted-foreground">
+                  {t('prefix')}
+                </Label>
+                <Input
+                  id="quotePrefix"
+                  placeholder="QUO"
+                  maxLength={10}
+                  {...register('quotePrefix')}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="nextQuoteNumber" className="text-xs text-muted-foreground">
+                  {t('nextNumber')}
+                </Label>
+                <Input
+                  id="nextQuoteNumber"
+                  type="number"
+                  min="1"
+                  {...register('nextQuoteNumber', { valueAsNumber: true })}
+                />
+              </div>
+            </div>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            {t('numberingWarning')}
+          </p>
         </CardContent>
       </Card>
 

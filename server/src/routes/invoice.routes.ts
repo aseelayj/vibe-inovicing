@@ -60,7 +60,9 @@ async function generateInvoiceNumber(
       throw new Error('Settings not found. Please configure settings first.');
     }
     const num = settingsRow.nextWriteOffNumber - 1;
-    return `${settingsRow.writeOffPrefix}-${String(num).padStart(4, '0')}`;
+    const sep = settingsRow.numberSeparator || '-';
+    const pad = settingsRow.numberPadding || 4;
+    return `${settingsRow.writeOffPrefix}${sep}${String(num).padStart(pad, '0')}`;
   }
 
   const updateCol = isTaxable
@@ -82,8 +84,10 @@ async function generateInvoiceNumber(
   const currentNum = isTaxable
     ? settingsRow.nextInvoiceNumber - 1
     : settingsRow.nextExemptInvoiceNumber - 1;
+  const sep = settingsRow.numberSeparator || '-';
+  const pad = settingsRow.numberPadding || 4;
 
-  return `${prefix}-${String(currentNum).padStart(4, '0')}`;
+  return `${prefix}${sep}${String(currentNum).padStart(pad, '0')}`;
 }
 
 // GET / - List invoices with filters and pagination

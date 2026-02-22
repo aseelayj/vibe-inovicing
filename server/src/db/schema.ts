@@ -48,6 +48,10 @@ export const settings = pgTable('settings', {
     .notNull().default('QUO'),
   nextQuoteNumber: integer('next_quote_number')
     .notNull().default(1),
+  numberSeparator: varchar('number_separator', { length: 5 })
+    .notNull().default('-'),
+  numberPadding: integer('number_padding')
+    .notNull().default(4),
   jofotaraClientId: varchar('jofotara_client_id', { length: 100 }),
   jofotaraClientSecret: text('jofotara_client_secret'),
   jofotaraCompanyTin: varchar('jofotara_company_tin', { length: 50 }),

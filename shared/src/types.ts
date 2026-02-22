@@ -178,8 +178,12 @@ export interface Settings {
   nextInvoiceNumber: number;
   exemptInvoicePrefix: string;
   nextExemptInvoiceNumber: number;
+  writeOffPrefix: string;
+  nextWriteOffNumber: number;
   quotePrefix: string;
   nextQuoteNumber: number;
+  numberSeparator: string;
+  numberPadding: number;
   jofotaraClientId: string | null;
   jofotaraClientSecret: string | null;
   jofotaraCompanyTin: string | null;

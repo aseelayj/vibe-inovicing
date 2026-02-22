@@ -72,6 +72,7 @@ export function TaxSettingsPage() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>{t('filingStatus')}</Label>
+            <input type="hidden" {...register('filingStatus')} />
             <Select
               value={watch('filingStatus') || 'single'}
               onValueChange={(val) =>
