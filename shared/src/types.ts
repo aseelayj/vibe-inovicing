@@ -16,6 +16,8 @@ import type {
   PayrollPaymentStatus,
   PartnerExpensePaymentMethod,
   AccountType,
+  CommitmentCategory,
+  CommitmentFrequency,
 } from './constants.js';
 
 // ---- User ----
@@ -750,4 +752,26 @@ export interface Account {
   balance: number;
   createdAt: string;
   updatedAt: string;
+}
+
+// ---- Commitment (Recurring Expenses) ----
+export interface Commitment {
+  id: number;
+  name: string;
+  category: CommitmentCategory;
+  amount: number;
+  currency: Currency;
+  frequency: CommitmentFrequency;
+  dueDay: number | null;
+  isActive: boolean;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CommitmentSummary {
+  totalMonthly: number;
+  totalYearly: number;
+  activeCount: number;
+  byCategory: { category: string; total: number }[];
 }

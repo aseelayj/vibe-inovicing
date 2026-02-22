@@ -23,6 +23,7 @@ import employeeRoutes from './employee.routes.js';
 import payrollRoutes from './payroll.routes.js';
 import partnerExpenseRoutes from './partner-expenses.routes.js';
 import chartOfAccountsRoutes from './chart-of-accounts.routes.js';
+import commitmentRoutes from './commitments.routes.js';
 
 export function mountRoutes(app: Express) {
   app.use('/api/auth', authRoutes);
@@ -48,4 +49,5 @@ export function mountRoutes(app: Express) {
   app.use('/api/payroll', authMiddleware, payrollRoutes);
   app.use('/api/partner-expenses', authMiddleware, partnerExpenseRoutes);
   app.use('/api/accounts', authMiddleware, chartOfAccountsRoutes);
+  app.use('/api/commitments', authMiddleware, commitmentRoutes);
 }
