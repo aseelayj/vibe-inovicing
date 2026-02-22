@@ -1049,7 +1049,7 @@ export const chatToolDeclarations: FunctionDeclaration[] = [
       properties: {
         path: {
           type: 'STRING' as Type,
-          description: 'The route path. Valid: /, /invoices, /invoices/:id, /invoices/new, /quotes, /quotes/:id, /quotes/new, /clients, /clients/:id, /clients/new, /payments, /recurring, /bank-accounts, /transactions, /settings, /payroll, /payroll/:id, /payroll/employees, /payroll/employees/:id',
+          description: 'The route path. Valid: /, /invoices, /invoices/:id, /invoices/new, /quotes, /quotes/:id, /quotes/new, /clients, /clients/:id, /payments, /products, /recurring, /bank-accounts, /transactions, /chart-of-accounts, /commitments, /partner-expenses, /tax-reports, /settings, /payroll, /payroll/:id, /payroll/employees, /payroll/employees/:id, /team',
         },
       },
       required: ['path'],

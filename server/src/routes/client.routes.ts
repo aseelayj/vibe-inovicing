@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { eq, or, ilike, desc, and, gte, lte, sql } from 'drizzle-orm';
+import { eq, or, ilike, desc, and, gte, lte, sql, count } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { clients, invoices, payments, quotes, activityLog } from '../db/schema.js';
 import { validate } from '../middleware/validate.js';
@@ -114,6 +114,25 @@ router.delete('/:id', async (req, res, next) => {
   try {
     const id = parseId(req, res);
     if (id === null) return;
+
+    // Check for related documents and warn if force flag not set
+    const [invoiceCount] = await db.select({ count: count() })
+      .from(invoices).where(eq(invoices.clientId, id));
+    const [quoteCount] = await db.select({ count: count() })
+      .from(quotes).where(eq(quotes.clientId, id));
+
+    const relatedInvoices = invoiceCount?.count ?? 0;
+    const relatedQuotes = quoteCount?.count ?? 0;
+
+    if ((relatedInvoices > 0 || relatedQuotes > 0) && req.query.force !== 'true') {
+      res.status(409).json({
+        error: 'Client has related documents',
+        relatedInvoices,
+        relatedQuotes,
+        message: `This client has ${relatedInvoices} invoice(s) and ${relatedQuotes} quote(s). These will lose their client association.`,
+      });
+      return;
+    }
 
     const [deleted] = await db.delete(clients)
       .where(eq(clients.id, id))

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api-client';
+import { api, ApiError } from '@/lib/api-client';
 import type { Client, ClientStatement, PaginatedResponse } from '@vibe/shared';
 import { toast } from 'sonner';
 
@@ -80,12 +80,15 @@ export function useDeleteClient() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: number) => api.delete(`/clients/${id}`),
+    mutationFn: ({ id, force }: { id: number; force?: boolean }) =>
+      api.delete(`/clients/${id}${force ? '?force=true' : ''}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       toast.success('Client deleted successfully');
     },
     onError: (error: Error) => {
+      // Don't toast on 409 — the UI shows a warning dialog instead
+      if (error instanceof ApiError && error.status === 409) return;
       toast.error(error.message || 'Failed to delete client');
     },
   });

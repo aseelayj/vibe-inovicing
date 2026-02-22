@@ -177,5 +177,6 @@
   "closingBalance": "رصيد ختامي",
   "debit": "مدين",
   "credit": "دائن",
-  "balance": "رصيد"
+  "balance": "رصيد",
+  "deleteAnyway": "حذف على أي حال"
 }

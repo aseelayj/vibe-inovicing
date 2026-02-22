@@ -73,7 +73,7 @@ export function QuotesPage() {
 
   const handleConvert = async (id: number) => {
     try {
-      const invoice = await convertQuote.mutateAsync(id);
+      const invoice = await convertQuote.mutateAsync({ id });
       navigate(`/invoices/${invoice.id}`);
     } catch {
       // handled by mutation

@@ -177,5 +177,6 @@
   "closingBalance": "Closing Balance",
   "debit": "Debit",
   "credit": "Credit",
-  "balance": "Balance"
+  "balance": "Balance",
+  "deleteAnyway": "Delete Anyway"
 }

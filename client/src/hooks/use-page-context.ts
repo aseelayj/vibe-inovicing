@@ -8,9 +8,16 @@ const SECTION_MAP: Record<string, string> = {
   '/quotes': 'quotes',
   '/clients': 'clients',
   '/payments': 'payments',
+  '/products': 'products',
   '/recurring': 'recurring',
   '/bank-accounts': 'bank-accounts',
   '/transactions': 'transactions',
+  '/payroll': 'payroll',
+  '/commitments': 'commitments',
+  '/partner-expenses': 'partner-expenses',
+  '/chart-of-accounts': 'chart-of-accounts',
+  '/tax-reports': 'tax-reports',
+  '/team': 'team',
   '/settings': 'settings',
 };
 
@@ -49,9 +56,12 @@ export function usePageContext(): PageContext {
         quotes: 'quote',
         clients: 'client',
         payments: 'payment',
+        products: 'product',
         recurring: 'recurring',
         'bank-accounts': 'bank_account',
         transactions: 'transaction',
+        payroll: 'payroll',
+        employees: 'employee',
       };
 
       if (entityTypeMap[sectionName]) {

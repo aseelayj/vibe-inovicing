@@ -49,6 +49,7 @@ import { useQuotes } from '@/hooks/use-quotes';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { STATUS_COLORS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
+import { ApiError } from '@/lib/api-client';
 
 export function ClientDetailPage() {
   const { t } = useTranslation('clients');
@@ -88,9 +89,23 @@ export function ClientDetailPage() {
     }
   };
 
+  const [deleteWarning, setDeleteWarning] = useState<string | null>(null);
+
   const handleDelete = async () => {
     try {
-      await deleteClient.mutateAsync(client.id);
+      await deleteClient.mutateAsync({ id: client.id });
+      navigate('/clients');
+    } catch (err: unknown) {
+      // If server returns 409 (has related documents), show enhanced warning
+      if (err instanceof ApiError && err.status === 409 && err.data) {
+        setDeleteWarning(err.data.message as string || err.message);
+      }
+    }
+  };
+
+  const handleForceDelete = async () => {
+    try {
+      await deleteClient.mutateAsync({ id: client.id, force: true });
       navigate('/clients');
     } catch {
       // handled
@@ -436,28 +451,33 @@ export function ClientDetailPage() {
       {/* Delete confirmation dialog */}
       <Dialog
         open={showDelete}
-        onOpenChange={(open) => !open && setShowDelete(false)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowDelete(false);
+            setDeleteWarning(null);
+          }
+        }}
       >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('deleteClient')}</DialogTitle>
             <DialogDescription>
-              {t('deleteClientConfirm')}
+              {deleteWarning || t('deleteClientConfirm')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setShowDelete(false)}
+              onClick={() => { setShowDelete(false); setDeleteWarning(null); }}
             >
               {tc('cancel')}
             </Button>
             <Button
               variant="destructive"
-              onClick={handleDelete}
+              onClick={deleteWarning ? handleForceDelete : handleDelete}
               disabled={deleteClient.isPending}
             >
-              {deleteClient.isPending ? tc('deleting') : tc('delete')}
+              {deleteClient.isPending ? tc('deleting') : deleteWarning ? tc('deleteAnyway') : tc('delete')}
             </Button>
           </DialogFooter>
         </DialogContent>
