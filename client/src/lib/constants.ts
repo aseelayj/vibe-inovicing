@@ -61,6 +61,7 @@ export const NAV_ITEMS = [
   { labelKey: 'quotes', path: '/quotes', icon: 'FileCheck' },
   { labelKey: 'clients', path: '/clients', icon: 'Users' },
   { labelKey: 'payments', path: '/payments', icon: 'CreditCard' },
+  { labelKey: 'products', path: '/products', icon: 'Package' },
   { labelKey: 'recurring', path: '/recurring', icon: 'RefreshCw' },
   { labelKey: 'bankAccounts', path: '/bank-accounts', icon: 'Landmark' },
   { labelKey: 'transactions', path: '/transactions', icon: 'ArrowLeftRight' },

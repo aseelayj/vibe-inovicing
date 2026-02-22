@@ -165,5 +165,16 @@
   "updateSalary": "تحديث الراتب",
   "finalize": "اعتماد",
   "markAllPaid": "تحديد الكل كمدفوع",
-  "viewDetails": "عرض التفاصيل"
+  "viewDetails": "عرض التفاصيل",
+  "invoicesCount": "{{count}} فاتورة",
+  "statement": "كشف حساب",
+  "from": "من",
+  "paymentReceipt": "إيصال دفع",
+  "receipt": "إيصال",
+  "creditBalance": "رصيد دائن",
+  "openingBalance": "رصيد افتتاحي",
+  "closingBalance": "رصيد ختامي",
+  "debit": "مدين",
+  "credit": "دائن",
+  "balance": "رصيد"
 }

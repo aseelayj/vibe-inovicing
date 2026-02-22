@@ -165,5 +165,16 @@
   "updateSalary": "Update Salary",
   "finalize": "Finalize",
   "markAllPaid": "Mark All Paid",
-  "viewDetails": "View Details"
+  "viewDetails": "View Details",
+  "invoicesCount": "{{count}} inv",
+  "statement": "Statement",
+  "from": "From",
+  "paymentReceipt": "Payment Receipt",
+  "receipt": "Receipt",
+  "creditBalance": "Credit Balance",
+  "openingBalance": "Opening Balance",
+  "closingBalance": "Closing Balance",
+  "debit": "Debit",
+  "credit": "Credit",
+  "balance": "Balance"
 }

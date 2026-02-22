@@ -38,6 +38,17 @@ export function useCreatePayment() {
   });
 }
 
+export function useClientCredit(clientId: number | undefined) {
+  return useQuery({
+    queryKey: ['payments', 'client', clientId, 'credit'],
+    queryFn: () =>
+      api.get<{ creditBalance: number; overpaidInvoiceCount: number }>(
+        `/payments/client/${clientId}/credit`,
+      ),
+    enabled: !!clientId,
+  });
+}
+
 export function useDeletePayment() {
   const queryClient = useQueryClient();
 

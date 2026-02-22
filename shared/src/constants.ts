@@ -1,3 +1,7 @@
+// ---- Product / Service Catalog ----
+export const PRODUCT_TYPES = ['product', 'service'] as const;
+export type ProductType = typeof PRODUCT_TYPES[number];
+
 // ---- Chart of Accounts ----
 export const ACCOUNT_TYPES = [
   'asset',

@@ -118,5 +118,17 @@
   "emailSaveTemplate": "حفظ القالب",
   "emailSaving": "جاري الحفظ...",
   "emailCustomized": "مخصص",
-  "emailDefault": "افتراضي"
+  "emailDefault": "افتراضي",
+  "autoReminders": "التذكيرات التلقائية ورسوم التأخير",
+  "autoRemindersDesc": "تكوين تذكيرات الدفع التلقائية وسياسات رسوم التأخير",
+  "enableAutoReminders": "تفعيل التذكيرات التلقائية للفواتير المتأخرة",
+  "reminderDays": "جدول التذكيرات (أيام بعد تاريخ الاستحقاق)",
+  "reminderDaysHint": "أيام مفصولة بفواصل لإرسال التذكيرات، مثال: 3, 7, 14, 30",
+  "enableLateFees": "تفعيل حساب رسوم التأخير التلقائي",
+  "lateFeeType": "نوع الرسوم",
+  "percentage": "نسبة مئوية",
+  "fixedAmount": "مبلغ ثابت",
+  "lateFeeValue": "قيمة الرسوم",
+  "gracePeriod": "فترة السماح (أيام)",
+  "gracePeriodHint": "عدد الأيام بعد تاريخ الاستحقاق قبل تطبيق رسوم التأخير"
 }

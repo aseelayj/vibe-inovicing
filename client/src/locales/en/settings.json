@@ -118,5 +118,17 @@
   "emailSaveTemplate": "Save Template",
   "emailSaving": "Saving...",
   "emailCustomized": "Customized",
-  "emailDefault": "Default"
+  "emailDefault": "Default",
+  "autoReminders": "Auto Reminders & Late Fees",
+  "autoRemindersDesc": "Configure automatic payment reminders and late fee policies",
+  "enableAutoReminders": "Enable automatic payment reminders for overdue invoices",
+  "reminderDays": "Reminder Schedule (days after due date)",
+  "reminderDaysHint": "Comma-separated days when reminders will be sent, e.g. 3, 7, 14, 30",
+  "enableLateFees": "Enable automatic late fee calculation",
+  "lateFeeType": "Fee Type",
+  "percentage": "Percentage",
+  "fixedAmount": "Fixed Amount",
+  "lateFeeValue": "Fee Value",
+  "gracePeriod": "Grace Period (days)",
+  "gracePeriodHint": "Days after due date before late fee applies"
 }

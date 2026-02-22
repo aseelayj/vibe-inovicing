@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
-import type { Client, PaginatedResponse } from '@vibe/shared';
+import type { Client, ClientStatement, PaginatedResponse } from '@vibe/shared';
 import { toast } from 'sonner';
 
 export function useClients(search?: string) {
@@ -56,6 +56,23 @@ export function useUpdateClient() {
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to update client');
     },
+  });
+}
+
+export function useClientStatement(
+  id: string | undefined,
+  startDate?: string,
+  endDate?: string,
+) {
+  const params = new URLSearchParams();
+  if (startDate) params.set('startDate', startDate);
+  if (endDate) params.set('endDate', endDate);
+  const qs = params.toString();
+
+  return useQuery({
+    queryKey: ['clients', id, 'statement', { startDate, endDate }],
+    queryFn: () => api.get<ClientStatement>(`/clients/${id}/statement${qs ? `?${qs}` : ''}`),
+    enabled: !!id,
   });
 }
 

@@ -7,6 +7,7 @@ import { env } from './env.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { mountRoutes } from './routes/index.js';
 import { startRecurringScheduler } from './services/recurring.service.js';
+import { startReminderScheduler } from './services/reminder.service.js';
 import { bootstrapOwner } from './services/bootstrap.service.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -42,6 +43,7 @@ bootstrapOwner()
     app.listen(env.PORT, () => {
       console.log(`Server running on http://localhost:${env.PORT}`);
       startRecurringScheduler();
+      startReminderScheduler();
     });
   })
   .catch((err) => {

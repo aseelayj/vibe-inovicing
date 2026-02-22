@@ -18,6 +18,7 @@ import {
   ACCOUNT_TYPES,
   COMMITMENT_CATEGORIES,
   COMMITMENT_FREQUENCIES,
+  PRODUCT_TYPES,
 } from './constants.js';
 
 // Helper: transform empty strings to null for optional fields
@@ -432,3 +433,16 @@ export const createCommitmentSchema = z.object({
 });
 
 export const updateCommitmentSchema = createCommitmentSchema.partial();
+
+// ---- Product / Service Catalog ----
+export const createProductSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(255),
+  description: optionalString(500),
+  unitPrice: z.number().min(0, 'Price must be non-negative'),
+  currency: z.enum(CURRENCIES).default('USD'),
+  category: optionalString(100),
+  type: z.enum(PRODUCT_TYPES).default('service'),
+  isActive: z.boolean().default(true),
+});
+
+export const updateProductSchema = createProductSchema.partial();

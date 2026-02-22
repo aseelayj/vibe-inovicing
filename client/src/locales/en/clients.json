@@ -47,5 +47,6 @@
   "saveClient": "Save Client",
   "emailPlaceholder": "client@example.com",
   "phonePlaceholder": "+962 7XX XXX XXX",
-  "notesPlaceholder": "Notes about this client..."
+  "notesPlaceholder": "Notes about this client...",
+  "noTransactions": "No transactions in this period"
 }

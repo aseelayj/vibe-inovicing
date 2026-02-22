@@ -36,6 +36,12 @@ interface GeneralFormValues {
   invoicePrefix: string;
   exemptInvoicePrefix: string;
   quotePrefix: string;
+  autoRemindersEnabled: boolean;
+  reminderDaysAfterDue: string;
+  lateFeeEnabled: boolean;
+  lateFeeType: string;
+  lateFeeValue: number;
+  lateFeeGracePeriod: number;
 }
 
 export function GeneralSettingsPage() {
@@ -66,6 +72,12 @@ export function GeneralSettingsPage() {
         invoicePrefix: settings.invoicePrefix || 'INV',
         exemptInvoicePrefix: settings.exemptInvoicePrefix || 'EINV',
         quotePrefix: settings.quotePrefix || 'QTE',
+        autoRemindersEnabled: settings.autoRemindersEnabled ?? false,
+        reminderDaysAfterDue: ((settings.reminderDaysAfterDue as number[]) || [3, 7, 14, 30]).join(', '),
+        lateFeeEnabled: settings.lateFeeEnabled ?? false,
+        lateFeeType: settings.lateFeeType || 'percentage',
+        lateFeeValue: settings.lateFeeValue || 0,
+        lateFeeGracePeriod: settings.lateFeeGracePeriod || 0,
       });
     }
   }, [settings, reset]);
@@ -73,7 +85,15 @@ export function GeneralSettingsPage() {
   if (isLoading) return <LoadingSpinner />;
 
   const onSubmit = (data: GeneralFormValues) => {
-    updateSettings.mutate(data as Record<string, unknown>);
+    const { reminderDaysAfterDue, ...rest } = data;
+    const payload: Record<string, unknown> = {
+      ...rest,
+      reminderDaysAfterDue: reminderDaysAfterDue
+        .split(',')
+        .map((s) => parseInt(s.trim(), 10))
+        .filter((n) => !isNaN(n) && n > 0),
+    };
+    updateSettings.mutate(payload);
   };
 
   return (
@@ -225,6 +245,78 @@ export function GeneralSettingsPage() {
                 maxLength={10}
                 {...register('quotePrefix')}
               />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Auto Reminders & Late Fees */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('autoReminders')}</CardTitle>
+          <CardDescription>{t('autoRemindersDesc')}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="autoRemindersEnabled"
+              className="h-4 w-4 rounded border-gray-300"
+              {...register('autoRemindersEnabled')}
+            />
+            <Label htmlFor="autoRemindersEnabled">{t('enableAutoReminders')}</Label>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="reminderDaysAfterDue">{t('reminderDays')}</Label>
+            <Input
+              id="reminderDaysAfterDue"
+              placeholder="3, 7, 14, 30"
+              {...register('reminderDaysAfterDue')}
+            />
+            <p className="text-xs text-muted-foreground">{t('reminderDaysHint')}</p>
+          </div>
+          <div className="border-t pt-4">
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id="lateFeeEnabled"
+                className="h-4 w-4 rounded border-gray-300"
+                {...register('lateFeeEnabled')}
+              />
+              <Label htmlFor="lateFeeEnabled">{t('enableLateFees')}</Label>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="lateFeeType">{t('lateFeeType')}</Label>
+              <select
+                id="lateFeeType"
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                {...register('lateFeeType')}
+              >
+                <option value="percentage">{t('percentage')}</option>
+                <option value="fixed">{t('fixedAmount')}</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lateFeeValue">{t('lateFeeValue')}</Label>
+              <Input
+                id="lateFeeValue"
+                type="number"
+                step="0.01"
+                min="0"
+                {...register('lateFeeValue', { valueAsNumber: true })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lateFeeGracePeriod">{t('gracePeriod')}</Label>
+              <Input
+                id="lateFeeGracePeriod"
+                type="number"
+                min="0"
+                {...register('lateFeeGracePeriod', { valueAsNumber: true })}
+              />
+              <p className="text-xs text-muted-foreground">{t('gracePeriodHint')}</p>
             </div>
           </div>
         </CardContent>
