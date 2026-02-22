@@ -674,6 +674,24 @@ export const accounts = pgTable('accounts', {
   index('idx_accounts_parent_id').on(table.parentId),
 ]);
 
+// ---- Commitments (Recurring Expenses) ----
+export const commitments = pgTable('commitments', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 255 }).notNull(),
+  category: varchar('category', { length: 50 }).notNull(),
+  amount: decimal('amount', { precision: 12, scale: 2 }).notNull(),
+  currency: varchar('currency', { length: 3 }).notNull().default('JOD'),
+  frequency: varchar('frequency', { length: 20 }).notNull().default('monthly'),
+  dueDay: integer('due_day'),
+  isActive: boolean('is_active').notNull().default(true),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => [
+  index('idx_commitments_category').on(table.category),
+  index('idx_commitments_active').on(table.isActive),
+]);
+
 // ---- Relations ----
 export const clientsRelations = relations(clients, ({ many }) => ({
   invoices: many(invoices),

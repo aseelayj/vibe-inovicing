@@ -16,6 +16,8 @@ import {
   PAYROLL_PAYMENT_STATUSES,
   PARTNER_EXPENSE_PAYMENT_METHODS,
   ACCOUNT_TYPES,
+  COMMITMENT_CATEGORIES,
+  COMMITMENT_FREQUENCIES,
 } from './constants.js';
 
 // Helper: transform empty strings to null for optional fields
@@ -416,3 +418,17 @@ export const createAccountSchema = z.object({
 });
 
 export const updateAccountSchema = createAccountSchema.partial();
+
+// ---- Commitment (Recurring Expenses) ----
+export const createCommitmentSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(255),
+  category: z.enum(COMMITMENT_CATEGORIES),
+  amount: z.number().min(0, 'Amount must be non-negative'),
+  currency: z.enum(CURRENCIES).default('JOD'),
+  frequency: z.enum(COMMITMENT_FREQUENCIES).default('monthly'),
+  dueDay: z.number().int().min(1).max(31).nullable().optional(),
+  isActive: z.boolean().default(true),
+  notes: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
+});
+
+export const updateCommitmentSchema = createCommitmentSchema.partial();

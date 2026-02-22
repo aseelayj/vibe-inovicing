@@ -49,6 +49,19 @@ export const DEFAULT_CHART_OF_ACCOUNTS = [
   { code: '5990', name: 'Other Expenses', nameAr: 'مصروفات أخرى', type: 'expense' as const, parentCode: '5000' },
 ];
 
+// ---- Commitments (Recurring Expenses) ----
+export const COMMITMENT_CATEGORIES = [
+  'rent', 'electricity', 'water', 'internet', 'phone',
+  'ssk', 'wages', 'insurance', 'subscriptions', 'loans',
+  'maintenance', 'cleaning', 'government_fees', 'other',
+] as const;
+export type CommitmentCategory = typeof COMMITMENT_CATEGORIES[number];
+
+export const COMMITMENT_FREQUENCIES = [
+  'monthly', 'quarterly', 'yearly', 'weekly',
+] as const;
+export type CommitmentFrequency = typeof COMMITMENT_FREQUENCIES[number];
+
 // ---- Partner Expenses ----
 export const PARTNER_EXPENSE_PAYMENT_METHODS = [
   'cash', 'bank_transfer', 'check', 'other',
