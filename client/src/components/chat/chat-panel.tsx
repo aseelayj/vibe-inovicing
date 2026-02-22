@@ -14,6 +14,7 @@ import { ChatInput } from './chat-input';
 import { ConversationSwitcher } from './conversation-switcher';
 import { FullscreenConversationList } from './fullscreen-conversation-list';
 import { cn } from '@/lib/utils';
+import { getAuthToken } from '@/lib/api-client';
 import type { ChatAttachment, ChatMessage } from '@vibe/shared';
 import { toast } from 'sonner';
 
@@ -233,7 +234,7 @@ export function ChatPanel({ variant = 'sidebar' }: ChatPanelProps) {
       toast.error(`File too large (max ${MAX_FILE_SIZE / 1024 / 1024}MB)`);
       return;
     }
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
     const formData = new FormData();
     formData.append('file', file);
     try {

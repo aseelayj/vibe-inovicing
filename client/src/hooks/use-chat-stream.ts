@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ChatToolCall, ChatAttachment } from '@vibe/shared';
+import { getAuthToken } from '@/lib/api-client';
 
 interface StreamState {
   streamingText: string;
@@ -13,9 +14,6 @@ interface StreamState {
   } | null;
 }
 
-// Track whether mutations happened during a stream to avoid broad invalidation
-let hadMutationInStream = false;
-
 export function useChatStream() {
   const queryClient = useQueryClient();
   const [state, setState] = useState<StreamState>({
@@ -26,6 +24,7 @@ export function useChatStream() {
   });
   const abortRef = useRef<AbortController | null>(null);
   const genRef = useRef(0); // Generation counter for race condition protection
+  const hadMutationRef = useRef(false);
 
   const invalidateAfterStream = useCallback((conversationId: number) => {
     queryClient.invalidateQueries({
@@ -34,7 +33,7 @@ export function useChatStream() {
     queryClient.invalidateQueries({ queryKey: ['conversations'] });
 
     // Only invalidate entity caches when mutations actually happened
-    if (hadMutationInStream) {
+    if (hadMutationRef.current) {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
@@ -110,7 +109,7 @@ export function useChatStream() {
                     }
                     break;
                   case 'action_proposal':
-                    hadMutationInStream = true;
+                    hadMutationRef.current = true;
                     setState((prev) => ({
                       ...prev,
                       pendingAction: {
@@ -158,7 +157,7 @@ export function useChatStream() {
       const controller = new AbortController();
       abortRef.current = controller;
       const gen = ++genRef.current;
-      hadMutationInStream = false;
+      hadMutationRef.current = false;
 
       setState({
         streamingText: '',
@@ -168,7 +167,7 @@ export function useChatStream() {
       });
 
       try {
-        const token = localStorage.getItem('token');
+        const token = getAuthToken();
         const response = await fetch(
           `/api/chat/${conversationId}/messages`,
           {
@@ -206,7 +205,7 @@ export function useChatStream() {
   const confirmAction = useCallback(
     async (conversationId: number, messageId: number, overrideArgs?: Record<string, any>) => {
       const gen = ++genRef.current;
-      hadMutationInStream = true;
+      hadMutationRef.current = true;
 
       setState((prev) => ({
         ...prev,
@@ -216,7 +215,7 @@ export function useChatStream() {
         pendingAction: null,
       }));
 
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(
         `/api/chat/${conversationId}/confirm/${messageId}`,
         {
@@ -245,7 +244,7 @@ export function useChatStream() {
 
   const rejectAction = useCallback(
     async (conversationId: number, messageId: number) => {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const response = await fetch(
         `/api/chat/${conversationId}/reject/${messageId}`,
         {

@@ -12,6 +12,7 @@ import {
 import { buildJofotaraXml, type XmlLineItem } from './xml-builder.js';
 import { submitToJofotara } from './api-client.js';
 import type { JofotaraInvoiceType } from '@vibe/shared';
+import { decryptSecret } from '../../utils/crypto.js';
 
 interface SubmitOptions {
   paymentMethod: 'cash' | 'receivable';
@@ -201,7 +202,7 @@ export async function submitInvoiceToJofotara(
   // Submit to API
   const response = await submitToJofotara(
     settingsRow.jofotaraClientId!,
-    settingsRow.jofotaraClientSecret!,
+    decryptSecret(settingsRow.jofotaraClientSecret as string)!,
     xmlContent,
   );
 
@@ -368,7 +369,7 @@ export async function submitCreditInvoice(
 
   const response = await submitToJofotara(
     settingsRow.jofotaraClientId!,
-    settingsRow.jofotaraClientSecret!,
+    decryptSecret(settingsRow.jofotaraClientSecret as string)!,
     xmlContent,
   );
 

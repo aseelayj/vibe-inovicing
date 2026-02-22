@@ -1,5 +1,10 @@
 const BASE_URL = '/api';
 
+/** Retrieve the auth token from whichever storage it was placed in. */
+export function getAuthToken(): string | null {
+  return localStorage.getItem('token') || sessionStorage.getItem('token');
+}
+
 class ApiError extends Error {
   constructor(
     public status: number,
@@ -14,7 +19,7 @@ async function request<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  const token = getAuthToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...((options.headers as Record<string, string>) || {}),

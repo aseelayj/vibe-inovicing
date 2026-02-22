@@ -35,8 +35,8 @@ router.post('/login', validate(loginSchema), async (req, res, next) => {
       .where(eq(users.id, user.id));
 
     const jwtOptions: jwt.SignOptions = rememberMe
-      ? {}
-      : { expiresIn: '90d' };
+      ? { expiresIn: '30d' }
+      : { expiresIn: '8h' };
     const token = jwt.sign(
       { sub: user.id, role: user.role },
       env.JWT_SECRET,
@@ -59,7 +59,7 @@ router.post('/login', validate(loginSchema), async (req, res, next) => {
   }
 });
 
-router.post('/verify', (req, res) => {
+router.post('/verify', async (req, res, next) => {
   const header = req.headers.authorization;
   if (!header?.startsWith('Bearer ')) {
     res.status(401).json({ error: 'No token' });
@@ -73,21 +73,20 @@ router.post('/verify', (req, res) => {
     };
 
     // Fetch user from DB to return fresh data
-    db.select({
+    const [user] = await db.select({
       id: users.id,
       name: users.name,
       email: users.email,
       role: users.role,
     }).from(users)
       .where(eq(users.id, payload.sub))
-      .limit(1)
-      .then(([user]) => {
-        if (!user) {
-          res.status(401).json({ error: 'User not found' });
-          return;
-        }
-        res.json({ data: { valid: true, user } });
-      });
+      .limit(1);
+
+    if (!user) {
+      res.status(401).json({ error: 'User not found' });
+      return;
+    }
+    res.json({ data: { valid: true, user } });
   } catch {
     res.status(401).json({ error: 'Invalid token' });
   }

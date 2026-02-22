@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { eq, or, ilike, desc } from 'drizzle-orm';
+import { eq, or, ilike, desc, count, and } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { clients, invoices, quotes, activityLog } from '../db/schema.js';
 import { validate } from '../middleware/validate.js';
@@ -9,25 +9,48 @@ import { type AuthRequest } from '../middleware/auth.middleware.js';
 
 const router = Router();
 
-// GET / - List all clients (with optional ?search)
+// GET / - List clients with optional search and pagination
 router.get('/', async (req, res, next) => {
   try {
-    const { search } = req.query;
+    const { search, page = '1', pageSize = '50' } = req.query;
 
-    let query = db.select().from(clients).orderBy(desc(clients.createdAt));
+    const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
+    const size = Math.max(1, Math.min(100, parseInt(pageSize as string, 10) || 50));
+    const offset = (pageNum - 1) * size;
 
+    const conditions = [];
     if (search && typeof search === 'string') {
       const pattern = `%${search}%`;
-      query = query.where(
+      conditions.push(
         or(
           ilike(clients.name, pattern),
           ilike(clients.email, pattern),
-        ),
-      ) as typeof query;
+        )!,
+      );
     }
 
-    const result = await query;
-    res.json({ data: result });
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [totalResult] = await db
+      .select({ value: count() })
+      .from(clients)
+      .where(whereClause);
+
+    const total = totalResult?.value ?? 0;
+
+    const result = await db.select().from(clients)
+      .where(whereClause)
+      .orderBy(desc(clients.createdAt))
+      .limit(size)
+      .offset(offset);
+
+    res.json({
+      data: result,
+      total,
+      page: pageNum,
+      pageSize: size,
+      totalPages: Math.ceil(total / size),
+    });
   } catch (err) {
     next(err);
   }

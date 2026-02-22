@@ -1,9 +1,10 @@
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format, addDays } from 'date-fns';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { createInvoiceSchema, CURRENCIES } from '@vibe/shared';
+import { useSettings } from '@/hooks/use-settings';
 import type { z } from 'zod';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -45,9 +46,13 @@ export function InvoiceForm({
   const { t } = useTranslation('invoices');
   const { t: tc } = useTranslation('common');
   const [submitAction, setSubmitAction] = useState<InvoiceAction>('draft');
+  const { data: settings } = useSettings();
+
+  const defaultTaxRate = settings?.defaultTaxRate ?? 0;
+  const defaultPaymentTerms = settings?.defaultPaymentTerms ?? 30;
 
   const today = format(new Date(), 'yyyy-MM-dd');
-  const defaultDue = format(addDays(new Date(), 30), 'yyyy-MM-dd');
+  const defaultDue = format(addDays(new Date(), defaultPaymentTerms), 'yyyy-MM-dd');
 
   const methods = useForm<InvoiceFormValues>({
     resolver: zodResolver(createInvoiceSchema),
@@ -56,7 +61,7 @@ export function InvoiceForm({
       issueDate: defaultValues?.issueDate ?? today,
       dueDate: defaultValues?.dueDate ?? defaultDue,
       currency: defaultValues?.currency ?? 'USD',
-      taxRate: defaultValues?.taxRate ?? 0,
+      taxRate: defaultValues?.taxRate ?? (defaultValues?.isTaxable ? Number(defaultTaxRate) : 0),
       discountAmount: defaultValues?.discountAmount ?? 0,
       isTaxable: defaultValues?.isTaxable ?? false,
       notes: defaultValues?.notes ?? '',
@@ -78,7 +83,7 @@ export function InvoiceForm({
   const watchedItems = watch('lineItems') || [];
   const currency = watch('currency') || 'USD';
   const isTaxable = watch('isTaxable') ?? false;
-  const taxRate = isTaxable ? 16 : 0;
+  const taxRate = isTaxable ? Number(defaultTaxRate) : 0;
   const discount = Number(watch('discountAmount')) || 0;
 
   const subtotal = watchedItems.reduce(
@@ -93,11 +98,11 @@ export function InvoiceForm({
     onSubmit(data, submitAction);
   };
 
-  const formatCurrencyValue = (value: number) =>
-    new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency,
-    }).format(value);
+  const formatter = useMemo(
+    () => new Intl.NumberFormat(undefined, { style: 'currency', currency }),
+    [currency],
+  );
+  const formatCurrencyValue = (value: number) => formatter.format(value);
 
   return (
     <FormProvider {...methods}>
@@ -128,7 +133,7 @@ export function InvoiceForm({
                     onClick={() => {
                       const next = !isTaxable;
                       setValue('isTaxable', next, { shouldDirty: true });
-                      setValue('taxRate', next ? 16 : 0);
+                      setValue('taxRate', next ? Number(defaultTaxRate) : 0);
                     }}
                     className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
                       isTaxable ? 'bg-primary' : 'bg-muted'

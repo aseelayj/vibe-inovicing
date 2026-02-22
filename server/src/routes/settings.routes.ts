@@ -4,6 +4,7 @@ import { db } from '../db/index.js';
 import { settings } from '../db/schema.js';
 import { validate } from '../middleware/validate.js';
 import { updateSettingsSchema } from '@vibe/shared';
+import { encryptSettingsSecrets, decryptSettingsSecrets } from '../utils/crypto.js';
 
 const router = Router();
 
@@ -24,14 +25,15 @@ router.get('/', async (req, res, next) => {
       settingsRow = created;
     }
 
-    const response = { ...settingsRow };
-    response.jofotaraClientSecret = maskSecret(response.jofotaraClientSecret);
-    response.paypalClientSecret = maskSecret(response.paypalClientSecret);
-    response.geminiApiKey = maskSecret(response.geminiApiKey);
-    response.resendApiKey = maskSecret(response.resendApiKey);
-    response.smtpPassword = maskSecret(response.smtpPassword);
+    // Decrypt secrets for internal use, then mask for API response
+    const decrypted = decryptSettingsSecrets({ ...settingsRow });
+    decrypted.jofotaraClientSecret = maskSecret(decrypted.jofotaraClientSecret);
+    decrypted.paypalClientSecret = maskSecret(decrypted.paypalClientSecret);
+    decrypted.geminiApiKey = maskSecret(decrypted.geminiApiKey);
+    decrypted.resendApiKey = maskSecret(decrypted.resendApiKey);
+    decrypted.smtpPassword = maskSecret(decrypted.smtpPassword);
 
-    res.json({ data: response });
+    res.json({ data: decrypted });
   } catch (err) {
     next(err);
   }
@@ -43,8 +45,9 @@ router.put('/', validate(updateSettingsSchema), async (req, res, next) => {
     let [settingsRow] = await db.select().from(settings).limit(1);
 
     if (!settingsRow) {
+      const encrypted = encryptSettingsSecrets(req.body);
       const [created] = await db.insert(settings)
-        .values(req.body)
+        .values(encrypted)
         .returning();
       res.json({ data: created });
       return;
@@ -86,19 +89,23 @@ router.put('/', validate(updateSettingsSchema), async (req, res, next) => {
       }
     }
 
+    // Encrypt new secret values before writing to DB
+    const encryptedPayload = encryptSettingsSecrets(updatePayload);
+
     const [updated] = await db.update(settings)
-      .set(updatePayload)
+      .set(encryptedPayload)
       .where(eq(settings.id, settingsRow.id))
       .returning();
 
-    const response = { ...updated };
-    response.jofotaraClientSecret = maskSecret(response.jofotaraClientSecret);
-    response.paypalClientSecret = maskSecret(response.paypalClientSecret);
-    response.geminiApiKey = maskSecret(response.geminiApiKey);
-    response.resendApiKey = maskSecret(response.resendApiKey);
-    response.smtpPassword = maskSecret(response.smtpPassword);
+    // Decrypt then mask for the response
+    const decrypted = decryptSettingsSecrets({ ...updated });
+    decrypted.jofotaraClientSecret = maskSecret(decrypted.jofotaraClientSecret);
+    decrypted.paypalClientSecret = maskSecret(decrypted.paypalClientSecret);
+    decrypted.geminiApiKey = maskSecret(decrypted.geminiApiKey);
+    decrypted.resendApiKey = maskSecret(decrypted.resendApiKey);
+    decrypted.smtpPassword = maskSecret(decrypted.smtpPassword);
 
-    res.json({ data: response });
+    res.json({ data: decrypted });
   } catch (err) {
     next(err);
   }

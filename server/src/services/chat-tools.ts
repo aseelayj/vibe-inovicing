@@ -51,6 +51,7 @@ import {
   calculateIncomeTax,
   STANDARD_WORKING_DAYS,
 } from '@vibe/shared';
+import { decryptSecret } from '../utils/crypto.js';
 import {
   calculatePayrollEntry,
   recalculatePayrollRunTotals,
@@ -2735,7 +2736,8 @@ export const toolExecutors: Record<
 
     // Read credentials from settings
     const [s] = await db.select().from(settings);
-    if (!s?.paypalEnabled || !s.paypalClientId || !s.paypalClientSecret) {
+    const decryptedPaypalSecret = decryptSecret(s?.paypalClientSecret);
+    if (!s?.paypalEnabled || !s.paypalClientId || !decryptedPaypalSecret) {
       throw new Error(
         'PayPal is not configured. Go to Settings to add your PayPal API credentials.',
       );
@@ -2744,7 +2746,7 @@ export const toolExecutors: Record<
 
     // Validate credentials
     const { accessToken, expiresIn } = await getPayPalAccessToken(
-      s.paypalClientId, s.paypalClientSecret, env,
+      s.paypalClientId, decryptedPaypalSecret, env,
     );
 
     await db.update(bankAccounts).set({
@@ -2791,7 +2793,8 @@ export const toolExecutors: Record<
       if (account.provider === 'paypal') {
         // Read credentials from settings
         const [s] = await db.select().from(settings);
-        if (!s?.paypalEnabled || !s.paypalClientId || !s.paypalClientSecret) {
+        const decryptedSecret = decryptSecret(s?.paypalClientSecret);
+        if (!s?.paypalEnabled || !s.paypalClientId || !decryptedSecret) {
           throw new Error('PayPal is not configured in Settings.');
         }
         const env = (s.paypalEnvironment || 'sandbox') as 'sandbox' | 'live';
@@ -2807,7 +2810,7 @@ export const toolExecutors: Record<
           accessToken = session.token;
         } else {
           const result = await getPayPalAccessToken(
-            s.paypalClientId, s.paypalClientSecret, env,
+            s.paypalClientId, decryptedSecret, env,
           );
           accessToken = result.accessToken;
           if (session) {

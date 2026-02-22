@@ -6,6 +6,7 @@ import { ArrowUp, Paperclip, Square, Mic, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
+import { getAuthToken } from '@/lib/api-client';
 import { useAudioRecorder } from '@/hooks/use-audio-recorder';
 import { VoiceRecorder } from './voice-recorder';
 
@@ -101,7 +102,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, ChatInputProps>(
         const formData = new FormData();
         formData.append('audio', audioBlob, 'recording.webm');
 
-        const token = localStorage.getItem('token');
+        const token = getAuthToken();
         const res = await fetch('/api/chat/transcribe', {
           method: 'POST',
           body: formData,

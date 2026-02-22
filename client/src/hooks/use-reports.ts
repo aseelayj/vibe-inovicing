@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api-client';
+import { api, getAuthToken } from '@/lib/api-client';
 import type {
   SalesTaxReport,
   PurchasesReport,
@@ -93,7 +93,7 @@ export function useExportReport() {
     const s = qs.toString();
     const url = `/api/reports/export/${type}${s ? `?${s}` : ''}`;
 
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
     const res = await fetch(url, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
