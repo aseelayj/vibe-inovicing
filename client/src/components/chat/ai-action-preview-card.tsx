@@ -31,6 +31,8 @@ const EDITABLE_FIELDS: Record<string, Set<string>> = {
   payment: new Set(['amount', 'paymentDate', 'method', 'notes']),
   transaction: new Set(['amount', 'date', 'description', 'category', 'notes']),
   recurring: new Set(['frequency', 'startDate', 'endDate', 'notes']),
+  employee: new Set(['name', 'role', 'baseSalary', 'hireDate', 'email', 'phone']),
+  payroll: new Set(['workingDays', 'bonus', 'otherDeductions', 'notes']),
   bank_account: new Set(['name', 'bankName', 'currentBalance']),
   settings: new Set([
     'businessName', 'businessEmail', 'defaultCurrency',
@@ -56,6 +58,86 @@ function formatLabel(key: string): string {
   return key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase());
 }
 
+function getBatchDisplayConfig(
+  toolName: string,
+  args: Record<string, unknown>,
+): { label: string; items: { left: string; right?: string }[]; extraFields?: Record<string, unknown> } | null {
+  if (toolName === 'batch_create_employees') {
+    const list = (args.employees as any[]) || [];
+    return {
+      label: `${list.length} Employee(s)`,
+      items: list.map((e) => ({ left: `${e.name} — ${e.role}`, right: `${e.baseSalary} JOD` })),
+    };
+  }
+  if (toolName === 'batch_create_clients') {
+    const list = (args.clients as any[]) || [];
+    return {
+      label: `${list.length} Client(s)`,
+      items: list.map((c) => ({ left: c.name, right: c.email || c.company || '' })),
+    };
+  }
+  if (toolName === 'batch_create_quotes') {
+    const list = (args.quotes as any[]) || [];
+    return {
+      label: `${list.length} Quote(s)`,
+      items: list.map((q) => {
+        const total = (q.lineItems || []).reduce((s: number, i: any) => s + i.quantity * i.unitPrice, 0);
+        return { left: `Client #${q.clientId}`, right: `${total.toFixed(2)}` };
+      }),
+    };
+  }
+  if (toolName === 'batch_create_payments') {
+    const list = (args.payments as any[]) || [];
+    return {
+      label: `${list.length} Payment(s)`,
+      items: list.map((p) => ({ left: `Invoice #${p.invoiceId}`, right: `${p.amount}` })),
+    };
+  }
+  if (toolName === 'batch_delete_invoices') {
+    const ids = (args.invoiceIds as number[]) || [];
+    return {
+      label: `${ids.length} Invoice(s) to delete`,
+      items: ids.map((id) => ({ left: `Invoice #${id}` })),
+    };
+  }
+  if (toolName === 'batch_delete_clients') {
+    const ids = (args.clientIds as number[]) || [];
+    return {
+      label: `${ids.length} Client(s) to delete`,
+      items: ids.map((id) => ({ left: `Client #${id}` })),
+    };
+  }
+  if (toolName === 'batch_update_invoice_status') {
+    const ids = (args.invoiceIds as number[]) || [];
+    return {
+      label: `${ids.length} Invoice(s)`,
+      items: ids.map((id) => ({ left: `Invoice #${id}`, right: `→ ${args.status}` })),
+    };
+  }
+  if (toolName === 'import_invoices_from_data') {
+    const list = (args.invoices as any[]) || [];
+    return {
+      label: `${list.length} Invoice(s) to import`,
+      items: list.map((inv) => {
+        const total = (inv.lineItems || []).reduce((s: number, i: any) => s + i.quantity * i.unitPrice, 0);
+        return { left: inv.clientName || 'Unknown', right: `${total.toFixed(2)}` };
+      }),
+    };
+  }
+  if (toolName === 'import_transactions_from_text') {
+    const list = (args.transactions as any[]) || [];
+    return {
+      label: `${list.length} Transaction(s) to import`,
+      items: list.slice(0, 10).map((t) => ({
+        left: `${t.description}`,
+        right: `${t.type === 'expense' ? '-' : '+'}${t.amount}`,
+      })),
+      extraFields: list.length > 10 ? { note: `...and ${list.length - 10} more` } : undefined,
+    };
+  }
+  return null;
+}
+
 function ActionArgsDisplay({
   toolName,
   args,
@@ -72,6 +154,41 @@ function ActionArgsDisplay({
   const { t } = useTranslation('common');
   if (!args || Object.keys(args).length === 0) return null;
   const editableFields = getEditableFields(toolName);
+
+  // Batch operations display
+  const batchConfig = getBatchDisplayConfig(toolName, args);
+  if (batchConfig) {
+    return (
+      <div className="space-y-2.5 mb-3">
+        {/* Show non-array args (e.g. invoiceIds for batch_delete) */}
+        {batchConfig.extraFields && Object.keys(batchConfig.extraFields).length > 0 && (
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
+            {Object.entries(batchConfig.extraFields).map(([key, value]) => (
+              <div key={key} className="flex flex-col gap-0.5">
+                <span className="text-[10px] text-muted-foreground/70">{formatLabel(key)}</span>
+                <span className="truncate font-medium text-foreground">{String(value)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="rounded-lg bg-background/60 p-2.5">
+          <div className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+            {batchConfig.label}
+          </div>
+          <div className="space-y-1">
+            {batchConfig.items.map((item, i) => (
+              <div key={i} className="flex justify-between text-xs">
+                <span className="truncate pe-2 text-foreground">{item.left}</span>
+                {item.right && (
+                  <span className="shrink-0 text-muted-foreground">{item.right}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (toolName.includes('invoice') || toolName.includes('quote') || toolName.includes('recurring')) {
     const lineItems = (args.lineItems as any[]) || [];

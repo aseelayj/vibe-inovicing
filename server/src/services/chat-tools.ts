@@ -181,6 +181,47 @@ export const chatToolDeclarations: FunctionDeclaration[] = [
       required: ['id'],
     },
   },
+  {
+    name: 'batch_create_clients',
+    description: 'Create multiple clients at once. Use when the user wants to add several clients in a single request.',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        clients: {
+          type: 'ARRAY' as Type,
+          description: 'List of clients to create',
+          items: {
+            type: 'OBJECT' as Type,
+            properties: {
+              name: { type: 'STRING' as Type, description: 'Client name (required)' },
+              email: { type: 'STRING' as Type, description: 'Email address' },
+              phone: { type: 'STRING' as Type, description: 'Phone number' },
+              company: { type: 'STRING' as Type, description: 'Company name' },
+              taxId: { type: 'STRING' as Type, description: 'Tax ID / TIN' },
+              cityCode: { type: 'STRING' as Type, description: 'Jordan city code' },
+            },
+            required: ['name'],
+          },
+        },
+      },
+      required: ['clients'],
+    },
+  },
+  {
+    name: 'batch_delete_clients',
+    description: 'Delete multiple clients at once. Only clients with no invoices or quotes can be deleted.',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        clientIds: {
+          type: 'ARRAY' as Type,
+          description: 'List of client IDs to delete',
+          items: { type: 'INTEGER' as Type },
+        },
+      },
+      required: ['clientIds'],
+    },
+  },
   // -- Invoices --
   {
     name: 'list_invoices',
@@ -283,6 +324,21 @@ export const chatToolDeclarations: FunctionDeclaration[] = [
     },
   },
   {
+    name: 'batch_delete_invoices',
+    description: 'Delete multiple invoices at once. Use when user says "delete all draft invoices" or wants to remove several invoices.',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        invoiceIds: {
+          type: 'ARRAY' as Type,
+          description: 'List of invoice IDs to delete',
+          items: { type: 'INTEGER' as Type },
+        },
+      },
+      required: ['invoiceIds'],
+    },
+  },
+  {
     name: 'update_invoice_status',
     description: 'Change an invoice status (draft, sent, paid, overdue, cancelled). Cannot change status of written_off invoices.',
     parameters: {
@@ -314,6 +370,8 @@ export const chatToolDeclarations: FunctionDeclaration[] = [
       type: 'OBJECT' as Type,
       properties: {
         id: { type: 'INTEGER' as Type, description: 'Invoice ID' },
+        subject: { type: 'STRING' as Type, description: 'Subject line draft' },
+        body: { type: 'STRING' as Type, description: 'Email message draft' },
       },
       required: ['id'],
     },
@@ -426,6 +484,44 @@ export const chatToolDeclarations: FunctionDeclaration[] = [
     },
   },
   {
+    name: 'batch_create_quotes',
+    description: 'Create multiple quotes at once. Use when the user wants to create several quotes in a single request.',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        quotes: {
+          type: 'ARRAY' as Type,
+          description: 'List of quotes to create',
+          items: {
+            type: 'OBJECT' as Type,
+            properties: {
+              clientId: { type: 'INTEGER' as Type, description: 'Client ID' },
+              issueDate: { type: 'STRING' as Type, description: 'Issue date YYYY-MM-DD' },
+              expiryDate: { type: 'STRING' as Type, description: 'Expiry date YYYY-MM-DD' },
+              currency: { type: 'STRING' as Type, description: 'Currency code' },
+              taxRate: { type: 'NUMBER' as Type },
+              notes: { type: 'STRING' as Type },
+              lineItems: {
+                type: 'ARRAY' as Type,
+                items: {
+                  type: 'OBJECT' as Type,
+                  properties: {
+                    description: { type: 'STRING' as Type },
+                    quantity: { type: 'NUMBER' as Type },
+                    unitPrice: { type: 'NUMBER' as Type },
+                  },
+                  required: ['description', 'quantity', 'unitPrice'],
+                },
+              },
+            },
+            required: ['clientId', 'issueDate', 'lineItems'],
+          },
+        },
+      },
+      required: ['quotes'],
+    },
+  },
+  {
     name: 'update_quote_status',
     description: 'Change a quote status (draft, sent, accepted, rejected, expired)',
     parameters: {
@@ -444,6 +540,8 @@ export const chatToolDeclarations: FunctionDeclaration[] = [
       type: 'OBJECT' as Type,
       properties: {
         id: { type: 'INTEGER' as Type, description: 'Quote ID' },
+        subject: { type: 'STRING' as Type, description: 'Subject line draft' },
+        body: { type: 'STRING' as Type, description: 'Email message draft' },
       },
       required: ['id'],
     },
@@ -455,6 +553,7 @@ export const chatToolDeclarations: FunctionDeclaration[] = [
       type: 'OBJECT' as Type,
       properties: {
         id: { type: 'INTEGER' as Type, description: 'Quote ID' },
+        isTaxable: { type: 'BOOLEAN' as Type, description: 'Whether the invoice should be taxable (16% GST). Default false.' },
       },
       required: ['id'],
     },
@@ -495,6 +594,32 @@ export const chatToolDeclarations: FunctionDeclaration[] = [
         id: { type: 'INTEGER' as Type },
       },
       required: ['id'],
+    },
+  },
+  {
+    name: 'batch_create_payments',
+    description: 'Record multiple payments at once. Use when user wants to record several payments in a single request.',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        payments: {
+          type: 'ARRAY' as Type,
+          description: 'List of payments to record',
+          items: {
+            type: 'OBJECT' as Type,
+            properties: {
+              invoiceId: { type: 'INTEGER' as Type, description: 'Invoice ID' },
+              amount: { type: 'NUMBER' as Type, description: 'Payment amount' },
+              paymentDate: { type: 'STRING' as Type, description: 'YYYY-MM-DD' },
+              paymentMethod: { type: 'STRING' as Type, description: 'cash, bank_transfer, credit_card, check, other' },
+              reference: { type: 'STRING' as Type },
+              notes: { type: 'STRING' as Type },
+            },
+            required: ['invoiceId', 'amount', 'paymentDate'],
+          },
+        },
+      },
+      required: ['payments'],
     },
   },
   // -- Recurring --
@@ -1156,6 +1281,34 @@ export const chatToolDeclarations: FunctionDeclaration[] = [
       required: ['id'],
     },
   },
+  {
+    name: 'batch_create_employees',
+    description: 'Create multiple employees at once. Use when the user wants to add several employees in a single request.',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        employees: {
+          type: 'ARRAY' as Type,
+          description: 'List of employees to create',
+          items: {
+            type: 'OBJECT' as Type,
+            properties: {
+              name: { type: 'STRING' as Type, description: 'Employee name (required)' },
+              role: { type: 'STRING' as Type, description: 'Job role (required)' },
+              baseSalary: { type: 'NUMBER' as Type, description: 'Monthly base salary in JOD (required)' },
+              hireDate: { type: 'STRING' as Type, description: 'Hire date YYYY-MM-DD (required)' },
+              transportAllowance: { type: 'NUMBER' as Type, description: 'Monthly transport allowance in JOD (default 0)' },
+              sskEnrolled: { type: 'BOOLEAN' as Type, description: 'Whether enrolled in SSK social security' },
+              email: { type: 'STRING' as Type, description: 'Email address' },
+              phone: { type: 'STRING' as Type, description: 'Phone number' },
+            },
+            required: ['name', 'role', 'baseSalary', 'hireDate'],
+          },
+        },
+      },
+      required: ['employees'],
+    },
+  },
   // -- Payroll --
   {
     name: 'list_payroll_runs',
@@ -1568,6 +1721,57 @@ export const toolExecutors: Record<
     return { message: `Client "${deleted.name}" deleted` };
   },
 
+  async batch_create_clients(args, ctx) {
+    const clientList = args.clients as any[];
+    if (!clientList?.length) throw new Error('No clients provided');
+    const created = [];
+    for (const c of clientList) {
+      const [client] = await db.insert(clients).values({
+        name: c.name,
+        email: c.email || null,
+        phone: c.phone || null,
+        company: c.company || null,
+        taxId: c.taxId || null,
+        cityCode: c.cityCode || null,
+        addressLine1: c.addressLine1 || null,
+        city: c.city || null,
+        country: c.country || null,
+      }).returning();
+      await db.insert(activityLog).values({
+        entityType: 'client', entityId: client.id,
+        action: 'created', description: `Client "${client.name}" created via AI chat (batch)`,
+        userId: ctx?.userId,
+      });
+      created.push(client);
+    }
+    return { created, count: created.length };
+  },
+
+  async batch_delete_clients(args, ctx) {
+    const { clientIds } = args;
+    if (!Array.isArray(clientIds) || clientIds.length === 0) throw new Error('No client IDs provided');
+    const deleted: string[] = [];
+    const skipped: { id: number; reason: string }[] = [];
+    for (const id of clientIds) {
+      const [client] = await db.select().from(clients).where(eq(clients.id, id));
+      if (!client) { skipped.push({ id, reason: 'not found' }); continue; }
+      const [invCount] = await db.select({ value: count() }).from(invoices).where(eq(invoices.clientId, id));
+      const [quoteCount] = await db.select({ value: count() }).from(quotes).where(eq(quotes.clientId, id));
+      if ((invCount?.value ?? 0) > 0 || (quoteCount?.value ?? 0) > 0) {
+        skipped.push({ id, reason: `has ${invCount?.value ?? 0} invoice(s) and ${quoteCount?.value ?? 0} quote(s)` });
+        continue;
+      }
+      await db.delete(clients).where(eq(clients.id, id));
+      await db.insert(activityLog).values({
+        entityType: 'client', entityId: id,
+        action: 'deleted', description: `Client "${client.name}" deleted via AI chat (batch)`,
+        userId: ctx?.userId,
+      });
+      deleted.push(client.name);
+    }
+    return { message: `Deleted ${deleted.length} client(s)`, deleted, skipped };
+  },
+
   // -- Invoices --
   async list_invoices(args) {
     const conditions = [];
@@ -1721,6 +1925,26 @@ export const toolExecutors: Record<
     return { message: `Invoice ${deleted.invoiceNumber} deleted` };
   },
 
+  async batch_delete_invoices(args, ctx) {
+    const { invoiceIds } = args;
+    if (!Array.isArray(invoiceIds) || invoiceIds.length === 0) throw new Error('No invoice IDs provided');
+    if (invoiceIds.length > 50) throw new Error('Cannot delete more than 50 invoices at once');
+    const deleted: string[] = [];
+    const skipped: { id: number; reason: string }[] = [];
+    for (const id of invoiceIds) {
+      const [inv] = await db.select().from(invoices).where(eq(invoices.id, id));
+      if (!inv) { skipped.push({ id, reason: 'not found' }); continue; }
+      await db.delete(invoices).where(eq(invoices.id, id));
+      await db.insert(activityLog).values({
+        entityType: 'invoice', entityId: id,
+        action: 'deleted', description: `Invoice ${inv.invoiceNumber} deleted via AI chat (batch)`,
+        userId: ctx?.userId,
+      });
+      deleted.push(inv.invoiceNumber);
+    }
+    return { message: `Deleted ${deleted.length} invoice(s)`, deleted, skipped };
+  },
+
   async update_invoice_status(args, ctx) {
     // Block status changes on written-off invoices
     const [existing] = await db.select({ status: invoices.status })
@@ -1804,10 +2028,12 @@ export const toolExecutors: Record<
     const dueDate = new Date(invoice.dueDate);
     const daysOverdue = Math.max(0, Math.floor((now.getTime() - dueDate.getTime()) / 86400000));
 
+    const subject = args.subject || `Payment Reminder: ${invoice.invoiceNumber}`;
+    const body = args.body || `This is a friendly reminder about invoice ${invoice.invoiceNumber}.`;
     const emailResult = await sendPaymentReminder({
       to: invoice.client.email,
-      subject: `Payment Reminder: ${invoice.invoiceNumber}`,
-      body: `This is a friendly reminder about invoice ${invoice.invoiceNumber}.`,
+      subject,
+      body,
       businessName: settingsRow?.businessName || 'Our Company',
       clientName: invoice.client.name,
       invoiceNumber: invoice.invoiceNumber,
@@ -1815,7 +2041,7 @@ export const toolExecutors: Record<
     });
     await db.insert(emailLog).values({
       invoiceId: args.id, recipientEmail: invoice.client.email,
-      subject: `Payment Reminder: ${invoice.invoiceNumber}`, status: 'sent', resendId: emailResult.id,
+      subject, status: 'sent', resendId: emailResult.id,
     });
     await db.insert(activityLog).values({
       entityType: 'invoice', entityId: args.id, action: 'reminder_sent',
@@ -2021,6 +2247,69 @@ export const toolExecutors: Record<
     return { message: `Quote ${deleted.quoteNumber} deleted` };
   },
 
+  async batch_create_quotes(args, ctx) {
+    const quoteList = args.quotes as any[];
+    if (!quoteList?.length) throw new Error('No quotes provided');
+    if (quoteList.length > 50) throw new Error('Cannot create more than 50 quotes at once');
+
+    const [s] = await db.select().from(settings).limit(1);
+    const defaultCurrency = s?.defaultCurrency || 'USD';
+    const results: { id: number; quoteNumber: string; total: string }[] = [];
+
+    for (const q of quoteList) {
+      const items = q.lineItems || [];
+      const taxRate = q.taxRate ?? 0;
+      const totals = calculateTotals(items, taxRate, 0);
+      const currency = q.currency || defaultCurrency;
+      const expiryDate = q.expiryDate || (() => {
+        const d = new Date(q.issueDate);
+        d.setDate(d.getDate() + 30);
+        return d.toISOString().split('T')[0];
+      })();
+
+      const created = await db.transaction(async (tx) => {
+        const quoteNumber = await generateQuoteNumber(tx);
+        const [newQ] = await tx.insert(quotes).values({
+          quoteNumber,
+          clientId: q.clientId,
+          issueDate: q.issueDate,
+          expiryDate,
+          currency,
+          taxRate: String(taxRate),
+          discountAmount: '0',
+          subtotal: totals.subtotal,
+          taxAmount: totals.taxAmount,
+          total: totals.total,
+          notes: q.notes || null,
+          status: 'draft',
+        }).returning();
+
+        if (items.length > 0) {
+          const rows = items.map((item: any, idx: number) => ({
+            quoteId: newQ.id,
+            description: item.description,
+            quantity: String(item.quantity),
+            unitPrice: String(item.unitPrice),
+            amount: String(item.quantity * item.unitPrice),
+            sortOrder: idx,
+          }));
+          await tx.insert(quoteLineItems).values(rows);
+        }
+
+        await tx.insert(activityLog).values({
+          entityType: 'quote', entityId: newQ.id,
+          action: 'created', description: `Quote ${newQ.quoteNumber} created via AI chat (batch)`,
+          userId: ctx?.userId,
+        });
+        return newQ;
+      });
+
+      results.push({ id: created.id, quoteNumber: created.quoteNumber, total: totals.total });
+    }
+
+    return { message: `Created ${results.length} quote(s)`, quotes: results };
+  },
+
   async send_quote_email(args, ctx) {
     const quote = await db.query.quotes.findFirst({
       where: eq(quotes.id, args.id),
@@ -2034,10 +2323,12 @@ export const toolExecutors: Record<
       quote, lineItems: quote.lineItems,
       client: quote.client, settings: settingsRow || {},
     });
+    const subject = args.subject || `Quote ${quote.quoteNumber}`;
+    const body = args.body || `Please find your quote ${quote.quoteNumber} attached.`;
     const emailResult = await sendQuoteEmail({
       to: quote.client.email,
-      subject: `Quote ${quote.quoteNumber}`,
-      body: `Please find your quote ${quote.quoteNumber} attached.`,
+      subject,
+      body,
       pdfBuffer, quoteNumber: quote.quoteNumber,
       businessName: settingsRow?.businessName || 'Our Company',
       clientName: quote.client.name,
@@ -2049,7 +2340,7 @@ export const toolExecutors: Record<
       .where(eq(quotes.id, args.id));
     await db.insert(emailLog).values({
       quoteId: args.id, recipientEmail: quote.client.email,
-      subject: `Quote ${quote.quoteNumber}`, status: 'sent', resendId: emailResult.id,
+      subject, status: 'sent', resendId: emailResult.id,
     });
     await db.insert(activityLog).values({
       entityType: 'quote', entityId: args.id, action: 'sent',
@@ -2200,6 +2491,41 @@ export const toolExecutors: Record<
     return { message: 'Payment deleted' };
   },
 
+  async batch_create_payments(args, ctx) {
+    const paymentList = args.payments as any[];
+    if (!paymentList?.length) throw new Error('No payments provided');
+    if (paymentList.length > 50) throw new Error('Cannot record more than 50 payments at once');
+    const results: { id: number; invoiceNumber: string; amount: number }[] = [];
+    for (const p of paymentList) {
+      const [invoice] = await db.select().from(invoices).where(eq(invoices.id, p.invoiceId));
+      if (!invoice) throw new Error(`Invoice #${p.invoiceId} not found`);
+      const [payment] = await db.insert(payments).values({
+        invoiceId: p.invoiceId,
+        amount: String(p.amount),
+        paymentDate: p.paymentDate,
+        paymentMethod: p.paymentMethod || null,
+        reference: p.reference || null,
+        notes: p.notes || null,
+      }).returning();
+      const newAmountPaid = parseFloat(invoice.amountPaid) + p.amount;
+      const invoiceTotal = parseFloat(invoice.total);
+      const newStatus = newAmountPaid >= invoiceTotal ? 'paid' : 'partially_paid';
+      const updateData: Record<string, unknown> = {
+        amountPaid: String(newAmountPaid.toFixed(2)),
+        status: newStatus, updatedAt: new Date(),
+      };
+      if (newStatus === 'paid') updateData.paidAt = new Date();
+      await db.update(invoices).set(updateData).where(eq(invoices.id, p.invoiceId));
+      await db.insert(activityLog).values({
+        entityType: 'payment', entityId: payment.id, action: 'created',
+        description: `Payment of ${p.amount} recorded for invoice ${invoice.invoiceNumber} via AI chat (batch)`,
+        userId: ctx?.userId,
+      });
+      results.push({ id: payment.id, invoiceNumber: invoice.invoiceNumber, amount: p.amount });
+    }
+    return { message: `Recorded ${results.length} payment(s)`, payments: results };
+  },
+
   // -- Recurring --
   async list_recurring() {
     return await db.query.recurringInvoices.findMany({
@@ -2221,13 +2547,20 @@ export const toolExecutors: Record<
     const { lineItems: items, taxRate = 0 } = args;
     const totals = calculateTotals(items, taxRate, 0);
 
+    // Fetch default currency from settings if not provided
+    let currency = args.currency;
+    if (!currency) {
+      const [s] = await db.select().from(settings).limit(1);
+      currency = s?.defaultCurrency || 'USD';
+    }
+
     const result = await db.transaction(async (tx) => {
       const [rec] = await tx.insert(recurringInvoices).values({
         clientId: args.clientId,
         frequency: args.frequency,
         startDate: args.startDate,
         endDate: args.endDate || null,
-        currency: args.currency || 'USD',
+        currency,
         autoSend: args.autoSend || false,
         notes: args.notes || null,
         terms: args.terms || null,
@@ -3392,6 +3725,32 @@ export const toolExecutors: Record<
     return emp;
   },
 
+  async batch_create_employees(args, ctx) {
+    const employeeList = args.employees as any[];
+    if (!employeeList?.length) throw new Error('No employees provided');
+    const created = [];
+    for (const empData of employeeList) {
+      const [emp] = await db.insert(employees).values({
+        name: empData.name,
+        role: empData.role,
+        baseSalary: String(empData.baseSalary),
+        transportAllowance: String(empData.transportAllowance || 0),
+        sskEnrolled: empData.sskEnrolled ?? false,
+        hireDate: empData.hireDate,
+        email: empData.email || null,
+        phone: empData.phone || null,
+        notes: empData.notes || null,
+      }).returning();
+      await db.insert(activityLog).values({
+        entityType: 'employee', entityId: emp.id,
+        action: 'created', description: `Employee "${emp.name}" created via AI chat (batch)`,
+        userId: ctx?.userId,
+      });
+      created.push(emp);
+    }
+    return { created, count: created.length };
+  },
+
   async update_employee(args, ctx) {
     const { id, ...data } = args;
     const updateData: Record<string, unknown> = { updatedAt: new Date() };
@@ -4128,6 +4487,14 @@ export async function generateActionSummary(
       const name = await resolveClientName(args.id);
       return `Delete client ${name}`;
     },
+    batch_create_clients: async () => {
+      const cls = args.clients as any[];
+      return `Create ${cls?.length || 0} client(s)`;
+    },
+    batch_delete_clients: async () => {
+      const ids = args.clientIds as number[];
+      return `Delete ${ids?.length || 0} client(s)`;
+    },
     create_invoice: async () => {
       const name = await resolveClientName(args.clientId);
       const count = (args.lineItems as any[])?.length || 0;
@@ -4140,6 +4507,10 @@ export async function generateActionSummary(
     delete_invoice: async () => {
       const num = await resolveInvoiceNumber(args.id);
       return `Delete ${num}`;
+    },
+    batch_delete_invoices: async () => {
+      const ids = args.invoiceIds as number[];
+      return `Delete ${ids?.length || 0} invoice(s)`;
     },
     update_invoice_status: async () => {
       const num = await resolveInvoiceNumber(args.id);
@@ -4173,6 +4544,10 @@ export async function generateActionSummary(
       const num = await resolveQuoteNumber(args.id);
       return `Delete ${num}`;
     },
+    batch_create_quotes: async () => {
+      const qs = args.quotes as any[];
+      return `Create ${qs?.length || 0} quote(s)`;
+    },
     send_quote_email: async () => {
       const num = await resolveQuoteNumber(args.id);
       return `Send ${num} via email`;
@@ -4186,6 +4561,10 @@ export async function generateActionSummary(
       return `Record payment of ${args.amount} for ${num}`;
     },
     delete_payment: async () => `Delete payment #${args.id}`,
+    batch_create_payments: async () => {
+      const ps = args.payments as any[];
+      return `Record ${ps?.length || 0} payment(s)`;
+    },
     create_recurring: async () => {
       const name = await resolveClientName(args.clientId);
       return `Create ${args.frequency} recurring invoice for ${name}`;
@@ -4228,6 +4607,10 @@ export async function generateActionSummary(
     },
     update_settings: async () => `Update business settings`,
     create_employee: async () => `Create employee "${args.name}" (${args.role})`,
+    batch_create_employees: async () => {
+      const emps = args.employees as any[];
+      return `Create ${emps?.length || 0} employee(s)`;
+    },
     update_employee: async () => {
       const emp = await db.query.employees.findFirst({
         where: eq(employees.id, args.id as number),
