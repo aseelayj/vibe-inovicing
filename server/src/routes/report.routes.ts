@@ -9,6 +9,8 @@ import {
   payments,
   settings,
   commitments,
+  partnerExpenses,
+  partnerExpenseCategories,
 } from '../db/schema.js';
 import {
   getBimonthlyPeriod,
@@ -479,6 +481,30 @@ router.get('/profit-loss', async (req, res, next) => {
       }
     }
 
+    // Include partner expenses in the P&L
+    const partnerExpenseRows = await db.execute(sql`
+      SELECT
+        COALESCE(pec.name, 'partner expenses') AS category,
+        COALESCE(SUM(CAST(pe.partner_share AS NUMERIC)), 0) AS amount
+      FROM partner_expenses pe
+      LEFT JOIN partner_expense_categories pec ON pe.category_id = pec.id
+      WHERE pe.date >= ${startDate} AND pe.date <= ${endDate}
+      GROUP BY pec.name
+    `);
+
+    let totalPartnerExpenses = 0;
+    for (const row of partnerExpenseRows.rows as any[]) {
+      const amount = parseFloat(row.amount ?? '0');
+      totalPartnerExpenses += amount;
+      const cat = row.category || 'partner expenses';
+      const existing = byCategory.find((b) => b.category === cat);
+      if (existing) {
+        existing.amount += amount;
+      } else {
+        byCategory.push({ category: cat, amount });
+      }
+    }
+
     // Merge commitment categories into byCategory
     for (const [cat, amount] of Object.entries(commitmentsByCategory)) {
       const existing = byCategory.find((b) => b.category === cat);
@@ -489,7 +515,7 @@ router.get('/profit-loss', async (req, res, next) => {
       }
     }
 
-    const combinedExpenses = totalExpenses + totalCommitmentExpenses;
+    const combinedExpenses = totalExpenses + totalCommitmentExpenses + totalPartnerExpenses;
 
     res.json({
       data: {
@@ -500,6 +526,7 @@ router.get('/profit-loss', async (req, res, next) => {
           byCategory: byCategory,
           byMonth: expenseMonths,
           commitments: totalCommitmentExpenses,
+          partnerExpenses: totalPartnerExpenses,
         },
         netProfit: totalRevenue - combinedExpenses,
       },

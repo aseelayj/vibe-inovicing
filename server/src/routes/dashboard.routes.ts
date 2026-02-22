@@ -9,6 +9,7 @@ import {
   bankAccounts,
   transactions,
   users,
+  partnerExpenses,
 } from '../db/schema.js';
 
 const router = Router();
@@ -121,7 +122,14 @@ router.get('/stats', async (req, res, next) => {
         ),
       );
 
-    const monthlyExpenses = parseFloat(monthlyExpensesResult?.value ?? '0');
+    // Include partner expenses this month
+    const [partnerExpensesResult] = await db
+      .select({ value: sum(partnerExpenses.partnerShare) })
+      .from(partnerExpenses)
+      .where(sql`${partnerExpenses.date} >= ${firstOfMonthStr}`);
+
+    const monthlyExpenses = parseFloat(monthlyExpensesResult?.value ?? '0')
+      + parseFloat(partnerExpensesResult?.value ?? '0');
 
     res.json({
       data: {
