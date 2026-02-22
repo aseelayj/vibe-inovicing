@@ -1156,6 +1156,34 @@ export const chatToolDeclarations: FunctionDeclaration[] = [
       required: ['id'],
     },
   },
+  {
+    name: 'batch_create_employees',
+    description: 'Create multiple employees at once. Use when the user wants to add several employees in a single request.',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        employees: {
+          type: 'ARRAY' as Type,
+          description: 'List of employees to create',
+          items: {
+            type: 'OBJECT' as Type,
+            properties: {
+              name: { type: 'STRING' as Type, description: 'Employee name (required)' },
+              role: { type: 'STRING' as Type, description: 'Job role (required)' },
+              baseSalary: { type: 'NUMBER' as Type, description: 'Monthly base salary in JOD (required)' },
+              hireDate: { type: 'STRING' as Type, description: 'Hire date YYYY-MM-DD (required)' },
+              transportAllowance: { type: 'NUMBER' as Type, description: 'Monthly transport allowance in JOD (default 0)' },
+              sskEnrolled: { type: 'BOOLEAN' as Type, description: 'Whether enrolled in SSK social security' },
+              email: { type: 'STRING' as Type, description: 'Email address' },
+              phone: { type: 'STRING' as Type, description: 'Phone number' },
+            },
+            required: ['name', 'role', 'baseSalary', 'hireDate'],
+          },
+        },
+      },
+      required: ['employees'],
+    },
+  },
   // -- Payroll --
   {
     name: 'list_payroll_runs',
@@ -3392,6 +3420,32 @@ export const toolExecutors: Record<
     return emp;
   },
 
+  async batch_create_employees(args, ctx) {
+    const employeeList = args.employees as any[];
+    if (!employeeList?.length) throw new Error('No employees provided');
+    const created = [];
+    for (const empData of employeeList) {
+      const [emp] = await db.insert(employees).values({
+        name: empData.name,
+        role: empData.role,
+        baseSalary: String(empData.baseSalary),
+        transportAllowance: String(empData.transportAllowance || 0),
+        sskEnrolled: empData.sskEnrolled ?? false,
+        hireDate: empData.hireDate,
+        email: empData.email || null,
+        phone: empData.phone || null,
+        notes: empData.notes || null,
+      }).returning();
+      await db.insert(activityLog).values({
+        entityType: 'employee', entityId: emp.id,
+        action: 'created', description: `Employee "${emp.name}" created via AI chat (batch)`,
+        userId: ctx?.userId,
+      });
+      created.push(emp);
+    }
+    return { created, count: created.length };
+  },
+
   async update_employee(args, ctx) {
     const { id, ...data } = args;
     const updateData: Record<string, unknown> = { updatedAt: new Date() };
@@ -4228,6 +4282,10 @@ export async function generateActionSummary(
     },
     update_settings: async () => `Update business settings`,
     create_employee: async () => `Create employee "${args.name}" (${args.role})`,
+    batch_create_employees: async () => {
+      const emps = args.employees as any[];
+      return `Create ${emps?.length || 0} employee(s)`;
+    },
     update_employee: async () => {
       const emp = await db.query.employees.findFirst({
         where: eq(employees.id, args.id as number),
