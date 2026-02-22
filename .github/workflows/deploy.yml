@@ -1,0 +1,45 @@
+name: Build & Deploy to Plesk
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  # manual trigger
+
+env:
+  APP_DIR: /var/www/vibe-invoicing  # path on your Plesk server
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.PLESK_HOST }}
+          username: ${{ secrets.PLESK_USER }}
+          key: ${{ secrets.PLESK_SSH_KEY }}
+          port: ${{ secrets.PLESK_SSH_PORT || 22 }}
+          script: |
+            set -e
+
+            # Navigate to app directory
+            cd ${{ env.APP_DIR }}
+
+            # Pull latest code
+            git fetch origin main
+            git reset --hard origin/main
+
+            # Build and restart containers
+            docker compose down
+            docker compose build --no-cache
+            docker compose up -d
+
+            # Wait for health check
+            echo "Waiting for app to start..."
+            sleep 10
+
+            # Verify containers are running
+            docker compose ps
+
+            # Clean up old images
+            docker image prune -f

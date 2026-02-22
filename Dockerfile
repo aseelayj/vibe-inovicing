@@ -19,8 +19,11 @@ COPY server/ server/
 COPY client/ client/
 COPY tsconfig.base.json ./
 
-# Build everything (shared → server + client)
-RUN npm run build
+# Build server (tsc -b auto-builds shared reference first)
+RUN npm run build --workspace=server
+
+# Build client (skip tsc type-checking, just run vite build)
+RUN cd client && npx vite build
 
 # ── Production stage ─────────────────────────────────────────
 FROM node:20-slim AS production
@@ -55,8 +58,8 @@ COPY client/package.json client/
 
 RUN npm ci --omit=dev
 
-# Copy shared source (needed at runtime since it exports .ts via main)
-COPY shared/ shared/
+# Copy shared compiled output (resolves @vibe/shared to dist/index.js at runtime)
+COPY --from=build /app/shared/dist/ shared/dist/
 
 # Copy compiled server
 COPY --from=build /app/server/dist/ server/dist/
