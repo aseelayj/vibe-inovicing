@@ -61,6 +61,7 @@
   "lineItems": "Line Items",
   "noLineItems": "No line items yet",
   "addItem": "Add Item",
+  "addFromCatalog": "From Catalog",
   "addFirstItem": "Add your first item",
   "itemDescription": "Item description",
   "removeItem": "Remove item",

@@ -24,7 +24,20 @@ router.get('/stats', async (req, res, next) => {
 
     const totalRevenue = parseFloat(revenueResult?.value ?? '0');
 
-    // Outstanding amount: sum of (total - amountPaid) for sent/partially_paid
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    // Auto-update overdue: mark sent invoices past due date as overdue
+    await db
+      .update(invoices)
+      .set({ status: 'overdue', updatedAt: new Date() })
+      .where(
+        and(
+          eq(invoices.status, 'sent'),
+          sql`${invoices.dueDate} < ${todayStr}`,
+        ),
+      );
+
+    // Outstanding amount: sum of (total - amountPaid) for sent/partially_paid/overdue
     const [outstandingResult] = await db
       .select({
         value: sql<string>`COALESCE(SUM(
@@ -36,12 +49,13 @@ router.get('/stats', async (req, res, next) => {
         or(
           eq(invoices.status, 'sent'),
           eq(invoices.status, 'partially_paid'),
+          eq(invoices.status, 'overdue'),
         ),
       );
 
     const outstandingAmount = parseFloat(outstandingResult?.value ?? '0');
 
-    // Overdue amount: sum of (total - amountPaid) for overdue
+    // Overdue amount: sum of (total - amountPaid) for overdue OR past-due sent/partially_paid
     const [overdueResult] = await db
       .select({
         value: sql<string>`COALESCE(SUM(
@@ -49,7 +63,15 @@ router.get('/stats', async (req, res, next) => {
         ), 0)`,
       })
       .from(invoices)
-      .where(eq(invoices.status, 'overdue'));
+      .where(
+        or(
+          eq(invoices.status, 'overdue'),
+          and(
+            eq(invoices.status, 'partially_paid'),
+            sql`${invoices.dueDate} < ${todayStr}`,
+          ),
+        ),
+      );
 
     const overdueAmount = parseFloat(overdueResult?.value ?? '0');
 

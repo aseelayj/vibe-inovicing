@@ -9,6 +9,7 @@
   "method": "الطريقة",
   "reference": "المرجع",
   "viewInvoice": "عرض الفاتورة",
+  "downloadReceipt": "تحميل الإيصال",
   "deletePayment": "حذف الدفعة",
   "deletePaymentConfirm": "هل أنت متأكد من حذف هذه الدفعة؟ لا يمكن التراجع عن هذا الإجراء."
 }

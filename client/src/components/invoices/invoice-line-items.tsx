@@ -1,8 +1,15 @@
 import { useFieldArray, useFormContext } from 'react-hook-form';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Package } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { useProducts } from '@/hooks/use-products';
 import { formatCurrency } from '@/lib/format';
 
 export function InvoiceLineItems() {
@@ -19,6 +26,9 @@ export function InvoiceLineItems() {
     name: 'lineItems',
   });
 
+  const { data: products } = useProducts({ active: 'true' });
+  const activeProducts = Array.isArray(products) ? products : [];
+
   const watchedItems = watch('lineItems');
   const currency = watch('currency') || 'USD';
 
@@ -26,17 +36,50 @@ export function InvoiceLineItems() {
     <div>
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold">{t('lineItems')}</h3>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() =>
-            append({ description: '', quantity: 1, unitPrice: 0 })
-          }
-        >
-          <Plus className="h-4 w-4" />
-          {t('addItem')}
-        </Button>
+        <div className="flex gap-1">
+          {activeProducts.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" variant="ghost" size="sm">
+                  <Package className="h-4 w-4" />
+                  {t('addFromCatalog')}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="max-h-64 overflow-y-auto">
+                {activeProducts.map((product) => (
+                  <DropdownMenuItem
+                    key={product.id}
+                    onClick={() =>
+                      append({
+                        description: product.name + (product.description ? ` - ${product.description}` : ''),
+                        quantity: 1,
+                        unitPrice: Number(product.unitPrice),
+                      })
+                    }
+                  >
+                    <div className="flex w-full items-center justify-between gap-4">
+                      <span className="truncate">{product.name}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {formatCurrency(Number(product.unitPrice), product.currency)}
+                      </span>
+                    </div>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              append({ description: '', quantity: 1, unitPrice: 0 })
+            }
+          >
+            <Plus className="h-4 w-4" />
+            {t('addItem')}
+          </Button>
+        </div>
       </div>
 
       {fields.length === 0 && (

@@ -87,10 +87,6 @@ export const settings = pgTable('settings', {
   // Auto-reminder settings
   autoRemindersEnabled: boolean('auto_reminders_enabled').notNull().default(false),
   reminderDaysAfterDue: jsonb('reminder_days_after_due').$type<number[]>().default([3, 7, 14, 30]),
-  lateFeeEnabled: boolean('late_fee_enabled').notNull().default(false),
-  lateFeeType: varchar('late_fee_type', { length: 10 }).notNull().default('percentage'),
-  lateFeeValue: decimal('late_fee_value', { precision: 10, scale: 2 }).notNull().default('0'),
-  lateFeeGracePeriod: integer('late_fee_grace_period').notNull().default(0),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });

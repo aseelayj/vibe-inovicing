@@ -155,6 +155,8 @@ export const updateSettingsSchema = z.object({
   personalExemption: z.number().min(0).optional(),
   familyExemption: z.number().min(0).optional(),
   additionalExemptions: z.number().min(0).max(3000).optional(),
+  autoRemindersEnabled: z.boolean().optional(),
+  reminderDaysAfterDue: z.array(z.number().int().positive()).optional(),
 });
 
 export const sendTestEmailSchema = z.object({

@@ -61,6 +61,7 @@
   "lineItems": "البنود",
   "noLineItems": "لا توجد بنود بعد",
   "addItem": "إضافة بند",
+  "addFromCatalog": "من الكتالوج",
   "addFirstItem": "أضف أول بند",
   "itemDescription": "وصف البند",
   "removeItem": "إزالة البند",

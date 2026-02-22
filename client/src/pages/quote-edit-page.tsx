@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 import { useForm, FormProvider, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeft, Plus, Trash2, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Loader2, Package } from 'lucide-react';
 import { Link } from 'react-router';
 import { createQuoteSchema, CURRENCIES } from '@vibe/shared';
 import type { z } from 'zod';
@@ -24,9 +24,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ClientPicker } from '@/components/clients/client-picker';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { useQuote, useUpdateQuote } from '@/hooks/use-quotes';
+import { useProducts } from '@/hooks/use-products';
 import { formatCurrency } from '@/lib/format';
 
 type QuoteFormValues = z.infer<typeof createQuoteSchema>;
@@ -71,6 +78,8 @@ function QuoteEditForm({
 }) {
   const { t } = useTranslation('quotes');
   const { t: tc } = useTranslation('common');
+  const { data: productsData } = useProducts({ active: 'true' });
+  const activeProducts = Array.isArray(productsData) ? productsData : [];
   const methods = useForm<QuoteFormValues>({
     resolver: zodResolver(createQuoteSchema),
     defaultValues: {
@@ -204,17 +213,50 @@ function QuoteEditForm({
           <Card>
             <CardHeader className="flex-row items-center justify-between">
               <CardTitle>{tc('lineItems')}</CardTitle>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  append({ description: '', quantity: 1, unitPrice: 0 })
-                }
-              >
-                <Plus className="h-4 w-4" />
-                {tc('addItem')}
-              </Button>
+              <div className="flex gap-1">
+                {activeProducts.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button type="button" variant="ghost" size="sm">
+                        <Package className="h-4 w-4" />
+                        {tc('addFromCatalog')}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="max-h-64 overflow-y-auto">
+                      {activeProducts.map((product) => (
+                        <DropdownMenuItem
+                          key={product.id}
+                          onClick={() =>
+                            append({
+                              description: product.name + (product.description ? ` - ${product.description}` : ''),
+                              quantity: 1,
+                              unitPrice: Number(product.unitPrice),
+                            })
+                          }
+                        >
+                          <div className="flex w-full items-center justify-between gap-4">
+                            <span className="truncate">{product.name}</span>
+                            <span className="shrink-0 text-xs text-muted-foreground">
+                              {formatCurrency(Number(product.unitPrice), product.currency)}
+                            </span>
+                          </div>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    append({ description: '', quantity: 1, unitPrice: 0 })
+                  }
+                >
+                  <Plus className="h-4 w-4" />
+                  {tc('addItem')}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {fields.length > 0 && (

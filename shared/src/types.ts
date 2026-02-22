@@ -209,10 +209,6 @@ export interface Settings {
   additionalExemptions: number;
   autoRemindersEnabled: boolean;
   reminderDaysAfterDue: number[];
-  lateFeeEnabled: boolean;
-  lateFeeType: string;
-  lateFeeValue: number;
-  lateFeeGracePeriod: number;
 }
 
 // ---- JoFotara Submission ----

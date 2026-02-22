@@ -761,15 +761,43 @@ export function InvoiceDetailPage() {
                           </p>
                         )}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        className="text-muted-foreground hover:text-destructive"
-                        onClick={() => setDeletePaymentId(payment.id)}
-                        aria-label={t('deletePayment')}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          className="text-muted-foreground hover:text-primary"
+                          onClick={async () => {
+                            try {
+                              const token = localStorage.getItem('token');
+                              const res = await fetch(`/api/payments/${payment.id}/receipt`, {
+                                headers: token ? { Authorization: `Bearer ${token}` } : {},
+                              });
+                              if (!res.ok) throw new Error('Failed');
+                              const blob = await res.blob();
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `receipt-${payment.id}.pdf`;
+                              a.click();
+                              URL.revokeObjectURL(url);
+                            } catch {
+                              toast.error('Failed to download receipt');
+                            }
+                          }}
+                          aria-label={tc('receipt')}
+                        >
+                          <Download className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() => setDeletePaymentId(payment.id)}
+                          aria-label={t('deletePayment')}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </li>
                   ))}
                 </ul>
