@@ -205,14 +205,23 @@ router.post('/', validate(createInvoiceSchema), async (req, res, next) => {
   try {
     const {
       lineItems: lineItemsInput,
-      taxRate: rawTaxRate = 0,
+      taxRate: rawTaxRate,
       discountAmount = 0,
       isTaxable = false,
       isWriteOff = false,
       ...invoiceData
     } = req.body;
 
-    const taxRate = isTaxable ? 16 : 0;
+    // Use form value if provided, otherwise fetch from settings, fallback to 16
+    let taxRate = 0;
+    if (isTaxable) {
+      if (rawTaxRate !== undefined && rawTaxRate > 0) {
+        taxRate = rawTaxRate;
+      } else {
+        const [s] = await db.select({ defaultTaxRate: settings.defaultTaxRate }).from(settings).limit(1);
+        taxRate = s?.defaultTaxRate ? parseFloat(String(s.defaultTaxRate)) : 16;
+      }
+    }
     const totals = calculateTotals(lineItemsInput, taxRate, discountAmount);
 
     const result = await db.transaction(async (tx) => {
@@ -487,12 +496,30 @@ router.patch(
       if (id === null) return;
       const { status } = req.body;
 
-      // Block status changes on written-off invoices
+      // Validate status transitions
+      const VALID_TRANSITIONS: Record<string, string[]> = {
+        draft: ['sent', 'cancelled'],
+        sent: ['paid', 'partially_paid', 'overdue', 'cancelled'],
+        viewed: ['paid', 'partially_paid', 'overdue', 'cancelled'],
+        partially_paid: ['paid', 'overdue', 'cancelled'],
+        overdue: ['paid', 'partially_paid', 'cancelled'],
+        paid: [],
+        cancelled: ['draft'],
+        written_off: [],
+      };
+
       const [existing] = await db.select({ status: invoices.status })
         .from(invoices).where(eq(invoices.id, id));
-      if (existing?.status === 'written_off') {
+
+      if (!existing) {
+        res.status(404).json({ error: 'Invoice not found' });
+        return;
+      }
+
+      const allowed = VALID_TRANSITIONS[existing.status] || [];
+      if (!allowed.includes(status)) {
         res.status(400).json({
-          error: 'Cannot change status of a written-off invoice',
+          error: `Cannot change status from "${existing.status}" to "${status}"`,
         });
         return;
       }

@@ -88,8 +88,8 @@ export function QuoteCreatePage() {
       sum + (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0),
     0,
   );
-  const taxAmount = subtotal * (taxRate / 100);
-  const total = subtotal + taxAmount - discount;
+  const taxAmount = (subtotal - discount) * (taxRate / 100);
+  const total = subtotal - discount + taxAmount;
 
   const onSubmit = async (data: QuoteFormValues) => {
     try {

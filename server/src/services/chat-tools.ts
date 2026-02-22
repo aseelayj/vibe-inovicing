@@ -1893,7 +1893,8 @@ export const toolExecutors: Record<
   async create_invoice(args, ctx) {
     const isTaxable = args.isTaxable === true;
     const isWriteOff = args.isWriteOff === true;
-    const defaultTaxRate = isTaxable ? 16 : 0;
+    const [settingsRow] = await db.select({ defaultTaxRate: settings.defaultTaxRate }).from(settings).limit(1);
+    const defaultTaxRate = isTaxable ? (settingsRow?.defaultTaxRate ? parseFloat(String(settingsRow.defaultTaxRate)) : 16) : 0;
     const taxRate = args.taxRate ?? defaultTaxRate;
     const { lineItems: items, discountAmount = 0 } = args;
     const totals = calculateTotals(items, taxRate, discountAmount);
@@ -2451,7 +2452,9 @@ export const toolExecutors: Record<
       const dueDate = new Date(today);
       dueDate.setDate(dueDate.getDate() + paymentTerms);
 
-      const taxRate = isTaxable ? 16 : 0;
+      const taxRate = isTaxable
+        ? (settingsRow?.defaultTaxRate ? parseFloat(String(settingsRow.defaultTaxRate)) : 16)
+        : 0;
       const quoteItems = quote.lineItems || [];
       const subtotal = quoteItems.reduce(
         (s, i) => s + parseFloat(i.quantity) * parseFloat(i.unitPrice), 0,

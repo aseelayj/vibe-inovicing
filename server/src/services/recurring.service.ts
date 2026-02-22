@@ -104,8 +104,10 @@ async function processRecurringInvoices() {
           dueDate.getDate() + (currentSettings.defaultPaymentTerms || 30),
         );
 
-        // Recalculate totals based on taxable status
-        const taxRate = isTaxable ? 16 : 0;
+        // Use settings default tax rate when taxable
+        const taxRate = isTaxable
+          ? (currentSettings.defaultTaxRate ? parseFloat(String(currentSettings.defaultTaxRate)) : 16)
+          : 0;
         const subtotalNum = parseFloat(recurring.subtotal);
         const taxAmountNum = subtotalNum * (taxRate / 100);
         const totalNum = subtotalNum + taxAmountNum;

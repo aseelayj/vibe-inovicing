@@ -490,25 +490,35 @@ export function InvoiceDetailPage() {
               </div>
               )}
 
-              {invoice.status !== 'written_off' && INVOICE_STATUSES
-                .filter((s) => s !== 'written_off')
-                .map((s) => (
-                <DropdownMenuItem
-                  key={s}
-                  onClick={() => handleStatusChange(s)}
-                  disabled={s === invoice.status}
-                >
-                  <span
-                    className={cn(
-                      'me-2 inline-block h-2 w-2 rounded-full',
-                      STATUS_COLORS[s]?.split(' ')[0],
+              {(() => {
+                const VALID_TRANSITIONS: Record<string, string[]> = {
+                  draft: ['sent', 'cancelled'],
+                  sent: ['paid', 'partially_paid', 'overdue', 'cancelled'],
+                  viewed: ['paid', 'partially_paid', 'overdue', 'cancelled'],
+                  partially_paid: ['paid', 'overdue', 'cancelled'],
+                  overdue: ['paid', 'partially_paid', 'cancelled'],
+                  cancelled: ['draft'],
+                  paid: [],
+                  written_off: [],
+                };
+                const allowed = VALID_TRANSITIONS[invoice.status] || [];
+                return allowed.length > 0 && allowed.map((s) => (
+                  <DropdownMenuItem
+                    key={s}
+                    onClick={() => handleStatusChange(s)}
+                  >
+                    <span
+                      className={cn(
+                        'me-2 inline-block h-2 w-2 rounded-full',
+                        STATUS_COLORS[s]?.split(' ')[0],
+                      )}
+                    />
+                    {s.replace(/_/g, ' ').replace(/\b\w/g, (c) =>
+                      c.toUpperCase(),
                     )}
-                  />
-                  {s.replace(/_/g, ' ').replace(/\b\w/g, (c) =>
-                    c.toUpperCase(),
-                  )}
-                </DropdownMenuItem>
-              ))}
+                  </DropdownMenuItem>
+                ));
+              })()}
               {settings?.jofotaraEnabled &&
                 invoice.isTaxable &&
                 invoice.jofotaraStatus === 'submitted' && (

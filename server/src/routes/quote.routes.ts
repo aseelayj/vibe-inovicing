@@ -548,7 +548,12 @@ router.post('/:id/convert', async (req, res, next) => {
     }
 
     const isTaxable = req.body?.isTaxable === true;
-    const taxRate = isTaxable ? 16 : 0;
+
+    // Use settings default tax rate when taxable, fallback to 16
+    const [settingsRow] = await db.select().from(settings).limit(1);
+    const taxRate = isTaxable
+      ? (settingsRow?.defaultTaxRate ? parseFloat(String(settingsRow.defaultTaxRate)) : 16)
+      : 0;
 
     // Recalculate totals with the chosen tax rate
     const quoteLineItemsList = quote.lineItems || [];
@@ -563,8 +568,6 @@ router.post('/:id/convert', async (req, res, next) => {
     const result = await db.transaction(async (tx) => {
       const invoiceNumber = await generateInvoiceNumber(tx, isTaxable);
 
-      // Get settings for default payment terms
-      const [settingsRow] = await tx.select().from(settings).limit(1);
       const paymentTerms = settingsRow?.defaultPaymentTerms ?? 30;
 
       const today = new Date();
