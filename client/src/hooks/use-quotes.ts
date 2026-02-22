@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import type { Quote, Invoice, PaginatedResponse } from '@vibe/shared';
 import { toast } from 'sonner';
+import i18n from '@/lib/i18n';
 
 interface QuoteFilters {
   status?: string;
@@ -46,10 +47,10 @@ export function useCreateQuote() {
       api.post<Quote>('/quotes', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
-      toast.success('Quote created successfully');
+      toast.success(i18n.t('createdSuccess', { entity: i18n.t('quote') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to create quote');
+      toast.error(error.message || i18n.t('createFailed', { entity: i18n.t('quote') }));
     },
   });
 }
@@ -65,10 +66,10 @@ export function useUpdateQuote() {
       queryClient.invalidateQueries({
         queryKey: ['quotes', String(variables.id)],
       });
-      toast.success('Quote updated successfully');
+      toast.success(i18n.t('updatedSuccess', { entity: i18n.t('quote') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to update quote');
+      toast.error(error.message || i18n.t('updateFailed', { entity: i18n.t('quote') }));
     },
   });
 }
@@ -80,10 +81,10 @@ export function useDeleteQuote() {
     mutationFn: (id: number) => api.delete(`/quotes/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
-      toast.success('Quote deleted successfully');
+      toast.success(i18n.t('deletedSuccess', { entity: i18n.t('quote') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to delete quote');
+      toast.error(error.message || i18n.t('deleteFailed', { entity: i18n.t('quote') }));
     },
   });
 }
@@ -98,10 +99,10 @@ export function useConvertQuote() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      toast.success('Quote converted to invoice successfully');
+      toast.success(i18n.t('convertedToInvoice'));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to convert quote');
+      toast.error(error.message || i18n.t('convertFailed'));
     },
   });
 }
@@ -113,10 +114,10 @@ export function useSendQuote() {
     mutationFn: (id: number) => api.post(`/quotes/${id}/send`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
-      toast.success('Quote sent successfully');
+      toast.success(i18n.t('sentSuccess', { entity: i18n.t('quote') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to send quote');
+      toast.error(error.message || i18n.t('sendFailed', { entity: i18n.t('quote') }));
     },
   });
 }

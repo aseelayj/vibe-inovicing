@@ -10,6 +10,7 @@ import type {
   PaginatedResponse,
 } from '@vibe/shared';
 import { toast } from 'sonner';
+import i18n from '@/lib/i18n';
 
 // ===================== Categories =====================
 
@@ -29,9 +30,9 @@ export function useCreatePartnerCategory() {
       api.post<PartnerExpenseCategory>('/partner-expenses/categories', data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['partner-categories'] });
-      toast.success('Category created');
+      toast.success(i18n.t('createdSuccess', { entity: i18n.t('category') }));
     },
-    onError: (e: Error) => toast.error(e.message || 'Failed to create category'),
+    onError: (e: Error) => toast.error(e.message || i18n.t('createFailed', { entity: i18n.t('category') })),
   });
 }
 
@@ -44,9 +45,9 @@ export function useUpdatePartnerCategory() {
       ),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['partner-categories'] });
-      toast.success('Category updated');
+      toast.success(i18n.t('updatedSuccess', { entity: i18n.t('category') }));
     },
-    onError: (e: Error) => toast.error(e.message || 'Failed to update category'),
+    onError: (e: Error) => toast.error(e.message || i18n.t('updateFailed', { entity: i18n.t('category') })),
   });
 }
 
@@ -57,9 +58,9 @@ export function useDeletePartnerCategory() {
       api.delete(`/partner-expenses/categories/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['partner-categories'] });
-      toast.success('Category deleted');
+      toast.success(i18n.t('deletedSuccess', { entity: i18n.t('category') }));
     },
-    onError: (e: Error) => toast.error(e.message || 'Failed to delete category'),
+    onError: (e: Error) => toast.error(e.message || i18n.t('deleteFailed', { entity: i18n.t('category') })),
   });
 }
 
@@ -70,9 +71,9 @@ export function useSeedPartnerCategories() {
       api.post<PartnerExpenseCategory[]>('/partner-expenses/categories/seed'),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['partner-categories'] });
-      toast.success('Default categories seeded');
+      toast.success(i18n.t('seedSuccess'));
     },
-    onError: (e: Error) => toast.error(e.message || 'Failed to seed categories'),
+    onError: (e: Error) => toast.error(e.message || i18n.t('seedFailed')),
   });
 }
 
@@ -113,9 +114,9 @@ export function useCreatePartnerExpense() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['partner-expenses'] });
       qc.invalidateQueries({ queryKey: ['partner-summary'] });
-      toast.success('Expense created');
+      toast.success(i18n.t('createdSuccess', { entity: i18n.t('expense') }));
     },
-    onError: (e: Error) => toast.error(e.message || 'Failed to create expense'),
+    onError: (e: Error) => toast.error(e.message || i18n.t('createFailed', { entity: i18n.t('expense') })),
   });
 }
 
@@ -127,9 +128,9 @@ export function useUpdatePartnerExpense() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['partner-expenses'] });
       qc.invalidateQueries({ queryKey: ['partner-summary'] });
-      toast.success('Expense updated');
+      toast.success(i18n.t('updatedSuccess', { entity: i18n.t('expense') }));
     },
-    onError: (e: Error) => toast.error(e.message || 'Failed to update expense'),
+    onError: (e: Error) => toast.error(e.message || i18n.t('updateFailed', { entity: i18n.t('expense') })),
   });
 }
 
@@ -141,9 +142,9 @@ export function useDeletePartnerExpense() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['partner-expenses'] });
       qc.invalidateQueries({ queryKey: ['partner-summary'] });
-      toast.success('Expense deleted');
+      toast.success(i18n.t('deletedSuccess', { entity: i18n.t('expense') }));
     },
-    onError: (e: Error) => toast.error(e.message || 'Failed to delete expense'),
+    onError: (e: Error) => toast.error(e.message || i18n.t('deleteFailed', { entity: i18n.t('expense') })),
   });
 }
 
@@ -180,9 +181,9 @@ export function useCreatePartnerPayment() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['partner-payments'] });
       qc.invalidateQueries({ queryKey: ['partner-summary'] });
-      toast.success('Payment recorded');
+      toast.success(i18n.t('recordedSuccess', { entity: i18n.t('payment') }));
     },
-    onError: (e: Error) => toast.error(e.message || 'Failed to record payment'),
+    onError: (e: Error) => toast.error(e.message || i18n.t('recordFailed', { entity: i18n.t('payment') })),
   });
 }
 
@@ -194,9 +195,9 @@ export function useUpdatePartnerPayment() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['partner-payments'] });
       qc.invalidateQueries({ queryKey: ['partner-summary'] });
-      toast.success('Payment updated');
+      toast.success(i18n.t('paymentUpdated'));
     },
-    onError: (e: Error) => toast.error(e.message || 'Failed to update payment'),
+    onError: (e: Error) => toast.error(e.message || i18n.t('paymentUpdateFailed')),
   });
 }
 
@@ -208,9 +209,9 @@ export function useDeletePartnerPayment() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['partner-payments'] });
       qc.invalidateQueries({ queryKey: ['partner-summary'] });
-      toast.success('Payment deleted');
+      toast.success(i18n.t('deletedSuccess', { entity: i18n.t('payment') }));
     },
-    onError: (e: Error) => toast.error(e.message || 'Failed to delete payment'),
+    onError: (e: Error) => toast.error(e.message || i18n.t('deleteFailed', { entity: i18n.t('payment') })),
   });
 }
 
@@ -232,9 +233,9 @@ export function useCreatePartnerEmployee() {
       api.post<PartnerEmployee>('/partner-expenses/employees', data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['partner-employees'] });
-      toast.success('Employee created');
+      toast.success(i18n.t('createdSuccess', { entity: i18n.t('employee') }));
     },
-    onError: (e: Error) => toast.error(e.message || 'Failed to create employee'),
+    onError: (e: Error) => toast.error(e.message || i18n.t('createFailed', { entity: i18n.t('employee') })),
   });
 }
 
@@ -245,9 +246,9 @@ export function useUpdatePartnerEmployee() {
       api.put<PartnerEmployee>(`/partner-expenses/employees/${id}`, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['partner-employees'] });
-      toast.success('Employee updated');
+      toast.success(i18n.t('updatedSuccess', { entity: i18n.t('employee') }));
     },
-    onError: (e: Error) => toast.error(e.message || 'Failed to update employee'),
+    onError: (e: Error) => toast.error(e.message || i18n.t('updateFailed', { entity: i18n.t('employee') })),
   });
 }
 
@@ -258,9 +259,9 @@ export function useDeletePartnerEmployee() {
       api.delete(`/partner-expenses/employees/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['partner-employees'] });
-      toast.success('Employee deleted');
+      toast.success(i18n.t('deletedSuccess', { entity: i18n.t('employee') }));
     },
-    onError: (e: Error) => toast.error(e.message || 'Failed to delete employee'),
+    onError: (e: Error) => toast.error(e.message || i18n.t('deleteFailed', { entity: i18n.t('employee') })),
   });
 }
 
@@ -284,9 +285,9 @@ export function useGeneratePartnerSsk() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['partner-ssk'] });
       qc.invalidateQueries({ queryKey: ['partner-summary'] });
-      toast.success('SSK entry generated');
+      toast.success(i18n.t('sskGenerated'));
     },
-    onError: (e: Error) => toast.error(e.message || 'Failed to generate SSK'),
+    onError: (e: Error) => toast.error(e.message || i18n.t('sskGenerateFailed')),
   });
 }
 
@@ -298,9 +299,9 @@ export function useUpdatePartnerSsk() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['partner-ssk'] });
       qc.invalidateQueries({ queryKey: ['partner-summary'] });
-      toast.success('SSK entry updated');
+      toast.success(i18n.t('updatedSuccess', { entity: i18n.t('sskEntry') }));
     },
-    onError: (e: Error) => toast.error(e.message || 'Failed to update SSK'),
+    onError: (e: Error) => toast.error(e.message || i18n.t('updateFailed', { entity: i18n.t('sskEntry') })),
   });
 }
 
@@ -312,9 +313,9 @@ export function useDeletePartnerSsk() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['partner-ssk'] });
       qc.invalidateQueries({ queryKey: ['partner-summary'] });
-      toast.success('SSK entry deleted');
+      toast.success(i18n.t('deletedSuccess', { entity: i18n.t('sskEntry') }));
     },
-    onError: (e: Error) => toast.error(e.message || 'Failed to delete SSK'),
+    onError: (e: Error) => toast.error(e.message || i18n.t('deleteFailed', { entity: i18n.t('sskEntry') })),
   });
 }
 

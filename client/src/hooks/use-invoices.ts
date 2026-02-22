@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import type { Invoice, PaginatedResponse } from '@vibe/shared';
 import { toast } from 'sonner';
+import i18n from '@/lib/i18n';
 
 interface InvoiceFilters {
   status?: string;
@@ -48,10 +49,10 @@ export function useCreateInvoice() {
       api.post<Invoice>('/invoices', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      toast.success('Invoice created successfully');
+      toast.success(i18n.t('createdSuccess', { entity: i18n.t('invoice') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to create invoice');
+      toast.error(error.message || i18n.t('createFailed', { entity: i18n.t('invoice') }));
     },
   });
 }
@@ -67,10 +68,10 @@ export function useUpdateInvoice() {
       queryClient.invalidateQueries({
         queryKey: ['invoices', String(variables.id)],
       });
-      toast.success('Invoice updated successfully');
+      toast.success(i18n.t('updatedSuccess', { entity: i18n.t('invoice') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to update invoice');
+      toast.error(error.message || i18n.t('updateFailed', { entity: i18n.t('invoice') }));
     },
   });
 }
@@ -82,10 +83,10 @@ export function useDeleteInvoice() {
     mutationFn: (id: number) => api.delete(`/invoices/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      toast.success('Invoice deleted successfully');
+      toast.success(i18n.t('deletedSuccess', { entity: i18n.t('invoice') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to delete invoice');
+      toast.error(error.message || i18n.t('deleteFailed', { entity: i18n.t('invoice') }));
     },
   });
 }
@@ -98,11 +99,11 @@ export function useDuplicateInvoice() {
       api.post<Invoice>(`/invoices/${id}/duplicate`),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
-      toast.success('Invoice duplicated successfully');
+      toast.success(i18n.t('duplicatedSuccess', { entity: i18n.t('invoice') }));
       return data;
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to duplicate invoice');
+      toast.error(error.message || i18n.t('duplicateFailed', { entity: i18n.t('invoice') }));
     },
   });
 }
@@ -118,10 +119,10 @@ export function useSendInvoice() {
       queryClient.invalidateQueries({
         queryKey: ['invoices', String(id)],
       });
-      toast.success('Invoice sent successfully');
+      toast.success(i18n.t('sentSuccess', { entity: i18n.t('invoice') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to send invoice');
+      toast.error(error.message || i18n.t('sendFailed', { entity: i18n.t('invoice') }));
     },
   });
 }
@@ -137,10 +138,10 @@ export function useSendReminder() {
       queryClient.invalidateQueries({
         queryKey: ['invoices', String(id)],
       });
-      toast.success('Payment reminder sent successfully');
+      toast.success(i18n.t('reminderSent'));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to send reminder');
+      toast.error(error.message || i18n.t('reminderFailed'));
     },
   });
 }

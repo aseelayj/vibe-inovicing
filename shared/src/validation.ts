@@ -409,6 +409,36 @@ export const updatePartnerSskSchema = z.object({
   totalAmount: z.number().positive().optional(),
 });
 
+// ---- Send Email (Invoice / Quote / Reminder) ----
+export const sendEmailSchema = z.object({
+  subject: z.string().max(500).optional(),
+  body: z.string().optional(),
+});
+
+// ---- Quote Convert ----
+export const convertQuoteSchema = z.object({
+  isTaxable: z.boolean().optional(),
+});
+
+// ---- Payroll: Add Entry ----
+export const addPayrollEntrySchema = z.object({
+  employeeId: z.number().int().positive('Employee ID is required'),
+});
+
+// ---- Payroll: Mark All Paid ----
+export const markAllPaidSchema = z.object({
+  bankAccountId: z.number().int().positive().nullable().optional(),
+});
+
+// ---- Email Template Preview ----
+export const emailTemplatePreviewSchema = z.object({
+  subject: z.string().max(500).optional(),
+  body: z.string().optional(),
+  headerColor: z.string()
+    .regex(/^#[0-9a-fA-F]{6}$/, 'Must be a valid hex color')
+    .optional(),
+});
+
 // ---- Chart of Accounts ----
 export const createAccountSchema = z.object({
   code: z.string().min(1, 'Code is required').max(20),

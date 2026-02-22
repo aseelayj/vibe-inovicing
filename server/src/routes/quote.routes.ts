@@ -13,7 +13,7 @@ import {
   emailTemplates,
 } from '../db/schema.js';
 import { validate } from '../middleware/validate.js';
-import { createQuoteSchema, updateQuoteSchema } from '@vibe/shared';
+import { createQuoteSchema, updateQuoteSchema, sendEmailSchema, convertQuoteSchema } from '@vibe/shared';
 import { generateQuotePdf } from '../services/pdf.service.js';
 import { sendQuoteEmail } from '../services/email.service.js';
 import { parseId } from '../utils/parse-id.js';
@@ -414,7 +414,7 @@ router.get('/:id/pdf', async (req, res, next) => {
 });
 
 // POST /:id/send - Send quote via email
-router.post('/:id/send', async (req, res, next) => {
+router.post('/:id/send', validate(sendEmailSchema), async (req, res, next) => {
   try {
     const id = parseId(req, res);
     if (id === null) return;
@@ -527,7 +527,7 @@ router.post('/:id/send', async (req, res, next) => {
 });
 
 // POST /:id/convert - Convert quote to invoice
-router.post('/:id/convert', async (req, res, next) => {
+router.post('/:id/convert', validate(convertQuoteSchema), async (req, res, next) => {
   try {
     const id = parseId(req, res);
     if (id === null) return;

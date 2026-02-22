@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import { toast } from 'sonner';
+import i18n from '@/lib/i18n';
 
 export function useRecurring() {
   return useQuery({
@@ -25,10 +26,10 @@ export function useCreateRecurring() {
       api.post('/recurring', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['recurring'] });
-      toast.success('Recurring invoice created');
+      toast.success(i18n.t('createdSuccess', { entity: i18n.t('recurringInvoice') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to create recurring invoice');
+      toast.error(error.message || i18n.t('createFailed', { entity: i18n.t('recurringInvoice') }));
     },
   });
 }
@@ -41,10 +42,10 @@ export function useUpdateRecurring() {
       api.put(`/recurring/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['recurring'] });
-      toast.success('Recurring invoice updated');
+      toast.success(i18n.t('updatedSuccess', { entity: i18n.t('recurringInvoice') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to update recurring invoice');
+      toast.error(error.message || i18n.t('updateFailed', { entity: i18n.t('recurringInvoice') }));
     },
   });
 }
@@ -56,10 +57,10 @@ export function useDeleteRecurring() {
     mutationFn: (id: number) => api.delete(`/recurring/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['recurring'] });
-      toast.success('Recurring invoice deleted');
+      toast.success(i18n.t('deletedSuccess', { entity: i18n.t('recurringInvoice') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to delete recurring invoice');
+      toast.error(error.message || i18n.t('deleteFailed', { entity: i18n.t('recurringInvoice') }));
     },
   });
 }
@@ -71,10 +72,10 @@ export function useToggleRecurring() {
     mutationFn: (id: number) => api.patch(`/recurring/${id}/toggle`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['recurring'] });
-      toast.success('Status updated');
+      toast.success(i18n.t('statusUpdated'));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to toggle status');
+      toast.error(error.message || i18n.t('toggleFailed'));
     },
   });
 }

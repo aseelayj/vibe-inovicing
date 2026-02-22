@@ -77,7 +77,7 @@ export function DashboardPage() {
   const { data: deadlines } = useTaxDeadlines();
   const { data: gstSummary } = useGstSummary();
   const { data: settings } = useSettings();
-  const currency = settings?.defaultCurrency || 'JOD';
+  const currency = settings?.defaultCurrency || 'USD';
 
   if (statsLoading) {
     return <LoadingSpinner />;
@@ -377,19 +377,19 @@ export function DashboardPage() {
                 <div>
                   <p className="text-xs text-muted-foreground">{t('taxableSales')}</p>
                   <p className="mt-0.5 text-sm font-semibold">
-                    {formatCurrency(gstSummary.taxableSales, 'JOD')}
+                    {formatCurrency(gstSummary.taxableSales, currency)}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">{t('outputTax')}</p>
                   <p className="mt-0.5 text-sm font-semibold text-red-600">
-                    {formatCurrency(gstSummary.outputTax, 'JOD')}
+                    {formatCurrency(gstSummary.outputTax, currency)}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">{t('inputTax')}</p>
                   <p className="mt-0.5 text-sm font-semibold text-green-600">
-                    {formatCurrency(gstSummary.inputTax, 'JOD')}
+                    {formatCurrency(gstSummary.inputTax, currency)}
                   </p>
                 </div>
                 <div>
@@ -399,7 +399,7 @@ export function DashboardPage() {
                       gstSummary.netTax >= 0 ? 'text-red-600' : 'text-green-600'
                     }`}
                   >
-                    {formatCurrency(gstSummary.netTax, 'JOD')}
+                    {formatCurrency(gstSummary.netTax, currency)}
                   </p>
                 </div>
               </div>

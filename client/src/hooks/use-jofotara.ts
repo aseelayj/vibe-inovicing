@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import type { JofotaraSubmission } from '@vibe/shared';
 import { toast } from 'sonner';
+import i18n from '@/lib/i18n';
 
 export function useJofotaraSubmit() {
   const queryClient = useQueryClient();
@@ -26,10 +27,10 @@ export function useJofotaraSubmit() {
       queryClient.invalidateQueries({
         queryKey: ['jofotara-submissions', variables.invoiceId],
       });
-      toast.success('Invoice submitted to JoFotara successfully');
+      toast.success(i18n.t('jofotaraSubmitSuccess'));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'JoFotara submission failed');
+      toast.error(error.message || i18n.t('jofotaraSubmitFailed'));
     },
   });
 }
@@ -54,10 +55,10 @@ export function useJofotaraCreditSubmit() {
       queryClient.invalidateQueries({
         queryKey: ['invoices', String(variables.invoiceId)],
       });
-      toast.success('Credit note submitted to JoFotara');
+      toast.success(i18n.t('creditNoteSubmitted'));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Credit note submission failed');
+      toast.error(error.message || i18n.t('creditNoteSubmitFailed'));
     },
   });
 }

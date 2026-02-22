@@ -15,6 +15,7 @@ import {
   createInvoiceSchema,
   updateInvoiceSchema,
   updateInvoiceStatusSchema,
+  sendEmailSchema,
 } from '@vibe/shared';
 import { generateInvoicePdf } from '../services/pdf.service.js';
 import { sendInvoiceEmail, sendPaymentReminder } from '../services/email.service.js';
@@ -599,7 +600,7 @@ router.get('/:id/pdf', async (req, res, next) => {
 });
 
 // POST /:id/send - Send invoice via email
-router.post('/:id/send', async (req, res, next) => {
+router.post('/:id/send', validate(sendEmailSchema), async (req, res, next) => {
   try {
     const id = parseId(req, res);
     if (id === null) return;
@@ -712,7 +713,7 @@ router.post('/:id/send', async (req, res, next) => {
 });
 
 // POST /:id/remind - Send payment reminder email
-router.post('/:id/remind', async (req, res, next) => {
+router.post('/:id/remind', validate(sendEmailSchema), async (req, res, next) => {
   try {
     const id = parseId(req, res);
     if (id === null) return;

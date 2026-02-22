@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import type { Product } from '@vibe/shared';
 import { toast } from 'sonner';
+import i18n from '@/lib/i18n';
 
 export function useProducts(filters?: { search?: string; category?: string; type?: string; active?: string }) {
   const params = new URLSearchParams();
@@ -33,10 +34,10 @@ export function useCreateProduct() {
       api.post<Product>('/products', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
-      toast.success('Product created');
+      toast.success(i18n.t('createdSuccess', { entity: i18n.t('product') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to create product');
+      toast.error(error.message || i18n.t('createFailed', { entity: i18n.t('product') }));
     },
   });
 }
@@ -49,10 +50,10 @@ export function useUpdateProduct() {
       api.put<Product>(`/products/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
-      toast.success('Product updated');
+      toast.success(i18n.t('updatedSuccess', { entity: i18n.t('product') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to update product');
+      toast.error(error.message || i18n.t('updateFailed', { entity: i18n.t('product') }));
     },
   });
 }
@@ -64,10 +65,10 @@ export function useDeleteProduct() {
     mutationFn: (id: number) => api.delete(`/products/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
-      toast.success('Product deleted');
+      toast.success(i18n.t('deletedSuccess', { entity: i18n.t('product') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to delete product');
+      toast.error(error.message || i18n.t('deleteFailed', { entity: i18n.t('product') }));
     },
   });
 }

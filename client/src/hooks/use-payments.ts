@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import type { Payment, PaginatedResponse } from '@vibe/shared';
 import { toast } from 'sonner';
+import i18n from '@/lib/i18n';
 
 export function usePayments() {
   return useQuery({
@@ -30,10 +31,10 @@ export function useCreatePayment() {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
-      toast.success('Payment recorded successfully');
+      toast.success(i18n.t('recordedSuccess', { entity: i18n.t('payment') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to record payment');
+      toast.error(error.message || i18n.t('recordFailed', { entity: i18n.t('payment') }));
     },
   });
 }
@@ -59,10 +60,10 @@ export function useDeletePayment() {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
-      toast.success('Payment deleted successfully');
+      toast.success(i18n.t('deletedSuccess', { entity: i18n.t('payment') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to delete payment');
+      toast.error(error.message || i18n.t('deleteFailed', { entity: i18n.t('payment') }));
     },
   });
 }

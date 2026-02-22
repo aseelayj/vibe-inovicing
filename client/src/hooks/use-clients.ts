@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '@/lib/api-client';
 import type { Client, ClientStatement, PaginatedResponse } from '@vibe/shared';
 import { toast } from 'sonner';
+import i18n from '@/lib/i18n';
 
 export function useClients(search?: string) {
   const params = new URLSearchParams();
@@ -32,10 +33,10 @@ export function useCreateClient() {
       api.post<Client>('/clients', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
-      toast.success('Client created successfully');
+      toast.success(i18n.t('createdSuccess', { entity: i18n.t('client') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to create client');
+      toast.error(error.message || i18n.t('createFailed', { entity: i18n.t('client') }));
     },
   });
 }
@@ -51,10 +52,10 @@ export function useUpdateClient() {
       queryClient.invalidateQueries({
         queryKey: ['clients', String(variables.id)],
       });
-      toast.success('Client updated successfully');
+      toast.success(i18n.t('updatedSuccess', { entity: i18n.t('client') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to update client');
+      toast.error(error.message || i18n.t('updateFailed', { entity: i18n.t('client') }));
     },
   });
 }
@@ -84,12 +85,12 @@ export function useDeleteClient() {
       api.delete(`/clients/${id}${force ? '?force=true' : ''}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
-      toast.success('Client deleted successfully');
+      toast.success(i18n.t('deletedSuccess', { entity: i18n.t('client') }));
     },
     onError: (error: Error) => {
       // Don't toast on 409 — the UI shows a warning dialog instead
       if (error instanceof ApiError && error.status === 409) return;
-      toast.error(error.message || 'Failed to delete client');
+      toast.error(error.message || i18n.t('deleteFailed', { entity: i18n.t('client') }));
     },
   });
 }
