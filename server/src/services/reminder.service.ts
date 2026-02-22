@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import { db } from '../db/index.js';
-import { invoices, clients, settings, emailLog, emailTemplates, activityLog } from '../db/schema.js';
+import { invoices, quotes, clients, settings, emailLog, emailTemplates, activityLog } from '../db/schema.js';
 import { eq, and, sql, or, lte } from 'drizzle-orm';
 import { sendPaymentReminder } from './email.service.js';
 import { replaceTemplateVariables, sanitizeHeaderColor } from '../utils/template-renderer.js';
@@ -150,14 +150,48 @@ async function processAutoReminders() {
   }
 }
 
+async function processExpiredQuotes() {
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  // Auto-expire quotes that are past their expiry date and still in draft/sent status
+  const result = await db
+    .update(quotes)
+    .set({ status: 'expired', updatedAt: new Date() })
+    .where(
+      and(
+        or(
+          eq(quotes.status, 'draft'),
+          eq(quotes.status, 'sent'),
+        ),
+        sql`${quotes.expiryDate} IS NOT NULL`,
+        sql`${quotes.expiryDate} < ${todayStr}`,
+      ),
+    )
+    .returning({ id: quotes.id, quoteNumber: quotes.quoteNumber });
+
+  for (const q of result) {
+    await db.insert(activityLog).values({
+      entityType: 'quote',
+      entityId: q.id,
+      action: 'expired',
+      description: `Quote ${q.quoteNumber} auto-expired (past expiry date)`,
+    });
+  }
+
+  if (result.length > 0) {
+    console.log(`[Reminder] Auto-expired ${result.length} quote(s)`);
+  }
+}
+
 export function startReminderScheduler() {
   // Run daily at 9:00 AM (after recurring invoices at 8:00 AM)
   cron.schedule('0 9 * * *', async () => {
     console.log('[Reminder] Running auto-reminder check...');
     await processAutoReminders();
+    await processExpiredQuotes();
   });
 
   console.log('[Reminder] Scheduler started (daily at 9:00 AM)');
 }
 
-export { processAutoReminders };
+export { processAutoReminders, processExpiredQuotes };

@@ -8,6 +8,7 @@ import {
   transactions,
   payments,
   settings,
+  commitments,
 } from '../db/schema.js';
 import {
   getBimonthlyPeriod,
@@ -439,16 +440,68 @@ router.get('/profit-loss', async (req, res, next) => {
       amount: parseFloat(r.amount ?? '0'),
     }));
 
+    // Include active commitments (recurring expenses) in the P&L
+    const activeCommitments = await db
+      .select()
+      .from(commitments)
+      .where(eq(commitments.isActive, true));
+
+    let totalCommitmentExpenses = 0;
+    const commitmentsByCategory: Record<string, number> = {};
+
+    if (activeCommitments.length > 0) {
+      // Calculate how many months are in the date range
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+
+      for (const c of activeCommitments) {
+        const amount = parseFloat(String(c.amount));
+        let multiplier = 1;
+
+        // Calculate monthly equivalent based on frequency
+        let monthlyAmount = amount;
+        if (c.frequency === 'yearly') monthlyAmount = amount / 12;
+        else if (c.frequency === 'quarterly') monthlyAmount = amount / 3;
+        else if (c.frequency === 'weekly') monthlyAmount = amount * 4.33;
+        else if (c.frequency === 'daily') monthlyAmount = amount * 30;
+
+        // Count months in range
+        const months =
+          (end.getFullYear() - start.getFullYear()) * 12 +
+          (end.getMonth() - start.getMonth()) + 1;
+
+        const totalForPeriod = monthlyAmount * months;
+        totalCommitmentExpenses += totalForPeriod;
+
+        const cat = c.category || 'recurring';
+        commitmentsByCategory[cat] =
+          (commitmentsByCategory[cat] || 0) + totalForPeriod;
+      }
+    }
+
+    // Merge commitment categories into byCategory
+    for (const [cat, amount] of Object.entries(commitmentsByCategory)) {
+      const existing = byCategory.find((b) => b.category === cat);
+      if (existing) {
+        existing.amount += amount;
+      } else {
+        byCategory.push({ category: cat, amount });
+      }
+    }
+
+    const combinedExpenses = totalExpenses + totalCommitmentExpenses;
+
     res.json({
       data: {
         period: { startDate, endDate },
         revenue: { total: totalRevenue, byMonth: revenueMonths },
         expenses: {
-          total: totalExpenses,
+          total: combinedExpenses,
           byCategory: byCategory,
           byMonth: expenseMonths,
+          commitments: totalCommitmentExpenses,
         },
-        netProfit: totalRevenue - totalExpenses,
+        netProfit: totalRevenue - combinedExpenses,
       },
     });
   } catch (err) {
