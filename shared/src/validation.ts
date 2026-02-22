@@ -15,6 +15,7 @@ import {
   PAYROLL_RUN_STATUSES,
   PAYROLL_PAYMENT_STATUSES,
   PARTNER_EXPENSE_PAYMENT_METHODS,
+  ACCOUNT_TYPES,
 } from './constants.js';
 
 // Helper: transform empty strings to null for optional fields
@@ -402,3 +403,16 @@ export const updatePartnerSskSchema = z.object({
   notes: z.string().nullable().optional(),
   totalAmount: z.number().positive().optional(),
 });
+
+// ---- Chart of Accounts ----
+export const createAccountSchema = z.object({
+  code: z.string().min(1, 'Code is required').max(20),
+  name: z.string().min(1, 'Name is required').max(255),
+  nameAr: optionalString(255),
+  type: z.enum(ACCOUNT_TYPES),
+  parentId: z.number().int().positive().nullable().optional(),
+  description: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
+  isActive: z.boolean().default(true),
+});
+
+export const updateAccountSchema = createAccountSchema.partial();

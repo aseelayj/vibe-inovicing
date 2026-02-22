@@ -1,3 +1,54 @@
+// ---- Chart of Accounts ----
+export const ACCOUNT_TYPES = [
+  'asset',
+  'liability',
+  'equity',
+  'revenue',
+  'expense',
+] as const;
+export type AccountType = typeof ACCOUNT_TYPES[number];
+
+export const DEFAULT_CHART_OF_ACCOUNTS = [
+  // Assets (1xxx)
+  { code: '1000', name: 'Assets', nameAr: 'الأصول', type: 'asset' as const },
+  { code: '1100', name: 'Cash & Bank', nameAr: 'النقد والبنوك', type: 'asset' as const, parentCode: '1000' },
+  { code: '1110', name: 'Cash on Hand', nameAr: 'النقد في الصندوق', type: 'asset' as const, parentCode: '1100' },
+  { code: '1120', name: 'Bank Accounts', nameAr: 'الحسابات البنكية', type: 'asset' as const, parentCode: '1100' },
+  { code: '1200', name: 'Accounts Receivable', nameAr: 'الذمم المدينة', type: 'asset' as const, parentCode: '1000' },
+  { code: '1300', name: 'Prepaid Expenses', nameAr: 'المصاريف المدفوعة مقدماً', type: 'asset' as const, parentCode: '1000' },
+  { code: '1500', name: 'Fixed Assets', nameAr: 'الأصول الثابتة', type: 'asset' as const, parentCode: '1000' },
+  { code: '1510', name: 'Equipment', nameAr: 'المعدات', type: 'asset' as const, parentCode: '1500' },
+  { code: '1520', name: 'Furniture', nameAr: 'الأثاث', type: 'asset' as const, parentCode: '1500' },
+  // Liabilities (2xxx)
+  { code: '2000', name: 'Liabilities', nameAr: 'الالتزامات', type: 'liability' as const },
+  { code: '2100', name: 'Accounts Payable', nameAr: 'الذمم الدائنة', type: 'liability' as const, parentCode: '2000' },
+  { code: '2200', name: 'Sales Tax Payable', nameAr: 'ضريبة المبيعات المستحقة', type: 'liability' as const, parentCode: '2000' },
+  { code: '2300', name: 'Accrued Expenses', nameAr: 'المصاريف المستحقة', type: 'liability' as const, parentCode: '2000' },
+  { code: '2400', name: 'Social Security Payable', nameAr: 'الضمان الاجتماعي المستحق', type: 'liability' as const, parentCode: '2000' },
+  // Equity (3xxx)
+  { code: '3000', name: 'Equity', nameAr: 'حقوق الملكية', type: 'equity' as const },
+  { code: '3100', name: "Owner's Capital", nameAr: 'رأس مال المالك', type: 'equity' as const, parentCode: '3000' },
+  { code: '3200', name: 'Retained Earnings', nameAr: 'الأرباح المحتجزة', type: 'equity' as const, parentCode: '3000' },
+  { code: '3300', name: "Owner's Drawings", nameAr: 'مسحوبات المالك', type: 'equity' as const, parentCode: '3000' },
+  // Revenue (4xxx)
+  { code: '4000', name: 'Revenue', nameAr: 'الإيرادات', type: 'revenue' as const },
+  { code: '4100', name: 'Service Revenue', nameAr: 'إيرادات الخدمات', type: 'revenue' as const, parentCode: '4000' },
+  { code: '4200', name: 'Product Sales', nameAr: 'مبيعات المنتجات', type: 'revenue' as const, parentCode: '4000' },
+  { code: '4300', name: 'Other Revenue', nameAr: 'إيرادات أخرى', type: 'revenue' as const, parentCode: '4000' },
+  // Expenses (5xxx)
+  { code: '5000', name: 'Expenses', nameAr: 'المصروفات', type: 'expense' as const },
+  { code: '5100', name: 'Salaries & Wages', nameAr: 'الرواتب والأجور', type: 'expense' as const, parentCode: '5000' },
+  { code: '5200', name: 'Rent Expense', nameAr: 'مصاريف الإيجار', type: 'expense' as const, parentCode: '5000' },
+  { code: '5300', name: 'Utilities', nameAr: 'المرافق', type: 'expense' as const, parentCode: '5000' },
+  { code: '5400', name: 'Office Supplies', nameAr: 'اللوازم المكتبية', type: 'expense' as const, parentCode: '5000' },
+  { code: '5500', name: 'Marketing', nameAr: 'التسويق', type: 'expense' as const, parentCode: '5000' },
+  { code: '5600', name: 'Professional Services', nameAr: 'الخدمات المهنية', type: 'expense' as const, parentCode: '5000' },
+  { code: '5700', name: 'Travel & Transportation', nameAr: 'السفر والمواصلات', type: 'expense' as const, parentCode: '5000' },
+  { code: '5800', name: 'Insurance', nameAr: 'التأمين', type: 'expense' as const, parentCode: '5000' },
+  { code: '5900', name: 'Depreciation', nameAr: 'الإهلاك', type: 'expense' as const, parentCode: '5000' },
+  { code: '5990', name: 'Other Expenses', nameAr: 'مصروفات أخرى', type: 'expense' as const, parentCode: '5000' },
+];
+
 // ---- Partner Expenses ----
 export const PARTNER_EXPENSE_PAYMENT_METHODS = [
   'cash', 'bank_transfer', 'check', 'other',

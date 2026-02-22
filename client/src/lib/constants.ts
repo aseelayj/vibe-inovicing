@@ -64,6 +64,7 @@ export const NAV_ITEMS = [
   { labelKey: 'recurring', path: '/recurring', icon: 'RefreshCw' },
   { labelKey: 'bankAccounts', path: '/bank-accounts', icon: 'Landmark' },
   { labelKey: 'transactions', path: '/transactions', icon: 'ArrowLeftRight' },
+  { labelKey: 'chartOfAccounts', path: '/chart-of-accounts', icon: 'BookOpen' },
   { labelKey: 'payroll', path: '/payroll', icon: 'Wallet' },
   { labelKey: 'partnerExpenses', path: '/partner-expenses', icon: 'Handshake' },
   { labelKey: 'taxReports', path: '/tax-reports', icon: 'FileSpreadsheet' },

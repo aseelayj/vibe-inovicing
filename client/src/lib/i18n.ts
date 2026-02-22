@@ -19,6 +19,7 @@ import teamEn from '@/locales/en/team.json';
 import teamActivityEn from '@/locales/en/team-activity.json';
 import payrollEn from '@/locales/en/payroll.json';
 import partnerExpensesEn from '@/locales/en/partner-expenses.json';
+import chartOfAccountsEn from '@/locales/en/chart-of-accounts.json';
 
 import commonAr from '@/locales/ar/common.json';
 import navAr from '@/locales/ar/nav.json';
@@ -37,6 +38,7 @@ import teamAr from '@/locales/ar/team.json';
 import teamActivityAr from '@/locales/ar/team-activity.json';
 import payrollAr from '@/locales/ar/payroll.json';
 import partnerExpensesAr from '@/locales/ar/partner-expenses.json';
+import chartOfAccountsAr from '@/locales/ar/chart-of-accounts.json';
 
 i18n
   .use(LanguageDetector)
@@ -61,6 +63,7 @@ i18n
         'team-activity': teamActivityEn,
         payroll: payrollEn,
         'partner-expenses': partnerExpensesEn,
+        'chart-of-accounts': chartOfAccountsEn,
       },
       ar: {
         common: commonAr,
@@ -80,6 +83,7 @@ i18n
         'team-activity': teamActivityAr,
         payroll: payrollAr,
         'partner-expenses': partnerExpensesAr,
+        'chart-of-accounts': chartOfAccountsAr,
       },
     },
     fallbackLng: 'en',
