@@ -20,6 +20,9 @@ import teamActivityEn from '@/locales/en/team-activity.json';
 import payrollEn from '@/locales/en/payroll.json';
 import partnerExpensesEn from '@/locales/en/partner-expenses.json';
 import chartOfAccountsEn from '@/locales/en/chart-of-accounts.json';
+import bankTransfersEn from '@/locales/en/bank-transfers.json';
+import bankDepositsEn from '@/locales/en/bank-deposits.json';
+import journalEntriesEn from '@/locales/en/journal-entries.json';
 
 import commonAr from '@/locales/ar/common.json';
 import navAr from '@/locales/ar/nav.json';
@@ -39,6 +42,9 @@ import teamActivityAr from '@/locales/ar/team-activity.json';
 import payrollAr from '@/locales/ar/payroll.json';
 import partnerExpensesAr from '@/locales/ar/partner-expenses.json';
 import chartOfAccountsAr from '@/locales/ar/chart-of-accounts.json';
+import bankTransfersAr from '@/locales/ar/bank-transfers.json';
+import bankDepositsAr from '@/locales/ar/bank-deposits.json';
+import journalEntriesAr from '@/locales/ar/journal-entries.json';
 
 i18n
   .use(LanguageDetector)
@@ -64,6 +70,9 @@ i18n
         payroll: payrollEn,
         'partner-expenses': partnerExpensesEn,
         'chart-of-accounts': chartOfAccountsEn,
+        'bank-transfers': bankTransfersEn,
+        'bank-deposits': bankDepositsEn,
+        'journal-entries': journalEntriesEn,
       },
       ar: {
         common: commonAr,
@@ -84,6 +93,9 @@ i18n
         payroll: payrollAr,
         'partner-expenses': partnerExpensesAr,
         'chart-of-accounts': chartOfAccountsAr,
+        'bank-transfers': bankTransfersAr,
+        'bank-deposits': bankDepositsAr,
+        'journal-entries': journalEntriesAr,
       },
     },
     fallbackLng: 'en',

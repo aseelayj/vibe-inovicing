@@ -653,6 +653,84 @@ export const partnerSskEntries = pgTable('partner_ssk_entries', {
   uniqueIndex('uq_partner_ssk_year_month').on(table.year, table.month),
 ]);
 
+// ---- Bank Transfers ----
+export const bankTransfers = pgTable('bank_transfers', {
+  id: serial('id').primaryKey(),
+  fromAccountId: integer('from_account_id').notNull()
+    .references(() => bankAccounts.id, { onDelete: 'restrict' }),
+  toAccountId: integer('to_account_id').notNull()
+    .references(() => bankAccounts.id, { onDelete: 'restrict' }),
+  amount: decimal('amount', { precision: 12, scale: 2 }).notNull(),
+  date: date('date').notNull().defaultNow(),
+  reference: varchar('reference', { length: 255 }),
+  description: text('description'),
+  status: varchar('status', { length: 20 }).notNull().default('completed'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => [
+  index('idx_bank_transfers_from').on(table.fromAccountId),
+  index('idx_bank_transfers_to').on(table.toAccountId),
+  index('idx_bank_transfers_date').on(table.date),
+]);
+
+// ---- Bank Deposits ----
+export const bankDeposits = pgTable('bank_deposits', {
+  id: serial('id').primaryKey(),
+  bankAccountId: integer('bank_account_id').notNull()
+    .references(() => bankAccounts.id, { onDelete: 'restrict' }),
+  amount: decimal('amount', { precision: 12, scale: 2 }).notNull(),
+  depositDate: date('deposit_date').notNull().defaultNow(),
+  depositMethod: varchar('deposit_method', { length: 30 }).notNull(),
+  reference: varchar('reference', { length: 255 }),
+  description: text('description'),
+  memo: text('memo'),
+  status: varchar('status', { length: 20 }).notNull().default('completed'),
+  depositItems: jsonb('deposit_items'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => [
+  index('idx_bank_deposits_account').on(table.bankAccountId),
+  index('idx_bank_deposits_date').on(table.depositDate),
+]);
+
+// ---- Journal Entries ----
+export const journalEntries = pgTable('journal_entries', {
+  id: serial('id').primaryKey(),
+  entryNumber: varchar('entry_number', { length: 50 }).notNull().unique(),
+  entryDate: date('entry_date').notNull().defaultNow(),
+  reference: varchar('reference', { length: 255 }),
+  description: varchar('description', { length: 500 }).notNull(),
+  memo: text('memo'),
+  status: varchar('status', { length: 20 }).notNull().default('draft'),
+  totalDebit: decimal('total_debit', { precision: 14, scale: 2 })
+    .notNull().default('0'),
+  totalCredit: decimal('total_credit', { precision: 14, scale: 2 })
+    .notNull().default('0'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => [
+  index('idx_journal_entries_date').on(table.entryDate),
+  index('idx_journal_entries_status').on(table.status),
+]);
+
+// ---- Journal Entry Lines ----
+export const journalEntryLines = pgTable('journal_entry_lines', {
+  id: serial('id').primaryKey(),
+  journalEntryId: integer('journal_entry_id').notNull()
+    .references(() => journalEntries.id, { onDelete: 'cascade' }),
+  accountId: integer('account_id').notNull()
+    .references(() => accounts.id, { onDelete: 'restrict' }),
+  description: varchar('description', { length: 500 }),
+  debitAmount: decimal('debit_amount', { precision: 14, scale: 2 })
+    .notNull().default('0'),
+  creditAmount: decimal('credit_amount', { precision: 14, scale: 2 })
+    .notNull().default('0'),
+  sortOrder: integer('sort_order').notNull().default(0),
+}, (table) => [
+  index('idx_journal_lines_entry').on(table.journalEntryId),
+  index('idx_journal_lines_account').on(table.accountId),
+]);
+
 // ---- Chart of Accounts ----
 export const accounts = pgTable('accounts', {
   id: serial('id').primaryKey(),
@@ -873,4 +951,52 @@ export const accountsRelations = relations(accounts, ({ one, many }) => ({
     relationName: 'parentChild',
   }),
   children: many(accounts, { relationName: 'parentChild' }),
+  journalEntryLines: many(journalEntryLines),
 }));
+
+export const bankTransfersRelations = relations(
+  bankTransfers,
+  ({ one }) => ({
+    fromAccount: one(bankAccounts, {
+      fields: [bankTransfers.fromAccountId],
+      references: [bankAccounts.id],
+      relationName: 'transfersFrom',
+    }),
+    toAccount: one(bankAccounts, {
+      fields: [bankTransfers.toAccountId],
+      references: [bankAccounts.id],
+      relationName: 'transfersTo',
+    }),
+  }),
+);
+
+export const bankDepositsRelations = relations(
+  bankDeposits,
+  ({ one }) => ({
+    bankAccount: one(bankAccounts, {
+      fields: [bankDeposits.bankAccountId],
+      references: [bankAccounts.id],
+    }),
+  }),
+);
+
+export const journalEntriesRelations = relations(
+  journalEntries,
+  ({ many }) => ({
+    lines: many(journalEntryLines),
+  }),
+);
+
+export const journalEntryLinesRelations = relations(
+  journalEntryLines,
+  ({ one }) => ({
+    journalEntry: one(journalEntries, {
+      fields: [journalEntryLines.journalEntryId],
+      references: [journalEntries.id],
+    }),
+    account: one(accounts, {
+      fields: [journalEntryLines.accountId],
+      references: [accounts.id],
+    }),
+  }),
+);

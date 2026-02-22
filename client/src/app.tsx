@@ -33,6 +33,9 @@ import { EmployeesPage } from '@/pages/employees-page';
 import { EmployeeDetailPage } from '@/pages/employee-detail-page';
 import { PartnerExpensesPage } from '@/pages/partner-expenses-page';
 import { ChartOfAccountsPage } from '@/pages/chart-of-accounts-page';
+import { BankTransfersPage } from '@/pages/bank-transfers-page';
+import { BankDepositsPage } from '@/pages/bank-deposits-page';
+import { JournalEntriesPage } from '@/pages/journal-entries-page';
 import { NotFoundPage } from '@/pages/not-found-page';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -86,7 +89,10 @@ export function App() {
         <Route path="payroll/employees" element={<EmployeesPage />} />
         <Route path="payroll/employees/:id" element={<EmployeeDetailPage />} />
         <Route path="partner-expenses" element={<PartnerExpensesPage />} />
+        <Route path="bank-transfers" element={<BankTransfersPage />} />
+        <Route path="bank-deposits" element={<BankDepositsPage />} />
         <Route path="chart-of-accounts" element={<ChartOfAccountsPage />} />
+        <Route path="journal-entries" element={<JournalEntriesPage />} />
         <Route path="tax-reports" element={<TaxReportsPage />} />
         <Route path="team" element={<TeamPage />} />
         <Route path="team-activity" element={<TeamActivityPage />} />

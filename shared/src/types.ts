@@ -16,6 +16,10 @@ import type {
   PayrollPaymentStatus,
   PartnerExpensePaymentMethod,
   AccountType,
+  TransferStatus,
+  DepositMethod,
+  DepositStatus,
+  JournalEntryStatus,
 } from './constants.js';
 
 // ---- User ----
@@ -732,6 +736,72 @@ export interface PartnerBalanceSummary {
   expenseCount: number;
   sskCount: number;
   paymentCount: number;
+}
+
+// ---- Bank Transfer ----
+export interface BankTransfer {
+  id: number;
+  fromAccountId: number;
+  toAccountId: number;
+  fromAccount?: BankAccount;
+  toAccount?: BankAccount;
+  amount: number;
+  date: string;
+  reference: string | null;
+  description: string | null;
+  status: TransferStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ---- Bank Deposit ----
+export interface BankDeposit {
+  id: number;
+  bankAccountId: number;
+  bankAccount?: BankAccount;
+  amount: number;
+  depositDate: string;
+  depositMethod: DepositMethod;
+  reference: string | null;
+  description: string | null;
+  memo: string | null;
+  status: DepositStatus;
+  depositItems: DepositItem[] | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DepositItem {
+  description: string;
+  amount: number;
+  checkNumber?: string;
+}
+
+// ---- Journal Entry ----
+export interface JournalEntry {
+  id: number;
+  entryNumber: string;
+  entryDate: string;
+  reference: string | null;
+  description: string;
+  memo: string | null;
+  status: JournalEntryStatus;
+  totalDebit: number;
+  totalCredit: number;
+  lines?: JournalEntryLine[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface JournalEntryLine {
+  id: number;
+  journalEntryId: number;
+  accountId: number;
+  account?: Account;
+  description: string | null;
+  debitAmount: number;
+  creditAmount: number;
+  sortOrder: number;
 }
 
 // ---- Chart of Accounts ----

@@ -16,6 +16,10 @@ import {
   PAYROLL_PAYMENT_STATUSES,
   PARTNER_EXPENSE_PAYMENT_METHODS,
   ACCOUNT_TYPES,
+  TRANSFER_STATUSES,
+  DEPOSIT_METHODS,
+  DEPOSIT_STATUSES,
+  JOURNAL_ENTRY_STATUSES,
 } from './constants.js';
 
 // Helper: transform empty strings to null for optional fields
@@ -402,6 +406,96 @@ export const updatePartnerSskSchema = z.object({
   isPaid: z.boolean().optional(),
   notes: z.string().nullable().optional(),
   totalAmount: z.number().positive().optional(),
+});
+
+// ---- Bank Transfer ----
+export const createBankTransferSchema = z.object({
+  fromAccountId: z.number().int().positive(),
+  toAccountId: z.number().int().positive(),
+  amount: z.number().positive('Amount must be positive'),
+  date: z.string().min(1, 'Date is required'),
+  reference: optionalString(255),
+  description: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
+}).refine((data) => data.fromAccountId !== data.toAccountId, {
+  message: 'Source and destination accounts must be different',
+  path: ['toAccountId'],
+});
+
+export const updateBankTransferSchema = z.object({
+  fromAccountId: z.number().int().positive().optional(),
+  toAccountId: z.number().int().positive().optional(),
+  amount: z.number().positive().optional(),
+  date: z.string().min(1).optional(),
+  reference: optionalString(255),
+  description: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
+  status: z.enum(TRANSFER_STATUSES).optional(),
+});
+
+// ---- Bank Deposit ----
+const depositItemSchema = z.object({
+  description: z.string().min(1, 'Description is required'),
+  amount: z.number().positive('Amount must be positive'),
+  checkNumber: z.string().optional(),
+});
+
+export const createBankDepositSchema = z.object({
+  bankAccountId: z.number().int().positive(),
+  amount: z.number().positive('Amount must be positive'),
+  depositDate: z.string().min(1, 'Deposit date is required'),
+  depositMethod: z.enum(DEPOSIT_METHODS),
+  reference: optionalString(255),
+  description: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
+  memo: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
+  depositItems: z.array(depositItemSchema).nullable().optional(),
+});
+
+export const updateBankDepositSchema = z.object({
+  bankAccountId: z.number().int().positive().optional(),
+  amount: z.number().positive().optional(),
+  depositDate: z.string().min(1).optional(),
+  depositMethod: z.enum(DEPOSIT_METHODS).optional(),
+  reference: optionalString(255),
+  description: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
+  memo: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
+  status: z.enum(DEPOSIT_STATUSES).optional(),
+  depositItems: z.array(depositItemSchema).nullable().optional(),
+});
+
+// ---- Journal Entry ----
+const journalEntryLineSchema = z.object({
+  accountId: z.number().int().positive(),
+  description: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
+  debitAmount: z.number().min(0).default(0),
+  creditAmount: z.number().min(0).default(0),
+}).refine(
+  (data) => data.debitAmount > 0 || data.creditAmount > 0,
+  { message: 'Each line must have a debit or credit amount', path: ['debitAmount'] },
+).refine(
+  (data) => !(data.debitAmount > 0 && data.creditAmount > 0),
+  { message: 'A line cannot have both debit and credit amounts', path: ['creditAmount'] },
+);
+
+export const createJournalEntrySchema = z.object({
+  entryDate: z.string().min(1, 'Entry date is required'),
+  reference: optionalString(255),
+  description: z.string().min(1, 'Description is required').max(500),
+  memo: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
+  lines: z.array(journalEntryLineSchema).min(2, 'At least two lines required'),
+}).refine(
+  (data) => {
+    const totalDebit = data.lines.reduce((s, l) => s + (l.debitAmount || 0), 0);
+    const totalCredit = data.lines.reduce((s, l) => s + (l.creditAmount || 0), 0);
+    return Math.abs(totalDebit - totalCredit) < 0.01;
+  },
+  { message: 'Total debits must equal total credits', path: ['lines'] },
+);
+
+export const updateJournalEntrySchema = z.object({
+  entryDate: z.string().min(1).optional(),
+  reference: optionalString(255),
+  description: z.string().min(1).max(500).optional(),
+  memo: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
+  lines: z.array(journalEntryLineSchema).min(2).optional(),
 });
 
 // ---- Chart of Accounts ----

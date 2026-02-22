@@ -1,0 +1,60 @@
+{
+  "title": "Journal Entries",
+  "subtitle": "Record manual journal entries for your general ledger",
+  "addEntry": "New Journal Entry",
+  "form": {
+    "subtitle": "Create a double-entry journal entry. Debits must equal credits.",
+    "date": "Entry Date",
+    "reference": "Reference",
+    "description": "Description",
+    "memo": "Memo",
+    "lineItems": "Line Items",
+    "account": "Account",
+    "lineDescription": "Description",
+    "selectAccount": "Select account...",
+    "debit": "Debit",
+    "credit": "Credit",
+    "addLine": "Add Line",
+    "totals": "Totals",
+    "balanced": "Entry is balanced",
+    "outOfBalance": "Out of balance by {{amount}}",
+    "optional": "Optional"
+  },
+  "table": {
+    "number": "Entry #",
+    "date": "Date",
+    "description": "Description",
+    "debit": "Total Debit",
+    "credit": "Total Credit",
+    "status": "Status"
+  },
+  "lines": {
+    "account": "Account",
+    "description": "Description",
+    "debit": "Debit",
+    "credit": "Credit"
+  },
+  "status": {
+    "draft": "Draft",
+    "posted": "Posted",
+    "voided": "Voided"
+  },
+  "statusFilter": {
+    "all": "All",
+    "draft": "Draft",
+    "posted": "Posted",
+    "voided": "Voided"
+  },
+  "actions": {
+    "post": "Post Entry",
+    "void": "Void Entry"
+  },
+  "empty": {
+    "title": "No journal entries yet",
+    "description": "Create journal entries to record adjustments, corrections, and other transactions in your general ledger."
+  },
+  "deleteConfirm": {
+    "title": "Delete Journal Entry",
+    "description": "Are you sure you want to delete this journal entry? This action cannot be undone."
+  }
+}

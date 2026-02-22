@@ -19,6 +19,9 @@ import {
   Wallet,
   Handshake,
   BookOpen,
+  BookOpenCheck,
+  ArrowRightLeft,
+  PiggyBank,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -47,6 +50,9 @@ const iconMap: Record<string, LucideIcon> = {
   Wallet,
   Handshake,
   BookOpen,
+  BookOpenCheck,
+  ArrowRightLeft,
+  PiggyBank,
   Settings,
 };
 

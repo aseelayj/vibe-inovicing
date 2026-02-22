@@ -1,0 +1,45 @@
+{
+  "title": "الإيداعات البنكية",
+  "subtitle": "تسجيل الإيداعات في حساباتك البنكية",
+  "addDeposit": "إيداع جديد",
+  "form": {
+    "subtitle": "تسجيل إيداع في حساب بنكي",
+    "bankAccount": "الحساب البنكي",
+    "selectAccount": "اختر حساب...",
+    "amount": "المبلغ الإجمالي",
+    "depositDate": "تاريخ الإيداع",
+    "depositMethod": "طريقة الإيداع",
+    "reference": "رقم المرجع / إيصال الإيداع",
+    "description": "الوصف",
+    "memo": "ملاحظة"
+  },
+  "table": {
+    "date": "التاريخ",
+    "account": "الحساب",
+    "method": "الطريقة",
+    "amount": "المبلغ",
+    "reference": "المرجع",
+    "description": "الوصف",
+    "status": "الحالة"
+  },
+  "methods": {
+    "cash": "نقد",
+    "check": "شيك",
+    "wire_transfer": "حوالة بنكية",
+    "ach": "تحويل إلكتروني",
+    "other": "أخرى"
+  },
+  "status": {
+    "completed": "مكتمل",
+    "pending": "قيد الانتظار",
+    "cancelled": "ملغى"
+  },
+  "empty": {
+    "title": "لا توجد إيداعات بعد",
+    "description": "سجل الإيداعات البنكية للحفاظ على تحديث حساباتك."
+  },
+  "deleteConfirm": {
+    "title": "حذف الإيداع",
+    "description": "هل أنت متأكد من حذف هذا الإيداع؟ لا يمكن التراجع عن هذا الإجراء."
+  }
+}

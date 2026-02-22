@@ -23,6 +23,9 @@ import employeeRoutes from './employee.routes.js';
 import payrollRoutes from './payroll.routes.js';
 import partnerExpenseRoutes from './partner-expenses.routes.js';
 import chartOfAccountsRoutes from './chart-of-accounts.routes.js';
+import bankTransferRoutes from './bank-transfer.routes.js';
+import bankDepositRoutes from './bank-deposit.routes.js';
+import journalEntryRoutes from './journal-entry.routes.js';
 
 export function mountRoutes(app: Express) {
   app.use('/api/auth', authRoutes);
@@ -48,4 +51,7 @@ export function mountRoutes(app: Express) {
   app.use('/api/payroll', authMiddleware, payrollRoutes);
   app.use('/api/partner-expenses', authMiddleware, partnerExpenseRoutes);
   app.use('/api/accounts', authMiddleware, chartOfAccountsRoutes);
+  app.use('/api/bank-transfers', authMiddleware, bankTransferRoutes);
+  app.use('/api/bank-deposits', authMiddleware, bankDepositRoutes);
+  app.use('/api/journal-entries', authMiddleware, journalEntryRoutes);
 }

@@ -1,3 +1,20 @@
+// ---- Bank Transfers ----
+export const TRANSFER_STATUSES = ['completed', 'pending', 'cancelled'] as const;
+export type TransferStatus = typeof TRANSFER_STATUSES[number];
+
+// ---- Bank Deposits ----
+export const DEPOSIT_METHODS = [
+  'cash', 'check', 'wire_transfer', 'ach', 'other',
+] as const;
+export type DepositMethod = typeof DEPOSIT_METHODS[number];
+
+export const DEPOSIT_STATUSES = ['completed', 'pending', 'cancelled'] as const;
+export type DepositStatus = typeof DEPOSIT_STATUSES[number];
+
+// ---- Journal Entries ----
+export const JOURNAL_ENTRY_STATUSES = ['draft', 'posted', 'voided'] as const;
+export type JournalEntryStatus = typeof JOURNAL_ENTRY_STATUSES[number];
+
 // ---- Chart of Accounts ----
 export const ACCOUNT_TYPES = [
   'asset',

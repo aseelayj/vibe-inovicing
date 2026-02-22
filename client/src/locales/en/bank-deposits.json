@@ -1,0 +1,45 @@
+{
+  "title": "Bank Deposits",
+  "subtitle": "Record deposits into your bank accounts",
+  "addDeposit": "New Deposit",
+  "form": {
+    "subtitle": "Record a deposit into a bank account",
+    "bankAccount": "Bank Account",
+    "selectAccount": "Select account...",
+    "amount": "Total Amount",
+    "depositDate": "Deposit Date",
+    "depositMethod": "Deposit Method",
+    "reference": "Reference / Slip Number",
+    "description": "Description",
+    "memo": "Memo"
+  },
+  "table": {
+    "date": "Date",
+    "account": "Account",
+    "method": "Method",
+    "amount": "Amount",
+    "reference": "Reference",
+    "description": "Description",
+    "status": "Status"
+  },
+  "methods": {
+    "cash": "Cash",
+    "check": "Check",
+    "wire_transfer": "Wire Transfer",
+    "ach": "ACH",
+    "other": "Other"
+  },
+  "status": {
+    "completed": "Completed",
+    "pending": "Pending",
+    "cancelled": "Cancelled"
+  },
+  "empty": {
+    "title": "No deposits yet",
+    "description": "Record bank deposits to keep your accounts up to date."
+  },
+  "deleteConfirm": {
+    "title": "Delete Deposit",
+    "description": "Are you sure you want to delete this deposit? This action cannot be undone."
+  }
+}

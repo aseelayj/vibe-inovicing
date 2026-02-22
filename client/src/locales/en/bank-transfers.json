@@ -1,0 +1,36 @@
+{
+  "title": "Bank Transfers",
+  "subtitle": "Transfer funds between your bank accounts",
+  "addTransfer": "New Transfer",
+  "form": {
+    "subtitle": "Move money between your accounts",
+    "fromAccount": "From Account",
+    "toAccount": "To Account",
+    "selectAccount": "Select account...",
+    "amount": "Amount",
+    "date": "Transfer Date",
+    "reference": "Reference Number",
+    "description": "Description"
+  },
+  "table": {
+    "date": "Date",
+    "from": "From",
+    "to": "To",
+    "amount": "Amount",
+    "reference": "Reference",
+    "status": "Status"
+  },
+  "status": {
+    "completed": "Completed",
+    "pending": "Pending",
+    "cancelled": "Cancelled"
+  },
+  "empty": {
+    "title": "No transfers yet",
+    "description": "Transfer funds between your bank accounts to keep track of internal movements."
+  },
+  "deleteConfirm": {
+    "title": "Delete Transfer",
+    "description": "Are you sure you want to delete this transfer? This action cannot be undone."
+  }
+}
