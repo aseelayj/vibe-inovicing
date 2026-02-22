@@ -15,7 +15,7 @@ import type {
   PayrollRunStatus,
   PayrollPaymentStatus,
   PartnerExpensePaymentMethod,
-} from './constants';
+} from './constants.js';
 
 // ---- User ----
 export interface User {

@@ -15,7 +15,7 @@ import {
   PAYROLL_RUN_STATUSES,
   PAYROLL_PAYMENT_STATUSES,
   PARTNER_EXPENSE_PAYMENT_METHODS,
-} from './constants';
+} from './constants.js';
 
 // Helper: transform empty strings to null for optional fields
 const emptyToNull = z.string().transform((v) => (v.trim() === '' ? null : v));
