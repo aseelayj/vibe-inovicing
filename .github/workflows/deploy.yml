@@ -5,41 +5,45 @@ on:
     branches: [main]
   workflow_dispatch:  # manual trigger
 
-env:
-  APP_DIR: /var/www/vibe-invoicing  # path on your Plesk server
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.PLESK_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p ${{ secrets.PLESK_SSH_PORT }} ${{ secrets.PLESK_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.PLESK_HOST }}
-          username: ${{ secrets.PLESK_USER }}
-          key: ${{ secrets.PLESK_SSH_KEY }}
-          port: ${{ secrets.PLESK_SSH_PORT || 22 }}
-          script: |
-            set -e
+        run: |
+          ssh -i ~/.ssh/deploy_key -p ${{ secrets.PLESK_SSH_PORT }} \
+            ${{ secrets.PLESK_USER }}@${{ secrets.PLESK_HOST }} << 'DEPLOY'
+          set -e
 
-            # Navigate to app directory
-            cd ${{ env.APP_DIR }}
+          cd /var/www/vibe-invoicing
 
-            # Pull latest code
-            git fetch origin main
-            git reset --hard origin/main
+          # Pull latest code
+          git fetch origin main
+          git reset --hard origin/main
 
-            # Build and restart containers
-            docker compose down
-            docker compose build --no-cache
-            docker compose up -d
+          # Build and restart containers
+          docker compose down
+          docker compose build --no-cache
+          docker compose up -d
 
-            # Wait for health check
-            echo "Waiting for app to start..."
-            sleep 10
+          # Wait for health check
+          echo "Waiting for app to start..."
+          sleep 10
 
-            # Verify containers are running
-            docker compose ps
+          # Verify containers are running
+          docker compose ps
 
-            # Clean up old images
-            docker image prune -f
+          # Clean up old images
+          docker image prune -f
+          DEPLOY
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
