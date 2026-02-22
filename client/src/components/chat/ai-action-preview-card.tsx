@@ -31,6 +31,8 @@ const EDITABLE_FIELDS: Record<string, Set<string>> = {
   payment: new Set(['amount', 'paymentDate', 'method', 'notes']),
   transaction: new Set(['amount', 'date', 'description', 'category', 'notes']),
   recurring: new Set(['frequency', 'startDate', 'endDate', 'notes']),
+  employee: new Set(['name', 'role', 'baseSalary', 'hireDate', 'email', 'phone']),
+  payroll: new Set(['workingDays', 'bonus', 'otherDeductions', 'notes']),
   bank_account: new Set(['name', 'bankName', 'currentBalance']),
   settings: new Set([
     'businessName', 'businessEmail', 'defaultCurrency',
@@ -72,6 +74,30 @@ function ActionArgsDisplay({
   const { t } = useTranslation('common');
   if (!args || Object.keys(args).length === 0) return null;
   const editableFields = getEditableFields(toolName);
+
+  // Batch employees display
+  if (toolName === 'batch_create_employees') {
+    const empList = (args.employees as any[]) || [];
+    return (
+      <div className="space-y-2.5 mb-3">
+        <div className="rounded-lg bg-background/60 p-2.5">
+          <div className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/60">
+            {empList.length} Employee(s)
+          </div>
+          <div className="space-y-1">
+            {empList.map((emp, i) => (
+              <div key={i} className="flex justify-between text-xs">
+                <span className="truncate pe-2 text-foreground">{emp.name} — {emp.role}</span>
+                <span className="shrink-0 text-muted-foreground">
+                  {emp.baseSalary} JOD
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (toolName.includes('invoice') || toolName.includes('quote') || toolName.includes('recurring')) {
     const lineItems = (args.lineItems as any[]) || [];

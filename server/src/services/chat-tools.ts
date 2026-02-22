@@ -314,6 +314,8 @@ export const chatToolDeclarations: FunctionDeclaration[] = [
       type: 'OBJECT' as Type,
       properties: {
         id: { type: 'INTEGER' as Type, description: 'Invoice ID' },
+        subject: { type: 'STRING' as Type, description: 'Subject line draft' },
+        body: { type: 'STRING' as Type, description: 'Email message draft' },
       },
       required: ['id'],
     },
@@ -444,6 +446,8 @@ export const chatToolDeclarations: FunctionDeclaration[] = [
       type: 'OBJECT' as Type,
       properties: {
         id: { type: 'INTEGER' as Type, description: 'Quote ID' },
+        subject: { type: 'STRING' as Type, description: 'Subject line draft' },
+        body: { type: 'STRING' as Type, description: 'Email message draft' },
       },
       required: ['id'],
     },
@@ -455,6 +459,7 @@ export const chatToolDeclarations: FunctionDeclaration[] = [
       type: 'OBJECT' as Type,
       properties: {
         id: { type: 'INTEGER' as Type, description: 'Quote ID' },
+        isTaxable: { type: 'BOOLEAN' as Type, description: 'Whether the invoice should be taxable (16% GST). Default false.' },
       },
       required: ['id'],
     },
@@ -1832,10 +1837,12 @@ export const toolExecutors: Record<
     const dueDate = new Date(invoice.dueDate);
     const daysOverdue = Math.max(0, Math.floor((now.getTime() - dueDate.getTime()) / 86400000));
 
+    const subject = args.subject || `Payment Reminder: ${invoice.invoiceNumber}`;
+    const body = args.body || `This is a friendly reminder about invoice ${invoice.invoiceNumber}.`;
     const emailResult = await sendPaymentReminder({
       to: invoice.client.email,
-      subject: `Payment Reminder: ${invoice.invoiceNumber}`,
-      body: `This is a friendly reminder about invoice ${invoice.invoiceNumber}.`,
+      subject,
+      body,
       businessName: settingsRow?.businessName || 'Our Company',
       clientName: invoice.client.name,
       invoiceNumber: invoice.invoiceNumber,
@@ -1843,7 +1850,7 @@ export const toolExecutors: Record<
     });
     await db.insert(emailLog).values({
       invoiceId: args.id, recipientEmail: invoice.client.email,
-      subject: `Payment Reminder: ${invoice.invoiceNumber}`, status: 'sent', resendId: emailResult.id,
+      subject, status: 'sent', resendId: emailResult.id,
     });
     await db.insert(activityLog).values({
       entityType: 'invoice', entityId: args.id, action: 'reminder_sent',
@@ -2062,10 +2069,12 @@ export const toolExecutors: Record<
       quote, lineItems: quote.lineItems,
       client: quote.client, settings: settingsRow || {},
     });
+    const subject = args.subject || `Quote ${quote.quoteNumber}`;
+    const body = args.body || `Please find your quote ${quote.quoteNumber} attached.`;
     const emailResult = await sendQuoteEmail({
       to: quote.client.email,
-      subject: `Quote ${quote.quoteNumber}`,
-      body: `Please find your quote ${quote.quoteNumber} attached.`,
+      subject,
+      body,
       pdfBuffer, quoteNumber: quote.quoteNumber,
       businessName: settingsRow?.businessName || 'Our Company',
       clientName: quote.client.name,
@@ -2077,7 +2086,7 @@ export const toolExecutors: Record<
       .where(eq(quotes.id, args.id));
     await db.insert(emailLog).values({
       quoteId: args.id, recipientEmail: quote.client.email,
-      subject: `Quote ${quote.quoteNumber}`, status: 'sent', resendId: emailResult.id,
+      subject, status: 'sent', resendId: emailResult.id,
     });
     await db.insert(activityLog).values({
       entityType: 'quote', entityId: args.id, action: 'sent',
@@ -2249,13 +2258,20 @@ export const toolExecutors: Record<
     const { lineItems: items, taxRate = 0 } = args;
     const totals = calculateTotals(items, taxRate, 0);
 
+    // Fetch default currency from settings if not provided
+    let currency = args.currency;
+    if (!currency) {
+      const [s] = await db.select().from(settings).limit(1);
+      currency = s?.defaultCurrency || 'USD';
+    }
+
     const result = await db.transaction(async (tx) => {
       const [rec] = await tx.insert(recurringInvoices).values({
         clientId: args.clientId,
         frequency: args.frequency,
         startDate: args.startDate,
         endDate: args.endDate || null,
-        currency: args.currency || 'USD',
+        currency,
         autoSend: args.autoSend || false,
         notes: args.notes || null,
         terms: args.terms || null,
