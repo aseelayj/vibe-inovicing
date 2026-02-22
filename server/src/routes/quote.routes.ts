@@ -13,7 +13,7 @@ import {
   emailTemplates,
 } from '../db/schema.js';
 import { validate } from '../middleware/validate.js';
-import { createQuoteSchema, updateQuoteSchema } from '@vibe/shared';
+import { createQuoteSchema, updateQuoteSchema, sendEmailSchema, convertQuoteSchema } from '@vibe/shared';
 import { generateQuotePdf } from '../services/pdf.service.js';
 import { sendQuoteEmail } from '../services/email.service.js';
 import { parseId } from '../utils/parse-id.js';
@@ -414,7 +414,7 @@ router.get('/:id/pdf', async (req, res, next) => {
 });
 
 // POST /:id/send - Send quote via email
-router.post('/:id/send', async (req, res, next) => {
+router.post('/:id/send', validate(sendEmailSchema), async (req, res, next) => {
   try {
     const id = parseId(req, res);
     if (id === null) return;
@@ -527,7 +527,7 @@ router.post('/:id/send', async (req, res, next) => {
 });
 
 // POST /:id/convert - Convert quote to invoice
-router.post('/:id/convert', async (req, res, next) => {
+router.post('/:id/convert', validate(convertQuoteSchema), async (req, res, next) => {
   try {
     const id = parseId(req, res);
     if (id === null) return;
@@ -548,7 +548,12 @@ router.post('/:id/convert', async (req, res, next) => {
     }
 
     const isTaxable = req.body?.isTaxable === true;
-    const taxRate = isTaxable ? 16 : 0;
+
+    // Use settings default tax rate when taxable, fallback to 16
+    const [settingsRow] = await db.select().from(settings).limit(1);
+    const taxRate = isTaxable
+      ? (settingsRow?.defaultTaxRate ? parseFloat(String(settingsRow.defaultTaxRate)) : 16)
+      : 0;
 
     // Recalculate totals with the chosen tax rate
     const quoteLineItemsList = quote.lineItems || [];
@@ -563,8 +568,6 @@ router.post('/:id/convert', async (req, res, next) => {
     const result = await db.transaction(async (tx) => {
       const invoiceNumber = await generateInvoiceNumber(tx, isTaxable);
 
-      // Get settings for default payment terms
-      const [settingsRow] = await tx.select().from(settings).limit(1);
       const paymentTerms = settingsRow?.defaultPaymentTerms ?? 30;
 
       const today = new Date();

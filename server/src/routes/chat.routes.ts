@@ -246,12 +246,18 @@ router.post('/:id/messages', async (req, res, next) => {
       attachments: attachments || null,
     });
 
-    // Load full conversation history
+    // Load conversation history (limit to recent messages to avoid context overflow)
+    const MAX_HISTORY_MESSAGES = 50;
     const allMessages = await db.select().from(chatMessages)
       .where(eq(chatMessages.conversationId, conversationId))
       .orderBy(chatMessages.createdAt);
 
-    const geminiContents = buildGeminiContents(allMessages as unknown as ChatMessage[]);
+    // Keep only the most recent messages if conversation is too long
+    const recentMessages = allMessages.length > MAX_HISTORY_MESSAGES
+      ? allMessages.slice(-MAX_HISTORY_MESSAGES)
+      : allMessages;
+
+    const geminiContents = buildGeminiContents(recentMessages as unknown as ChatMessage[]);
     const systemPrompt = await buildSystemPrompt(
       (pageContext || conversation.pageContext) as PageContext | null,
     );

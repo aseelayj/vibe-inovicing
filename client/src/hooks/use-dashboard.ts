@@ -4,6 +4,7 @@ import type {
   DashboardStats,
   RevenueChartData,
   ActivityLogEntry,
+  AgingReport,
 } from '@vibe/shared';
 
 export function useDashboardStats() {
@@ -24,5 +25,12 @@ export function useRecentActivity() {
   return useQuery({
     queryKey: ['dashboard', 'recent-activity'],
     queryFn: () => api.get<ActivityLogEntry[]>('/dashboard/recent-activity'),
+  });
+}
+
+export function useAgingReport() {
+  return useQuery({
+    queryKey: ['dashboard', 'aging'],
+    queryFn: () => api.get<AgingReport>('/dashboard/aging'),
   });
 }

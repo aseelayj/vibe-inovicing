@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import type { BankAccount, BankSyncResult } from '@vibe/shared';
 import { toast } from 'sonner';
+import i18n from '@/lib/i18n';
 
 export function useBankAccounts(activeOnly = false) {
   const path = activeOnly ? '/bank-accounts?active=true' : '/bank-accounts';
@@ -28,10 +29,10 @@ export function useCreateBankAccount() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      toast.success('Bank account created');
+      toast.success(i18n.t('createdSuccess', { entity: i18n.t('bankAccount') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to create bank account');
+      toast.error(error.message || i18n.t('createFailed', { entity: i18n.t('bankAccount') }));
     },
   });
 }
@@ -48,10 +49,10 @@ export function useUpdateBankAccount() {
         queryKey: ['bank-accounts', String(variables.id)],
       });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      toast.success('Bank account updated');
+      toast.success(i18n.t('updatedSuccess', { entity: i18n.t('bankAccount') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to update bank account');
+      toast.error(error.message || i18n.t('updateFailed', { entity: i18n.t('bankAccount') }));
     },
   });
 }
@@ -64,10 +65,10 @@ export function useDeleteBankAccount() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      toast.success('Bank account deleted');
+      toast.success(i18n.t('deletedSuccess', { entity: i18n.t('bankAccount') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to delete bank account');
+      toast.error(error.message || i18n.t('deleteFailed', { entity: i18n.t('bankAccount') }));
     },
   });
 }
@@ -80,10 +81,10 @@ export function useDisconnectProvider() {
       api.post(`/bank-accounts/${id}/disconnect`, {}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
-      toast.success('Provider disconnected');
+      toast.success(i18n.t('providerDisconnected'));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to disconnect provider');
+      toast.error(error.message || i18n.t('disconnectFailed'));
     },
   });
 }
@@ -102,7 +103,7 @@ export function useSyncBankAccount() {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to sync transactions');
+      toast.error(error.message || i18n.t('syncFailed'));
     },
   });
 }

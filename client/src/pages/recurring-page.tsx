@@ -66,6 +66,7 @@ import {
 } from '@/hooks/use-recurring';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { useSettings } from '@/hooks/use-settings';
 
 interface LineItem {
   description: string;
@@ -104,6 +105,8 @@ const emptyForm: RecurringFormData = {
 export function RecurringPage() {
   const { t } = useTranslation('recurring');
   const { t: tc } = useTranslation('common');
+  const { data: appSettings } = useSettings();
+  const configuredTaxRate = appSettings?.defaultTaxRate || 16;
   const { data, isLoading } = useRecurring();
   const createRecurring = useCreateRecurring();
   const updateRecurring = useUpdateRecurring();
@@ -155,7 +158,7 @@ export function RecurringPage() {
       startDate: form.startDate,
       endDate: form.endDate || null,
       currency: form.currency,
-      taxRate: form.isTaxable ? 16 : 0,
+      taxRate: form.isTaxable ? configuredTaxRate : 0,
       isTaxable: form.isTaxable,
       autoSend: form.autoSend,
       notes: form.notes,
@@ -223,7 +226,7 @@ export function RecurringPage() {
     (sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0),
     0,
   );
-  const taxAmount = subtotal * ((form.isTaxable ? 16 : 0) / 100);
+  const taxAmount = subtotal * ((form.isTaxable ? configuredTaxRate : 0) / 100);
   const total = subtotal + taxAmount;
 
   return (
@@ -565,7 +568,7 @@ export function RecurringPage() {
                 <Input
                   id="rec-taxRate"
                   type="number"
-                  value={form.isTaxable ? 16 : 0}
+                  value={form.isTaxable ? configuredTaxRate : 0}
                   readOnly
                   disabled
                   className="bg-muted"
@@ -683,7 +686,7 @@ export function RecurringPage() {
                   {form.isTaxable && (
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">
-                        {tc('tax')} ({form.isTaxable ? 16 : 0}%)
+                        {tc('tax')} ({form.isTaxable ? configuredTaxRate : 0}%)
                       </span>
                       <span>{formatCurrency(taxAmount, form.currency)}</span>
                     </div>

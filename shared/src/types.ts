@@ -207,6 +207,8 @@ export interface Settings {
   personalExemption: number;
   familyExemption: number;
   additionalExemptions: number;
+  autoRemindersEnabled: boolean;
+  reminderDaysAfterDue: number[];
 }
 
 // ---- JoFotara Submission ----
@@ -734,6 +736,66 @@ export interface PartnerBalanceSummary {
   expenseCount: number;
   sskCount: number;
   paymentCount: number;
+}
+
+// ---- Product / Service Catalog ----
+export interface Product {
+  id: number;
+  name: string;
+  description: string | null;
+  unitPrice: number;
+  currency: Currency;
+  category: string | null;
+  type: 'product' | 'service';
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ---- Aging Report ----
+export interface AgingBucket {
+  label: string;
+  count: number;
+  total: number;
+  invoices: {
+    id: number;
+    invoiceNumber: string;
+    clientName: string | null;
+    total: number;
+    amountDue: number;
+    dueDate: string;
+    daysOverdue: number;
+  }[];
+}
+
+export interface AgingReport {
+  current: AgingBucket;
+  '1-30': AgingBucket;
+  '31-60': AgingBucket;
+  '61-90': AgingBucket;
+  '90+': AgingBucket;
+  totalOutstanding: number;
+}
+
+// ---- Client Statement ----
+export interface ClientStatementEntry {
+  date: string;
+  type: 'invoice' | 'payment' | 'credit';
+  reference: string;
+  description: string;
+  debit: number;
+  credit: number;
+  balance: number;
+}
+
+export interface ClientStatement {
+  client: Client;
+  period: { startDate: string; endDate: string };
+  openingBalance: number;
+  entries: ClientStatementEntry[];
+  closingBalance: number;
+  totalInvoiced: number;
+  totalPaid: number;
 }
 
 // ---- Chart of Accounts ----

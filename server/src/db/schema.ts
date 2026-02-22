@@ -84,6 +84,9 @@ export const settings = pgTable('settings', {
   additionalExemptions: decimal('additional_exemptions', {
     precision: 10, scale: 2,
   }).notNull().default('0'),
+  // Auto-reminder settings
+  autoRemindersEnabled: boolean('auto_reminders_enabled').notNull().default(false),
+  reminderDaysAfterDue: jsonb('reminder_days_after_due').$type<number[]>().default([3, 7, 14, 30]),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });
@@ -690,6 +693,24 @@ export const commitments = pgTable('commitments', {
 }, (table) => [
   index('idx_commitments_category').on(table.category),
   index('idx_commitments_active').on(table.isActive),
+]);
+
+// ---- Products / Services Catalog ----
+export const products = pgTable('products', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 255 }).notNull(),
+  description: varchar('description', { length: 500 }),
+  unitPrice: decimal('unit_price', { precision: 12, scale: 2 }).notNull(),
+  currency: varchar('currency', { length: 3 }).notNull().default('USD'),
+  category: varchar('category', { length: 100 }),
+  type: varchar('type', { length: 20 }).notNull().default('service'),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (table) => [
+  index('idx_products_name').on(table.name),
+  index('idx_products_category').on(table.category),
+  index('idx_products_active').on(table.isActive),
 ]);
 
 // ---- Relations ----

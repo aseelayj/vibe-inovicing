@@ -26,6 +26,7 @@ import { Separator } from '@/components/ui/separator';
 import { InvoiceLineItems } from '@/components/invoices/invoice-line-items';
 import { InvoicePreview } from '@/components/invoices/invoice-preview';
 import { ClientPicker } from '@/components/clients/client-picker';
+import { useSettings } from '@/hooks/use-settings';
 
 type InvoiceFormValues = z.infer<typeof createInvoiceSchema>;
 
@@ -44,6 +45,8 @@ export function InvoiceForm({
 }: InvoiceFormProps) {
   const { t } = useTranslation('invoices');
   const { t: tc } = useTranslation('common');
+  const { data: appSettings } = useSettings();
+  const configuredTaxRate = appSettings?.defaultTaxRate || 16;
   const [submitAction, setSubmitAction] = useState<InvoiceAction>('draft');
 
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -78,7 +81,7 @@ export function InvoiceForm({
   const watchedItems = watch('lineItems') || [];
   const currency = watch('currency') || 'USD';
   const isTaxable = watch('isTaxable') ?? false;
-  const taxRate = isTaxable ? 16 : 0;
+  const taxRate = isTaxable ? configuredTaxRate : 0;
   const discount = Number(watch('discountAmount')) || 0;
 
   const subtotal = watchedItems.reduce(
@@ -86,8 +89,8 @@ export function InvoiceForm({
       sum + (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0),
     0,
   );
-  const taxAmount = subtotal * (taxRate / 100);
-  const total = subtotal + taxAmount - discount;
+  const taxAmount = (subtotal - discount) * (taxRate / 100);
+  const total = subtotal - discount + taxAmount;
 
   const handleFormSubmit = (data: InvoiceFormValues) => {
     onSubmit(data, submitAction);
@@ -128,7 +131,7 @@ export function InvoiceForm({
                     onClick={() => {
                       const next = !isTaxable;
                       setValue('isTaxable', next, { shouldDirty: true });
-                      setValue('taxRate', next ? 16 : 0);
+                      setValue('taxRate', next ? configuredTaxRate : 0);
                     }}
                     className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
                       isTaxable ? 'bg-primary' : 'bg-muted'

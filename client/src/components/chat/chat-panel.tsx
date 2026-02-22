@@ -101,7 +101,7 @@ export function ChatPanel({ variant = 'sidebar' }: ChatPanelProps) {
     data: conversationData, refetch, isLoading: messagesLoading, isError: messagesError,
   } = useChatMessages(activeConversationId);
   const {
-    streamingText, isStreaming, pendingAction, executingMessageId,
+    streamingText, isStreaming, executingMessageId,
     sendMessage, confirmAction, rejectAction, stopStream,
   } = useChatStream();
 

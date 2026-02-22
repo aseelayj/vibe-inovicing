@@ -50,8 +50,10 @@ import {
   useTaxDeadlines,
 } from '@/hooks/use-reports';
 import { formatCurrency, formatDate } from '@/lib/format';
+import { useSettings } from '@/hooks/use-settings';
 import { BIMONTHLY_PERIODS } from '@vibe/shared';
 import { toast } from 'sonner';
+import i18n from '@/lib/i18n';
 
 // Simple prev/next period picker with clear labels
 function PeriodPicker({
@@ -154,15 +156,17 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
   const { data: purchases, isLoading: purchasesLoading } = usePurchasesReport({ year, period });
   const { data: gst, isLoading: gstLoading } = useGstSummary({ year, period });
   const exportReport = useExportReport();
+  const { data: taxSettings } = useSettings();
+  const currency = taxSettings?.defaultCurrency || 'USD';
 
   const isLoading = salesLoading || purchasesLoading || gstLoading;
 
   const handleExport = useCallback(async (type: string) => {
     try {
       await exportReport(type, { year, period });
-      toast.success('Report downloaded');
+      toast.success(i18n.t('reportDownloaded'));
     } catch {
-      toast.error('Export failed');
+      toast.error(i18n.t('exportFailed'));
     }
   }, [exportReport, year, period]);
 
@@ -232,7 +236,7 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
                   : ''
             }`}
           >
-            {formatCurrency(Math.abs(netTax), 'JOD')}
+            {formatCurrency(Math.abs(netTax), currency)}
           </p>
           {daysLeft != null && daysLeft >= 0 && (
             <p className="mt-2 text-sm text-muted-foreground">
@@ -273,11 +277,11 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
                 {t('taxCollectedFromClients')}
               </div>
               <p className="mt-2 text-2xl font-bold text-red-600">
-                {formatCurrency(gst?.outputTax ?? 0, 'JOD')}
+                {formatCurrency(gst?.outputTax ?? 0, currency)}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {t('onTaxableSales', {
-                  amount: formatCurrency(gst?.taxableSales ?? 0, 'JOD'),
+                  amount: formatCurrency(gst?.taxableSales ?? 0, currency),
                 })}
               </p>
             </div>
@@ -289,11 +293,11 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
                 {t('taxPaidOnPurchases')}
               </div>
               <p className="mt-2 text-2xl font-bold text-green-600">
-                {formatCurrency(gst?.inputTax ?? 0, 'JOD')}
+                {formatCurrency(gst?.inputTax ?? 0, currency)}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {t('fromExpenses', {
-                  amount: formatCurrency(gst?.totalPurchases ?? 0, 'JOD'),
+                  amount: formatCurrency(gst?.totalPurchases ?? 0, currency),
                 })}
               </p>
             </div>
@@ -309,7 +313,7 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
                   netTax >= 0 ? 'text-red-600' : 'text-green-600'
                 }`}
               >
-                {formatCurrency(netTax, 'JOD')}
+                {formatCurrency(netTax, currency)}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {netTax > 0
@@ -324,7 +328,7 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
           {(gst?.exemptSales ?? 0) > 0 && (
             <p className="text-xs text-muted-foreground">
               {t('exemptSalesNote', {
-                amount: formatCurrency(gst!.exemptSales, 'JOD'),
+                amount: formatCurrency(gst!.exemptSales, currency),
               })}
             </p>
           )}
@@ -362,10 +366,10 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
                     {formatDate(inv.issueDate)}
                   </TableCell>
                   <TableCell className="text-end font-mono">
-                    {formatCurrency(inv.subtotal, 'JOD')}
+                    {formatCurrency(inv.subtotal, currency)}
                   </TableCell>
                   <TableCell className="text-end font-mono">
-                    {formatCurrency(inv.taxAmount, 'JOD')}
+                    {formatCurrency(inv.taxAmount, currency)}
                   </TableCell>
                   <TableCell>
                     <Badge
@@ -437,11 +441,11 @@ function SalesTaxTab({ initialYear, initialPeriod }: {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-end font-mono">
-                    {formatCurrency(txn.amount, 'JOD')}
+                    {formatCurrency(txn.amount, currency)}
                   </TableCell>
                   <TableCell className="text-end font-mono">
                     {txn.taxAmount
-                      ? formatCurrency(txn.taxAmount, 'JOD')
+                      ? formatCurrency(txn.taxAmount, currency)
                       : <span className="text-muted-foreground">--</span>}
                   </TableCell>
                 </TableRow>
@@ -491,13 +495,15 @@ function IncomeTaxTab({ initialYear }: { initialYear?: number }) {
 
   const { data, isLoading } = useIncomeTaxReport(year);
   const exportReport = useExportReport();
+  const { data: taxSettings } = useSettings();
+  const currency = taxSettings?.defaultCurrency || 'USD';
 
   const handleExport = useCallback(async () => {
     try {
       await exportReport('income-tax', { year });
-      toast.success('Report downloaded');
+      toast.success(i18n.t('reportDownloaded'));
     } catch {
-      toast.error('Export failed');
+      toast.error(i18n.t('exportFailed'));
     }
   }, [exportReport, year]);
 
@@ -540,7 +546,7 @@ function IncomeTaxTab({ initialYear }: { initialYear?: number }) {
             {t('estimatedIncomeTax', { year })}
           </p>
           <p className="mt-2 text-4xl font-bold tracking-tight text-red-600">
-            {formatCurrency(data.totalLiability, 'JOD')}
+            {formatCurrency(data.totalLiability, currency)}
           </p>
           <p className="mt-2 text-sm text-muted-foreground">
             <Calendar className="me-1 inline h-3.5 w-3.5" />
@@ -560,19 +566,19 @@ function IncomeTaxTab({ initialYear }: { initialYear?: number }) {
         </CardHeader>
         <CardContent>
           <div className="space-y-1">
-            <Row label={t('moneyEarned')} value={data.totalRevenue} color="green" />
-            <Row label={t('moneySpent')} value={-data.totalExpenses} color="red" sign="-" />
+            <Row label={t('moneyEarned')} value={data.totalRevenue} color="green" currency={currency} />
+            <Row label={t('moneySpent')} value={-data.totalExpenses} color="red" sign="-" currency={currency} />
             <Divider />
-            <Row label={t('yourProfit')} value={data.grossProfit} bold />
-            <Row label={t('personalExemptionLabel')} value={-data.personalExemption} color="green" sign="-" />
+            <Row label={t('yourProfit')} value={data.grossProfit} bold currency={currency} />
+            <Row label={t('personalExemptionLabel')} value={-data.personalExemption} color="green" sign="-" currency={currency} />
             {data.familyExemption > 0 && (
-              <Row label={t('familyExemptionLabel')} value={-data.familyExemption} color="green" sign="-" />
+              <Row label={t('familyExemptionLabel')} value={-data.familyExemption} color="green" sign="-" currency={currency} />
             )}
             {data.additionalExemptions > 0 && (
-              <Row label={t('additionalExemptionsLabel')} value={-data.additionalExemptions} color="green" sign="-" />
+              <Row label={t('additionalExemptionsLabel')} value={-data.additionalExemptions} color="green" sign="-" currency={currency} />
             )}
             <Divider />
-            <Row label={t('incomeThatGetsTaxed')} value={data.taxableIncome} bold />
+            <Row label={t('incomeThatGetsTaxed')} value={data.taxableIncome} bold currency={currency} />
           </div>
           <div className="mt-3 flex gap-2">
             <Link
@@ -615,20 +621,20 @@ function IncomeTaxTab({ initialYear }: { initialYear?: number }) {
                     <p className="text-sm font-medium">{b.range}</p>
                     <p className="text-xs text-muted-foreground">
                       {t('taxedAtRate', {
-                        amount: formatCurrency(b.income, 'JOD'),
+                        amount: formatCurrency(b.income, currency),
                         rate: b.rate,
                       })}
                     </p>
                   </div>
                   <p className="font-mono text-sm font-semibold">
-                    {formatCurrency(b.tax, 'JOD')}
+                    {formatCurrency(b.tax, currency)}
                   </p>
                 </div>
               ))}
               <div className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2">
                 <p className="text-sm font-bold">{t('totalTax')}</p>
                 <p className="font-mono text-sm font-bold text-red-600">
-                  {formatCurrency(data.totalLiability, 'JOD')}
+                  {formatCurrency(data.totalLiability, currency)}
                 </p>
               </div>
             </div>
@@ -649,7 +655,7 @@ function IncomeTaxTab({ initialYear }: { initialYear?: number }) {
                   <div className="flex-1">
                     <div className="flex items-center justify-between text-sm">
                       <span>{CATEGORY_LABELS[cat.category] || cat.category}</span>
-                      <span className="font-mono">{formatCurrency(cat.amount, 'JOD')}</span>
+                      <span className="font-mono">{formatCurrency(cat.amount, currency)}</span>
                     </div>
                     <div className="mt-1 h-1.5 rounded-full bg-muted">
                       <div
@@ -716,13 +722,15 @@ function ProfitLossTab() {
 
   const { data, isLoading } = useProfitLossReport({ startDate, endDate });
   const exportReport = useExportReport();
+  const { data: taxSettings } = useSettings();
+  const currency = taxSettings?.defaultCurrency || 'USD';
 
   const handleExport = useCallback(async () => {
     try {
       await exportReport('profit-loss', { startDate, endDate });
-      toast.success('Report downloaded');
+      toast.success(i18n.t('reportDownloaded'));
     } catch {
-      toast.error('Export failed');
+      toast.error(i18n.t('exportFailed'));
     }
   }, [exportReport, startDate, endDate]);
 
@@ -792,7 +800,7 @@ function ProfitLossTab() {
             <TrendingUp className="mx-auto h-5 w-5 text-green-500" />
             <p className="mt-2 text-xs text-muted-foreground">{t('moneyIn')}</p>
             <p className="mt-1 text-xl font-bold text-green-600">
-              {formatCurrency(data.revenue.total, 'JOD')}
+              {formatCurrency(data.revenue.total, currency)}
             </p>
             <Link
               to="/invoices"
@@ -807,7 +815,7 @@ function ProfitLossTab() {
             <TrendingDown className="mx-auto h-5 w-5 text-red-500" />
             <p className="mt-2 text-xs text-muted-foreground">{t('moneyOut')}</p>
             <p className="mt-1 text-xl font-bold text-red-600">
-              {formatCurrency(data.expenses.total, 'JOD')}
+              {formatCurrency(data.expenses.total, currency)}
             </p>
             <Link
               to="/transactions"
@@ -834,7 +842,7 @@ function ProfitLossTab() {
                 data.netProfit >= 0 ? 'text-green-600' : 'text-red-600'
               }`}
             >
-              {formatCurrency(data.netProfit, 'JOD')}
+              {formatCurrency(data.netProfit, currency)}
             </p>
           </CardContent>
         </Card>
@@ -871,17 +879,17 @@ function ProfitLossTab() {
                     <TableRow key={month}>
                       <TableCell>{month}</TableCell>
                       <TableCell className="text-end font-mono text-green-600">
-                        {formatCurrency(rev, 'JOD')}
+                        {formatCurrency(rev, currency)}
                       </TableCell>
                       <TableCell className="text-end font-mono text-red-600">
-                        {formatCurrency(exp, 'JOD')}
+                        {formatCurrency(exp, currency)}
                       </TableCell>
                       <TableCell
                         className={`text-end font-mono font-semibold ${
                           net >= 0 ? 'text-green-600' : 'text-red-600'
                         }`}
                       >
-                        {formatCurrency(net, 'JOD')}
+                        {formatCurrency(net, currency)}
                       </TableCell>
                     </TableRow>
                   );
@@ -905,7 +913,7 @@ function ProfitLossTab() {
                   <div className="flex-1">
                     <div className="flex items-center justify-between text-sm">
                       <span>{CATEGORY_LABELS[cat.category] || cat.category}</span>
-                      <span className="font-mono">{formatCurrency(cat.amount, 'JOD')}</span>
+                      <span className="font-mono">{formatCurrency(cat.amount, currency)}</span>
                     </div>
                     <div className="mt-1 h-1.5 rounded-full bg-muted">
                       <div
@@ -953,12 +961,14 @@ function Row({
   color,
   bold,
   sign,
+  currency = 'USD',
 }: {
   label: string;
   value: number;
   color?: 'green' | 'red';
   bold?: boolean;
   sign?: string;
+  currency?: string;
 }) {
   const colorClass = color === 'green'
     ? 'text-green-600'
@@ -971,7 +981,7 @@ function Row({
       <span className="text-sm">{label}</span>
       <span className={`font-mono text-sm ${colorClass}`}>
         {sign && <span className="me-0.5">{sign}</span>}
-        {formatCurrency(Math.abs(value), 'JOD')}
+        {formatCurrency(Math.abs(value), currency)}
       </span>
     </div>
   );

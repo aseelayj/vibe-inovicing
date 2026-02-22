@@ -39,14 +39,17 @@ import {
 import { ClientForm } from '@/components/clients/client-form';
 import {
   useClient,
+  useClientStatement,
   useUpdateClient,
   useDeleteClient,
 } from '@/hooks/use-clients';
+import { useClientCredit } from '@/hooks/use-payments';
 import { useInvoices } from '@/hooks/use-invoices';
 import { useQuotes } from '@/hooks/use-quotes';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { STATUS_COLORS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
+import { ApiError } from '@/lib/api-client';
 
 export function ClientDetailPage() {
   const { t } = useTranslation('clients');
@@ -65,6 +68,8 @@ export function ClientDetailPage() {
   const { data: quotesData } = useQuotes(
     client ? { clientId: client.id } : {},
   );
+  const { data: statement } = useClientStatement(id);
+  const { data: creditData } = useClientCredit(client?.id);
 
   const [showEdit, setShowEdit] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
@@ -84,9 +89,23 @@ export function ClientDetailPage() {
     }
   };
 
+  const [deleteWarning, setDeleteWarning] = useState<string | null>(null);
+
   const handleDelete = async () => {
     try {
-      await deleteClient.mutateAsync(client.id);
+      await deleteClient.mutateAsync({ id: client.id });
+      navigate('/clients');
+    } catch (err: unknown) {
+      // If server returns 409 (has related documents), show enhanced warning
+      if (err instanceof ApiError && err.status === 409 && err.data) {
+        setDeleteWarning(err.data.message as string || err.message);
+      }
+    }
+  };
+
+  const handleForceDelete = async () => {
+    try {
+      await deleteClient.mutateAsync({ id: client.id, force: true });
       navigate('/clients');
     } catch {
       // handled
@@ -183,6 +202,23 @@ export function ClientDetailPage() {
                 </p>
               </div>
             )}
+            {creditData && creditData.creditBalance > 0 && (
+              <div className="border-t pt-4">
+                <div className="flex items-center justify-between rounded-lg bg-green-50 p-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-green-700">
+                      {tc('creditBalance')}
+                    </p>
+                    <p className="mt-0.5 text-lg font-bold text-green-700">
+                      {formatCurrency(creditData.creditBalance)}
+                    </p>
+                  </div>
+                  <Badge className="bg-green-100 text-green-700">
+                    {creditData.overpaidInvoiceCount} overpaid
+                  </Badge>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -191,6 +227,7 @@ export function ClientDetailPage() {
             <TabsList>
               <TabsTrigger value="invoices">{ti('title')}</TabsTrigger>
               <TabsTrigger value="quotes">{tq('title')}</TabsTrigger>
+              <TabsTrigger value="statement">{tc('statement')}</TabsTrigger>
             </TabsList>
 
             <TabsContent value="invoices">
@@ -306,6 +343,86 @@ export function ClientDetailPage() {
                 </Table>
               </div>
             </TabsContent>
+
+            <TabsContent value="statement">
+              {statement ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <div className="rounded-lg border bg-card p-3">
+                      <p className="text-xs text-muted-foreground">{tc('openingBalance')}</p>
+                      <p className="mt-0.5 text-sm font-semibold">
+                        {formatCurrency(statement.openingBalance)}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border bg-card p-3">
+                      <p className="text-xs text-muted-foreground">{tc('invoices')}</p>
+                      <p className="mt-0.5 text-sm font-semibold text-red-600">
+                        {formatCurrency(statement.totalInvoiced)}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border bg-card p-3">
+                      <p className="text-xs text-muted-foreground">{t('payments', { ns: 'nav' })}</p>
+                      <p className="mt-0.5 text-sm font-semibold text-green-600">
+                        {formatCurrency(statement.totalPaid)}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border bg-card p-3">
+                      <p className="text-xs text-muted-foreground">{tc('closingBalance')}</p>
+                      <p className={`mt-0.5 text-sm font-bold ${statement.closingBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                        {formatCurrency(statement.closingBalance)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="rounded-xl border bg-card shadow-sm">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{tc('date')}</TableHead>
+                          <TableHead>{tc('description')}</TableHead>
+                          <TableHead className="text-end">{tc('debit')}</TableHead>
+                          <TableHead className="text-end">{tc('credit')}</TableHead>
+                          <TableHead className="text-end">{tc('balance')}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {statement.entries.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                              {t('noTransactions')}
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          statement.entries.map((entry, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell className="text-sm">{formatDate(entry.date)}</TableCell>
+                              <TableCell>
+                                <div>
+                                  <span className="text-sm">{entry.description}</span>
+                                  <Badge variant="outline" className="ms-2 text-[10px]">
+                                    {entry.type}
+                                  </Badge>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-end font-mono text-sm text-red-600">
+                                {entry.debit > 0 ? formatCurrency(entry.debit) : ''}
+                              </TableCell>
+                              <TableCell className="text-end font-mono text-sm text-green-600">
+                                {entry.credit > 0 ? formatCurrency(entry.credit) : ''}
+                              </TableCell>
+                              <TableCell className="text-end font-mono text-sm font-medium">
+                                {formatCurrency(entry.balance)}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              ) : (
+                <LoadingSpinner size="sm" />
+              )}
+            </TabsContent>
           </Tabs>
         </div>
       </div>
@@ -334,28 +451,33 @@ export function ClientDetailPage() {
       {/* Delete confirmation dialog */}
       <Dialog
         open={showDelete}
-        onOpenChange={(open) => !open && setShowDelete(false)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowDelete(false);
+            setDeleteWarning(null);
+          }
+        }}
       >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('deleteClient')}</DialogTitle>
             <DialogDescription>
-              {t('deleteClientConfirm')}
+              {deleteWarning || t('deleteClientConfirm')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setShowDelete(false)}
+              onClick={() => { setShowDelete(false); setDeleteWarning(null); }}
             >
               {tc('cancel')}
             </Button>
             <Button
               variant="destructive"
-              onClick={handleDelete}
+              onClick={deleteWarning ? handleForceDelete : handleDelete}
               disabled={deleteClient.isPending}
             >
-              {deleteClient.isPending ? tc('deleting') : tc('delete')}
+              {deleteClient.isPending ? tc('deleting') : deleteWarning ? tc('deleteAnyway') : tc('delete')}
             </Button>
           </DialogFooter>
         </DialogContent>

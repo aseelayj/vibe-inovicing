@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import type { User } from '@vibe/shared';
 import { toast } from 'sonner';
+import i18n from '@/lib/i18n';
 
 export function useUsers() {
   return useQuery({
@@ -22,10 +23,10 @@ export function useCreateUser() {
     }) => api.post<User>('/users', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
-      toast.success('Team member added');
+      toast.success(i18n.t('createdSuccess', { entity: i18n.t('teamMember') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to add team member');
+      toast.error(error.message || i18n.t('createFailed', { entity: i18n.t('teamMember') }));
     },
   });
 }
@@ -40,10 +41,10 @@ export function useUpdateUser() {
     }) => api.put<User>(`/users/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
-      toast.success('Team member updated');
+      toast.success(i18n.t('updatedSuccess', { entity: i18n.t('teamMember') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to update team member');
+      toast.error(error.message || i18n.t('updateFailed', { entity: i18n.t('teamMember') }));
     },
   });
 }
@@ -55,10 +56,10 @@ export function useDeleteUser() {
     mutationFn: (id: number) => api.delete(`/users/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
-      toast.success('Team member deactivated');
+      toast.success(i18n.t('memberDeactivated'));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to deactivate team member');
+      toast.error(error.message || i18n.t('deactivateFailed'));
     },
   });
 }

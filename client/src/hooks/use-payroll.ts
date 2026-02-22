@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import type { PayrollRun, PayrollEntry } from '@vibe/shared';
 import { toast } from 'sonner';
+import i18n from '@/lib/i18n';
 
 export function usePayrollRuns(params?: {
   year?: number;
@@ -43,10 +44,10 @@ export function useCreatePayrollRun() {
     }) => api.post<PayrollRun>('/payroll', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payroll'] });
-      toast.success('Payroll run created');
+      toast.success(i18n.t('createdSuccess', { entity: i18n.t('payrollRun') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to create payroll run');
+      toast.error(error.message || i18n.t('createFailed', { entity: i18n.t('payrollRun') }));
     },
   });
 }
@@ -71,7 +72,7 @@ export function useUpdatePayrollEntry() {
       queryClient.invalidateQueries({ queryKey: ['payroll', vars.runId] });
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to update entry');
+      toast.error(error.message || i18n.t('entryUpdateFailed'));
     },
   });
 }
@@ -84,10 +85,10 @@ export function useFinalizePayrollRun() {
       api.patch<PayrollRun>(`/payroll/${id}/finalize`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payroll'] });
-      toast.success('Payroll run finalized');
+      toast.success(i18n.t('payrollFinalized'));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to finalize');
+      toast.error(error.message || i18n.t('payrollFinalizeFailed'));
     },
   });
 }
@@ -100,10 +101,10 @@ export function useReopenPayrollRun() {
       api.patch<PayrollRun>(`/payroll/${id}/reopen`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payroll'] });
-      toast.success('Payroll run reopened');
+      toast.success(i18n.t('payrollReopened'));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to reopen');
+      toast.error(error.message || i18n.t('payrollReopenFailed'));
     },
   });
 }
@@ -126,10 +127,10 @@ export function useUpdatePayrollPayment() {
     ),
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ['payroll', vars.runId] });
-      toast.success('Payment updated');
+      toast.success(i18n.t('paymentUpdated'));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to update payment');
+      toast.error(error.message || i18n.t('paymentUpdateFailed'));
     },
   });
 }
@@ -143,10 +144,10 @@ export function useMarkAllPaid() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payroll'] });
       queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
-      toast.success('All entries marked as paid');
+      toast.success(i18n.t('allMarkedPaid'));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to mark all paid');
+      toast.error(error.message || i18n.t('markAllPaidFailed'));
     },
   });
 }
@@ -158,10 +159,10 @@ export function useDeletePayrollRun() {
     mutationFn: (id: number) => api.delete(`/payroll/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payroll'] });
-      toast.success('Payroll run deleted');
+      toast.success(i18n.t('deletedSuccess', { entity: i18n.t('payrollRun') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to delete payroll run');
+      toast.error(error.message || i18n.t('deleteFailed', { entity: i18n.t('payrollRun') }));
     },
   });
 }

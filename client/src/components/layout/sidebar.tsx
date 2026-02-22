@@ -20,6 +20,7 @@ import {
   Handshake,
   BookOpen,
   CalendarClock,
+  Package,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -49,6 +50,7 @@ const iconMap: Record<string, LucideIcon> = {
   Handshake,
   BookOpen,
   CalendarClock,
+  Package,
   Settings,
 };
 

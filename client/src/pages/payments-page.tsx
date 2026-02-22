@@ -6,6 +6,7 @@ import {
   MoreHorizontal,
   Eye,
   Trash2,
+  Download,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
@@ -28,6 +29,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { usePayments, useDeletePayment } from '@/hooks/use-payments';
 import { formatCurrency, formatDate } from '@/lib/format';
+import { toast } from 'sonner';
 
 export function PaymentsPage() {
   const { t } = useTranslation('payments');
@@ -133,6 +135,29 @@ export function PaymentsPage() {
                             {t('viewInvoice')}
                           </DropdownMenuItem>
                         )}
+                        <DropdownMenuItem
+                          onClick={async () => {
+                            try {
+                              const token = localStorage.getItem('token');
+                              const res = await fetch(`/api/payments/${payment.id}/receipt`, {
+                                headers: token ? { Authorization: `Bearer ${token}` } : {},
+                              });
+                              if (!res.ok) throw new Error('Failed to download receipt');
+                              const blob = await res.blob();
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `receipt-${payment.id}.pdf`;
+                              a.click();
+                              URL.revokeObjectURL(url);
+                            } catch {
+                              toast.error('Failed to download receipt');
+                            }
+                          }}
+                        >
+                          <Download className="h-4 w-4" />
+                          {t('downloadReceipt')}
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           variant="destructive"

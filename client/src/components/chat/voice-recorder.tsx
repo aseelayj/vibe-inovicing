@@ -34,7 +34,7 @@ const WaveformCanvas = memo(function WaveformCanvas({
       const levels = audioLevelsRef.current;
       if (!analyser || !levels) return;
 
-      analyser.getFloatFrequencyData(levels);
+      analyser.getFloatFrequencyData(levels as Float32Array<ArrayBuffer>);
 
       const dpr = window.devicePixelRatio || 1;
       const rect = canvas.getBoundingClientRect();

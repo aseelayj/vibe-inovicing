@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import type { Account } from '@vibe/shared';
 import { toast } from 'sonner';
+import i18n from '@/lib/i18n';
 
 export function useAccounts() {
   return useQuery({
@@ -33,10 +34,10 @@ export function useCreateAccount() {
       api.post<Account>('/accounts', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
-      toast.success('Account created');
+      toast.success(i18n.t('createdSuccess', { entity: i18n.t('account') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to create account');
+      toast.error(error.message || i18n.t('createFailed', { entity: i18n.t('account') }));
     },
   });
 }
@@ -49,10 +50,10 @@ export function useUpdateAccount() {
       api.put<Account>(`/accounts/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
-      toast.success('Account updated');
+      toast.success(i18n.t('updatedSuccess', { entity: i18n.t('account') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to update account');
+      toast.error(error.message || i18n.t('updateFailed', { entity: i18n.t('account') }));
     },
   });
 }
@@ -64,10 +65,10 @@ export function useDeleteAccount() {
     mutationFn: (id: number) => api.delete(`/accounts/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
-      toast.success('Account deleted');
+      toast.success(i18n.t('deletedSuccess', { entity: i18n.t('account') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to delete account');
+      toast.error(error.message || i18n.t('deleteFailed', { entity: i18n.t('account') }));
     },
   });
 }
@@ -79,10 +80,10 @@ export function useSeedAccounts() {
     mutationFn: () => api.post<Account[]>('/accounts/seed'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
-      toast.success('Default chart of accounts created');
+      toast.success(i18n.t('chartOfAccountsCreated'));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to seed accounts');
+      toast.error(error.message || i18n.t('seedAccountsFailed'));
     },
   });
 }
