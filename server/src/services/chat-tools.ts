@@ -25,6 +25,7 @@ import {
   partnerPayments,
   partnerEmployees,
   partnerSskEntries,
+  products,
 } from '../db/schema.js';
 import { generateInvoicePdf } from './pdf.service.js';
 import { sendInvoiceEmail, sendPaymentReminder } from './email.service.js';
@@ -99,6 +100,9 @@ export const READ_ONLY_TOOLS = new Set([
   'list_partner_ssk_entries',
   'list_partner_categories',
   'list_partner_employees',
+  'list_products',
+  'get_aging_report',
+  'get_client_statement',
 ]);
 
 // ---- Gemini function declarations ----
@@ -1568,6 +1572,86 @@ export const chatToolDeclarations: FunctionDeclaration[] = [
         month: { type: 'INTEGER' as Type, description: 'Month (1-12)' },
       },
       required: ['year', 'month'],
+    },
+  },
+  // -- Product Catalog --
+  {
+    name: 'list_products',
+    description: 'List products/services from the catalog. Use when user asks about available products, services, or pricing.',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        search: { type: 'STRING' as Type, description: 'Search by name or description' },
+        category: { type: 'STRING' as Type, description: 'Filter by category' },
+        active: { type: 'STRING' as Type, description: 'Filter: "true" (default), "false", or "all"' },
+      },
+    },
+  },
+  {
+    name: 'create_product',
+    description: 'Add a new product or service to the catalog',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        name: { type: 'STRING' as Type, description: 'Product/service name (required)' },
+        description: { type: 'STRING' as Type, description: 'Description' },
+        unitPrice: { type: 'NUMBER' as Type, description: 'Unit price (required)' },
+        currency: { type: 'STRING' as Type, description: 'Currency code (default: from settings)' },
+        category: { type: 'STRING' as Type, description: 'Category for grouping' },
+        type: { type: 'STRING' as Type, description: '"service" (default) or "product"' },
+      },
+      required: ['name', 'unitPrice'],
+    },
+  },
+  {
+    name: 'update_product',
+    description: 'Update an existing product/service in the catalog',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        id: { type: 'INTEGER' as Type, description: 'Product ID' },
+        name: { type: 'STRING' as Type },
+        description: { type: 'STRING' as Type },
+        unitPrice: { type: 'NUMBER' as Type },
+        currency: { type: 'STRING' as Type },
+        category: { type: 'STRING' as Type },
+        type: { type: 'STRING' as Type },
+        isActive: { type: 'BOOLEAN' as Type, description: 'Active status' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'delete_product',
+    description: 'Delete a product/service from the catalog',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        id: { type: 'INTEGER' as Type, description: 'Product ID' },
+      },
+      required: ['id'],
+    },
+  },
+  // -- Aging Report & Client Statement --
+  {
+    name: 'get_aging_report',
+    description: 'Get accounts receivable aging report. Shows unpaid invoices grouped by age brackets (current, 1-30, 31-60, 61-90, 90+ days overdue).',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {},
+    },
+  },
+  {
+    name: 'get_client_statement',
+    description: 'Get statement of account for a specific client. Shows all invoices and payments with running balance.',
+    parameters: {
+      type: 'OBJECT' as Type,
+      properties: {
+        clientId: { type: 'INTEGER' as Type, description: 'Client ID (required)' },
+        startDate: { type: 'STRING' as Type, description: 'Start date YYYY-MM-DD (optional)' },
+        endDate: { type: 'STRING' as Type, description: 'End date YYYY-MM-DD (optional)' },
+      },
+      required: ['clientId'],
     },
   },
 ];
@@ -4433,6 +4517,212 @@ export const toolExecutors: Record<
     });
     return entry;
   },
+
+  // -- Product Catalog --
+  async list_products(args) {
+    let query = db.select().from(products).orderBy(desc(products.updatedAt));
+    const conditions = [];
+    if (args.active !== 'all') {
+      conditions.push(eq(products.isActive, args.active !== 'false'));
+    }
+    if (args.search) {
+      const pattern = `%${args.search}%`;
+      conditions.push(or(ilike(products.name, pattern), ilike(products.description, pattern)));
+    }
+    if (args.category) {
+      conditions.push(eq(products.category, args.category));
+    }
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as typeof query;
+    }
+    return await query;
+  },
+
+  async create_product(args, ctx) {
+    const [product] = await db.insert(products).values({
+      name: args.name,
+      description: args.description || null,
+      unitPrice: String(args.unitPrice),
+      currency: args.currency || 'USD',
+      category: args.category || null,
+      type: args.type || 'service',
+    }).returning();
+    await db.insert(activityLog).values({
+      entityType: 'product', entityId: product.id,
+      action: 'created',
+      description: `Product "${product.name}" created via AI`,
+      userId: ctx?.userId,
+    });
+    return product;
+  },
+
+  async update_product(args, ctx) {
+    const updateData: Record<string, unknown> = { updatedAt: new Date() };
+    if (args.name !== undefined) updateData.name = args.name;
+    if (args.description !== undefined) updateData.description = args.description;
+    if (args.unitPrice !== undefined) updateData.unitPrice = String(args.unitPrice);
+    if (args.currency !== undefined) updateData.currency = args.currency;
+    if (args.category !== undefined) updateData.category = args.category;
+    if (args.type !== undefined) updateData.type = args.type;
+    if (args.isActive !== undefined) updateData.isActive = args.isActive;
+
+    const [updated] = await db.update(products)
+      .set(updateData)
+      .where(eq(products.id, args.id))
+      .returning();
+    if (!updated) throw new Error(`Product #${args.id} not found`);
+    await db.insert(activityLog).values({
+      entityType: 'product', entityId: updated.id,
+      action: 'updated',
+      description: `Product "${updated.name}" updated via AI`,
+      userId: ctx?.userId,
+    });
+    return updated;
+  },
+
+  async delete_product(args, ctx) {
+    const [deleted] = await db.delete(products)
+      .where(eq(products.id, args.id))
+      .returning();
+    if (!deleted) throw new Error(`Product #${args.id} not found`);
+    await db.insert(activityLog).values({
+      entityType: 'product', entityId: deleted.id,
+      action: 'deleted',
+      description: `Product "${deleted.name}" deleted via AI`,
+      userId: ctx?.userId,
+    });
+    return { message: `Product "${deleted.name}" deleted` };
+  },
+
+  // -- Aging Report --
+  async get_aging_report() {
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+
+    const unpaidInvoices = await db
+      .select({
+        id: invoices.id,
+        invoiceNumber: invoices.invoiceNumber,
+        clientId: invoices.clientId,
+        total: invoices.total,
+        amountPaid: invoices.amountPaid,
+        dueDate: invoices.dueDate,
+        status: invoices.status,
+        currency: invoices.currency,
+      })
+      .from(invoices)
+      .where(
+        and(
+          ne(invoices.status, 'paid'),
+          ne(invoices.status, 'cancelled'),
+          ne(invoices.status, 'draft'),
+        ),
+      );
+
+    const brackets = { current: [] as any[], '1_30': [] as any[], '31_60': [] as any[], '61_90': [] as any[], '90_plus': [] as any[] };
+
+    for (const inv of unpaidInvoices) {
+      const due = new Date(inv.dueDate);
+      const daysOverdue = Math.floor((today.getTime() - due.getTime()) / 86400000);
+      const outstanding = parseFloat(String(inv.total)) - parseFloat(String(inv.amountPaid || '0'));
+      const entry = { ...inv, daysOverdue, outstanding };
+
+      if (daysOverdue <= 0) brackets.current.push(entry);
+      else if (daysOverdue <= 30) brackets['1_30'].push(entry);
+      else if (daysOverdue <= 60) brackets['31_60'].push(entry);
+      else if (daysOverdue <= 90) brackets['61_90'].push(entry);
+      else brackets['90_plus'].push(entry);
+    }
+
+    const sumBracket = (items: any[]) => items.reduce((s, i) => s + i.outstanding, 0);
+
+    return {
+      asOf: todayStr,
+      summary: {
+        current: { count: brackets.current.length, total: sumBracket(brackets.current) },
+        '1_30_days': { count: brackets['1_30'].length, total: sumBracket(brackets['1_30']) },
+        '31_60_days': { count: brackets['31_60'].length, total: sumBracket(brackets['31_60']) },
+        '61_90_days': { count: brackets['61_90'].length, total: sumBracket(brackets['61_90']) },
+        '90_plus_days': { count: brackets['90_plus'].length, total: sumBracket(brackets['90_plus']) },
+      },
+      totalOutstanding: sumBracket(unpaidInvoices.map(inv => ({
+        outstanding: parseFloat(String(inv.total)) - parseFloat(String(inv.amountPaid || '0')),
+      }))),
+      invoiceCount: unpaidInvoices.length,
+    };
+  },
+
+  // -- Client Statement --
+  async get_client_statement(args) {
+    const client = await db.query.clients.findFirst({
+      where: eq(clients.id, args.clientId),
+    });
+    if (!client) throw new Error(`Client #${args.clientId} not found`);
+
+    let invoiceQuery = db
+      .select()
+      .from(invoices)
+      .where(eq(invoices.clientId, args.clientId))
+      .orderBy(asc(invoices.issueDate));
+
+    const clientInvoices = await invoiceQuery;
+    const clientPayments = await db
+      .select()
+      .from(payments)
+      .where(sql`${payments.invoiceId} IN (SELECT id FROM invoices WHERE client_id = ${args.clientId})`)
+      .orderBy(asc(payments.paymentDate));
+
+    // Build statement entries sorted by date
+    const entries: Array<{ date: string; type: string; description: string; debit: number; credit: number; balance: number }> = [];
+    let runningBalance = 0;
+
+    // Merge invoices and payments by date
+    const allItems = [
+      ...clientInvoices.map(inv => ({
+        date: inv.issueDate,
+        sortOrder: 0,
+        type: 'invoice' as const,
+        description: `Invoice ${inv.invoiceNumber}`,
+        amount: parseFloat(String(inv.total)),
+        id: inv.id,
+      })),
+      ...clientPayments.map(pmt => ({
+        date: pmt.paymentDate,
+        sortOrder: 1,
+        type: 'payment' as const,
+        description: `Payment (${pmt.paymentMethod || 'other'})`,
+        amount: parseFloat(String(pmt.amount)),
+        id: pmt.id,
+      })),
+    ].sort((a, b) => a.date.localeCompare(b.date) || a.sortOrder - b.sortOrder);
+
+    for (const item of allItems) {
+      if (args.startDate && item.date < args.startDate) continue;
+      if (args.endDate && item.date > args.endDate) continue;
+
+      if (item.type === 'invoice') {
+        runningBalance += item.amount;
+        entries.push({
+          date: item.date, type: 'invoice', description: item.description,
+          debit: item.amount, credit: 0, balance: runningBalance,
+        });
+      } else {
+        runningBalance -= item.amount;
+        entries.push({
+          date: item.date, type: 'payment', description: item.description,
+          debit: 0, credit: item.amount, balance: runningBalance,
+        });
+      }
+    }
+
+    return {
+      client: { id: client.id, name: client.name, email: client.email },
+      entries,
+      closingBalance: runningBalance,
+      totalInvoiced: entries.filter(e => e.type === 'invoice').reduce((s, e) => s + e.debit, 0),
+      totalPaid: entries.filter(e => e.type === 'payment').reduce((s, e) => s + e.credit, 0),
+    };
+  },
 };
 
 // ---- Helpers to resolve entity names for better summaries ----
@@ -4660,6 +4950,9 @@ export async function generateActionSummary(
       `Record partner payment of ${args.amount} JOD`,
     generate_partner_ssk: async () =>
       `Generate partner SSK for ${args.year}-${String(args.month).padStart(2, '0')}`,
+    create_product: async () => `Add "${args.name}" to product catalog`,
+    update_product: async () => `Update product #${args.id}`,
+    delete_product: async () => `Delete product #${args.id}`,
   };
   try {
     return await (summaryMap[toolName]?.() ?? Promise.resolve(`Execute ${toolName}`));
