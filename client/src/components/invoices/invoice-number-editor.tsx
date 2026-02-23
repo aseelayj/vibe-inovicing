@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pencil, Lock, AlertTriangle, Info, Shield } from 'lucide-react';
+import { Pencil, Lock, AlertTriangle, Info, Shield, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,7 +31,7 @@ interface InvoiceNumberEditorProps {
 export function InvoiceNumberEditor({ invoice }: InvoiceNumberEditorProps) {
   const { t } = useTranslation('invoices');
   const { t: tc } = useTranslation('common');
-  const { data: editStatus } = useInvoiceEditStatus(String(invoice.id));
+  const { data: editStatus, isLoading: editStatusLoading } = useInvoiceEditStatus(String(invoice.id));
   const updateNumber = useUpdateInvoiceNumber();
 
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -51,6 +51,7 @@ export function InvoiceNumberEditor({ invoice }: InvoiceNumberEditorProps) {
     setNewNumber(invoice.invoiceNumber);
     setReason('');
     setConfirmed(false);
+    updateNumber.reset();
     setShowEditDialog(true);
   };
 
@@ -82,7 +83,9 @@ export function InvoiceNumberEditor({ invoice }: InvoiceNumberEditorProps) {
         <h2 className="text-xl font-bold sm:text-2xl">
           {invoice.invoiceNumber}
         </h2>
-        {editStatus?.level === 'locked' ? (
+        {editStatusLoading ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground opacity-0 group-hover:opacity-60" />
+        ) : editStatus?.level === 'locked' ? (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -195,6 +198,7 @@ export function InvoiceNumberEditor({ invoice }: InvoiceNumberEditorProps) {
                 onChange={(e) => setNewNumber(e.target.value)}
                 placeholder={t('newNumberPlaceholder')}
                 maxLength={50}
+                disabled={updateNumber.isPending}
               />
             </div>
 
@@ -207,11 +211,21 @@ export function InvoiceNumberEditor({ invoice }: InvoiceNumberEditorProps) {
                 placeholder={t('changeReasonPlaceholder')}
                 rows={2}
                 maxLength={500}
+                disabled={updateNumber.isPending}
               />
               <p className="text-xs text-muted-foreground">
                 {t('changeReasonHint')}
               </p>
             </div>
+
+            {/* Inline error display */}
+            {updateNumber.isError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-950">
+                <p className="text-sm text-red-600 dark:text-red-400">
+                  {updateNumber.error?.message || t('numberUpdateFailed')}
+                </p>
+              </div>
+            )}
 
             {/* Confirmation checkbox for non-draft invoices */}
             {editStatus?.level === 'warning' && (

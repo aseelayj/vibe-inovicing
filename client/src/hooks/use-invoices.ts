@@ -160,6 +160,8 @@ export function useUpdateInvoiceNumber() {
         queryKey: ['invoices', String(variables.id)],
       });
       queryClient.invalidateQueries({ queryKey: ['invoice-number-history', String(variables.id)] });
+      queryClient.invalidateQueries({ queryKey: ['invoice-gaps'] });
+      queryClient.invalidateQueries({ queryKey: ['invoice-number-audit'] });
       toast.success(i18n.t('invoices:numberUpdated', 'Invoice number updated'));
     },
     onError: (error: Error) => {
@@ -218,7 +220,7 @@ export function useBulkResequence() {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['invoice-gaps'] });
       queryClient.invalidateQueries({ queryKey: ['invoice-number-audit'] });
-      const count = (data as any)?.resequenced ?? 0;
+      const count = data?.resequenced ?? 0;
       toast.success(i18n.t('invoices:resequenceSuccess', `${count} invoices resequenced`, { count }));
     },
     onError: (error: Error) => {
