@@ -23,5 +23,10 @@ async function getGeminiApiKey(): Promise<string> {
 
 export async function getGeminiClient(): Promise<GoogleGenAI> {
   const apiKey = await getGeminiApiKey();
+  if (!apiKey) {
+    throw new Error(
+      'Gemini API key not configured. Add it in Settings > Integrations or set GEMINI_API_KEY environment variable.',
+    );
+  }
   return new GoogleGenAI({ apiKey });
 }

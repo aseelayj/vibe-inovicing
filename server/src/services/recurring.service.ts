@@ -5,10 +5,18 @@ import {
   recurringInvoiceLineItems,
   invoices,
   invoiceLineItems,
+  clients,
   settings,
   activityLog,
+  emailLog,
+  emailTemplates,
 } from '../db/schema.js';
 import { eq, and, lte, sql } from 'drizzle-orm';
+import { generateInvoicePdf } from './pdf.service.js';
+import { sendInvoiceEmail } from './email.service.js';
+import { replaceTemplateVariables, sanitizeHeaderColor } from '../utils/template-renderer.js';
+import { EMAIL_TEMPLATE_DEFAULTS } from '../routes/email-template.routes.js';
+import { env } from '../env.js';
 
 function addToDate(date: Date, frequency: string): Date {
   const d = new Date(date);
@@ -47,6 +55,18 @@ async function processRecurringInvoices() {
 
   for (const recurring of dueRecurrings) {
     try {
+      // Skip if past end date (prevents off-by-one invoice creation)
+      if (
+        recurring.endDate
+        && new Date(recurring.nextRunDate) > new Date(recurring.endDate)
+      ) {
+        await db
+          .update(recurringInvoices)
+          .set({ isActive: false, updatedAt: new Date() })
+          .where(eq(recurringInvoices.id, recurring.id));
+        continue;
+      }
+
       await db.transaction(async (tx) => {
         const isTaxable = recurring.isTaxable;
 
@@ -168,6 +188,123 @@ async function processRecurringInvoices() {
           `[Recurring] Created invoice ${invoiceNumber} from recurring #${recurring.id}`,
         );
       });
+
+      // Auto-send the invoice if autoSend is enabled (outside transaction for email)
+      if (recurring.autoSend) {
+        try {
+          // Fetch the latest invoice created from this recurring
+          const latestInvoice = await db
+            .select({
+              invoice: invoices,
+              client: clients,
+            })
+            .from(invoices)
+            .leftJoin(clients, eq(invoices.clientId, clients.id))
+            .where(
+              and(
+                eq(invoices.recurringId, recurring.id),
+                eq(invoices.issueDate, today),
+              ),
+            )
+            .limit(1)
+            .then((rows) => rows[0]);
+
+          if (latestInvoice?.client?.email) {
+            const inv = latestInvoice.invoice;
+            const client = latestInvoice.client;
+
+            const [currentSettings] = await db.select().from(settings).limit(1);
+            const businessName = currentSettings?.businessName || 'Our Company';
+
+            const template = await db.query.emailTemplates?.findFirst({
+              where: eq(emailTemplates.type, 'invoice'),
+            });
+            const defaults = EMAIL_TEMPLATE_DEFAULTS.invoice;
+            const tplVars: Record<string, string> = {
+              invoiceNumber: inv.invoiceNumber,
+              businessName,
+              clientName: client.name,
+              total: `${inv.total} ${inv.currency}`,
+              currency: inv.currency,
+              dueDate: inv.dueDate,
+            };
+
+            const finalSubject = replaceTemplateVariables(
+              template?.subject || defaults.subject,
+              tplVars,
+            );
+            const finalBody = replaceTemplateVariables(
+              template?.body || defaults.body,
+              tplVars,
+            );
+            const headerColor = sanitizeHeaderColor(
+              template?.headerColor,
+              defaults.headerColor,
+            );
+
+            const invoiceWithItems = await db.query.invoices.findFirst({
+              where: eq(invoices.id, inv.id),
+              with: { client: true, lineItems: true },
+            });
+
+            const pdfBuffer = await generateInvoicePdf({
+              invoice: invoiceWithItems!,
+              lineItems: invoiceWithItems!.lineItems,
+              client,
+              settings: currentSettings || {},
+            });
+
+            const [logEntry] = await db.insert(emailLog).values({
+              invoiceId: inv.id,
+              recipientEmail: client.email!,
+              subject: finalSubject,
+              status: 'pending',
+            }).returning();
+
+            const trackingPixelUrl = `${env.SERVER_BASE_URL}/api/tracking/open/${logEntry.id}`;
+
+            const emailResult = await sendInvoiceEmail({
+              to: client.email!,
+              subject: finalSubject,
+              body: finalBody,
+              pdfBuffer,
+              invoiceNumber: inv.invoiceNumber,
+              businessName,
+              clientName: client.name,
+              total: inv.total,
+              currency: inv.currency,
+              dueDate: inv.dueDate,
+              headerColor,
+              trackingPixelUrl,
+              emailLogId: logEntry.id,
+            });
+
+            await db.update(emailLog)
+              .set({ status: 'sent', resendId: emailResult.id })
+              .where(eq(emailLog.id, logEntry.id));
+
+            await db.update(invoices)
+              .set({ status: 'sent', sentAt: new Date(), updatedAt: new Date() })
+              .where(eq(invoices.id, inv.id));
+
+            await db.insert(activityLog).values({
+              entityType: 'invoice',
+              entityId: inv.id,
+              action: 'sent',
+              description: `Auto-sent invoice ${inv.invoiceNumber} to ${client.email}`,
+            });
+
+            console.log(
+              `[Recurring] Auto-sent invoice ${inv.invoiceNumber} to ${client.email}`,
+            );
+          }
+        } catch (sendErr) {
+          console.error(
+            `[Recurring] Invoice created but auto-send failed for recurring #${recurring.id}:`,
+            sendErr,
+          );
+        }
+      }
     } catch (err) {
       console.error(
         `[Recurring] Failed to process recurring #${recurring.id}:`,

@@ -14,6 +14,8 @@ import {
   createPayrollRunSchema,
   updatePayrollEntrySchema,
   updatePayrollPaymentSchema,
+  addPayrollEntrySchema,
+  markAllPaidSchema,
   STANDARD_WORKING_DAYS,
   SSK_SALARY_CAP,
 } from '@vibe/shared';
@@ -395,15 +397,11 @@ router.delete('/:id', async (req, res, next) => {
 });
 
 // POST /:id/entries — Add an employee to an existing draft run
-router.post('/:id/entries', async (req, res, next) => {
+router.post('/:id/entries', validate(addPayrollEntrySchema), async (req, res, next) => {
   try {
     const runId = parseId(req, res);
     if (runId === null) return;
     const { employeeId } = req.body;
-    if (!employeeId) {
-      res.status(400).json({ error: 'employeeId is required' });
-      return;
-    }
 
     const result = await db.transaction(async (tx) => {
       const run = await tx.query.payrollRuns.findFirst({
@@ -850,7 +848,7 @@ router.patch(
 );
 
 // PATCH /:id/mark-all-paid — Batch mark pending entries as paid + create bank txns
-router.patch('/:id/mark-all-paid', async (req, res, next) => {
+router.patch('/:id/mark-all-paid', validate(markAllPaidSchema), async (req, res, next) => {
   try {
     const id = parseId(req, res);
     if (id === null) return;

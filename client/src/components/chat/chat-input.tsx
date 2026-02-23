@@ -2,7 +2,7 @@ import {
   forwardRef, useCallback, useImperativeHandle, useRef, useState,
   type KeyboardEvent,
 } from 'react';
-import { ArrowUp, Paperclip, Square, Mic, Loader2 } from 'lucide-react';
+import { ArrowUp, Paperclip, Square, Mic } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';

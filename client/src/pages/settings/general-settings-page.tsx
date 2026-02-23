@@ -36,6 +36,8 @@ interface GeneralFormValues {
   invoicePrefix: string;
   exemptInvoicePrefix: string;
   quotePrefix: string;
+  autoRemindersEnabled: boolean;
+  reminderDaysAfterDue: string;
 }
 
 export function GeneralSettingsPage() {
@@ -66,6 +68,8 @@ export function GeneralSettingsPage() {
         invoicePrefix: settings.invoicePrefix || 'INV',
         exemptInvoicePrefix: settings.exemptInvoicePrefix || 'EINV',
         quotePrefix: settings.quotePrefix || 'QTE',
+        autoRemindersEnabled: settings.autoRemindersEnabled ?? false,
+        reminderDaysAfterDue: ((settings.reminderDaysAfterDue as number[]) || [3, 7, 14, 30]).join(', '),
       });
     }
   }, [settings, reset]);
@@ -73,7 +77,15 @@ export function GeneralSettingsPage() {
   if (isLoading) return <LoadingSpinner />;
 
   const onSubmit = (data: GeneralFormValues) => {
-    updateSettings.mutate(data as Record<string, unknown>);
+    const { reminderDaysAfterDue, ...rest } = data;
+    const payload: Record<string, unknown> = {
+      ...rest,
+      reminderDaysAfterDue: reminderDaysAfterDue
+        .split(',')
+        .map((s) => parseInt(s.trim(), 10))
+        .filter((n) => !isNaN(n) && n > 0),
+    };
+    updateSettings.mutate(payload);
   };
 
   return (
@@ -226,6 +238,34 @@ export function GeneralSettingsPage() {
                 {...register('quotePrefix')}
               />
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Auto Reminders */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('autoReminders')}</CardTitle>
+          <CardDescription>{t('autoRemindersDesc')}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="autoRemindersEnabled"
+              className="h-4 w-4 rounded border-gray-300"
+              {...register('autoRemindersEnabled')}
+            />
+            <Label htmlFor="autoRemindersEnabled">{t('enableAutoReminders')}</Label>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="reminderDaysAfterDue">{t('reminderDays')}</Label>
+            <Input
+              id="reminderDaysAfterDue"
+              placeholder="3, 7, 14, 30"
+              {...register('reminderDaysAfterDue')}
+            />
+            <p className="text-xs text-muted-foreground">{t('reminderDaysHint')}</p>
           </div>
         </CardContent>
       </Card>

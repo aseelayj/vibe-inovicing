@@ -5,10 +5,11 @@ export function getAuthToken(): string | null {
   return localStorage.getItem('token') || sessionStorage.getItem('token');
 }
 
-class ApiError extends Error {
+export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    public data?: Record<string, unknown>,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -46,6 +47,7 @@ async function request<T>(
     throw new ApiError(
       res.status,
       body.error || `Request failed: ${res.status}`,
+      body,
     );
   }
 

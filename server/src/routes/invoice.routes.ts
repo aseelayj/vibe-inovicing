@@ -15,6 +15,7 @@ import {
   createInvoiceSchema,
   updateInvoiceSchema,
   updateInvoiceStatusSchema,
+  sendEmailSchema,
 } from '@vibe/shared';
 import { generateInvoicePdf } from '../services/pdf.service.js';
 import { sendInvoiceEmail, sendPaymentReminder } from '../services/email.service.js';
@@ -503,12 +504,30 @@ router.patch(
       if (id === null) return;
       const { status } = req.body;
 
-      // Block status changes on written-off invoices
+      // Validate status transitions
+      const VALID_TRANSITIONS: Record<string, string[]> = {
+        draft: ['sent', 'cancelled'],
+        sent: ['paid', 'partially_paid', 'overdue', 'cancelled'],
+        viewed: ['paid', 'partially_paid', 'overdue', 'cancelled'],
+        partially_paid: ['paid', 'overdue', 'cancelled'],
+        overdue: ['paid', 'partially_paid', 'cancelled'],
+        paid: [],
+        cancelled: ['draft'],
+        written_off: [],
+      };
+
       const [existing] = await db.select({ status: invoices.status })
         .from(invoices).where(eq(invoices.id, id));
-      if (existing?.status === 'written_off') {
+
+      if (!existing) {
+        res.status(404).json({ error: 'Invoice not found' });
+        return;
+      }
+
+      const allowed = VALID_TRANSITIONS[existing.status] || [];
+      if (!allowed.includes(status)) {
         res.status(400).json({
-          error: 'Cannot change status of a written-off invoice',
+          error: `Cannot change status from "${existing.status}" to "${status}"`,
         });
         return;
       }
@@ -588,7 +607,7 @@ router.get('/:id/pdf', async (req, res, next) => {
 });
 
 // POST /:id/send - Send invoice via email
-router.post('/:id/send', async (req, res, next) => {
+router.post('/:id/send', validate(sendEmailSchema), async (req, res, next) => {
   try {
     const id = parseId(req, res);
     if (id === null) return;
@@ -701,7 +720,7 @@ router.post('/:id/send', async (req, res, next) => {
 });
 
 // POST /:id/remind - Send payment reminder email
-router.post('/:id/remind', async (req, res, next) => {
+router.post('/:id/remind', validate(sendEmailSchema), async (req, res, next) => {
   try {
     const id = parseId(req, res);
     if (id === null) return;

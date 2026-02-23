@@ -6,13 +6,14 @@ import type {
   LineItemInput,
 } from '@vibe/shared';
 import { toast } from 'sonner';
+import i18n from '@/lib/i18n';
 
 export function useGenerateInvoice() {
   return useMutation({
     mutationFn: (prompt: string) =>
       api.post<AiGenerateInvoiceResponse>('/ai/generate-invoice', { prompt }),
     onError: (error: Error) => {
-      toast.error(error.message || 'AI generation failed');
+      toast.error(error.message || i18n.t('aiGenerationFailed'));
     },
   });
 }
@@ -22,7 +23,7 @@ export function useSuggestLineItems() {
     mutationFn: (data: { clientId: number; partialDescription?: string }) =>
       api.post<LineItemInput[]>('/ai/suggest-line-items', data),
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to get suggestions');
+      toast.error(error.message || i18n.t('aiSuggestionsFailed'));
     },
   });
 }
@@ -35,7 +36,7 @@ export function useDraftEmail() {
       context: 'send' | 'reminder' | 'followup';
     }) => api.post<AiDraftEmailResponse>('/ai/draft-email', data),
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to draft email');
+      toast.error(error.message || i18n.t('aiDraftFailed'));
     },
   });
 }
@@ -45,7 +46,7 @@ export function useSummarizeDashboard() {
     mutationFn: () =>
       api.post<{ summary: string }>('/ai/summarize-dashboard'),
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to generate summary');
+      toast.error(error.message || i18n.t('aiSummaryFailed'));
     },
   });
 }
@@ -55,7 +56,7 @@ export function useAiSearch() {
     mutationFn: (query: string) =>
       api.post<{ results: string }>('/ai/search', { query }),
     onError: (error: Error) => {
-      toast.error(error.message || 'AI search failed');
+      toast.error(error.message || i18n.t('aiSearchFailed'));
     },
   });
 }

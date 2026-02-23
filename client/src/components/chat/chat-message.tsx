@@ -12,7 +12,7 @@ function extractTextFromChildren(node: ReactNode): string {
   if (typeof node === 'number') return String(node);
   if (!node) return '';
   if (isValidElement(node)) {
-    return extractTextFromChildren(node.props.children);
+    return extractTextFromChildren((node.props as { children?: ReactNode }).children);
   }
   if (Array.isArray(node)) {
     return Children.toArray(node).map(extractTextFromChildren).join('');

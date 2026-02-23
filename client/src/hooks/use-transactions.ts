@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, getAuthToken } from '@/lib/api-client';
 import type { Transaction, PaginatedResponse } from '@vibe/shared';
 import { toast } from 'sonner';
+import i18n from '@/lib/i18n';
 
 interface TransactionFilters {
   bankAccountId?: number;
@@ -48,10 +49,10 @@ export function useCreateTransaction() {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      toast.success('Transaction created');
+      toast.success(i18n.t('createdSuccess', { entity: i18n.t('transaction') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to create transaction');
+      toast.error(error.message || i18n.t('createFailed', { entity: i18n.t('transaction') }));
     },
   });
 }
@@ -69,10 +70,10 @@ export function useUpdateTransaction() {
       });
       queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      toast.success('Transaction updated');
+      toast.success(i18n.t('updatedSuccess', { entity: i18n.t('transaction') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to update transaction');
+      toast.error(error.message || i18n.t('updateFailed', { entity: i18n.t('transaction') }));
     },
   });
 }
@@ -86,10 +87,10 @@ export function useDeleteTransaction() {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      toast.success('Transaction deleted');
+      toast.success(i18n.t('deletedSuccess', { entity: i18n.t('transaction') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to delete transaction');
+      toast.error(error.message || i18n.t('deleteFailed', { entity: i18n.t('transaction') }));
     },
   });
 }
@@ -116,7 +117,7 @@ export function useImportTransactions() {
       return json.data ?? json;
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to import transactions');
+      toast.error(error.message || i18n.t('importFailed', { entity: i18n.t('transaction') }));
     },
   });
 }
@@ -131,10 +132,10 @@ export function useBatchCreateTransactions() {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      toast.success('Transactions imported successfully');
+      toast.success(i18n.t('importedSuccess', { entity: i18n.t('transaction') }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to import transactions');
+      toast.error(error.message || i18n.t('importFailed', { entity: i18n.t('transaction') }));
     },
   });
 }

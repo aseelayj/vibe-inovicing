@@ -2,6 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
+import i18n from '@/lib/i18n';
 
 export function useSendTestEmail() {
   const { t } = useTranslation('settings');
@@ -13,7 +14,7 @@ export function useSendTestEmail() {
       toast.success(t('testEmailSent'));
     },
     onError: (err: Error) => {
-      toast.error(err.message || 'Failed to send test email');
+      toast.error(err.message || i18n.t('testEmailFailed'));
     },
   });
 }

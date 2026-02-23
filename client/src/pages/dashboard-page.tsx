@@ -29,6 +29,7 @@ import {
   useDashboardStats,
   useRevenueChart,
   useRecentActivity,
+  useAgingReport,
 } from '@/hooks/use-dashboard';
 import { useTaxDeadlines, useGstSummary } from '@/hooks/use-reports';
 import { useSettings } from '@/hooks/use-settings';
@@ -72,10 +73,11 @@ export function DashboardPage() {
   const { data: stats, isLoading: statsLoading } = useDashboardStats();
   const { data: chartData, isLoading: chartLoading } = useRevenueChart();
   const { data: activity, isLoading: activityLoading } = useRecentActivity();
+  const { data: aging } = useAgingReport();
   const { data: deadlines } = useTaxDeadlines();
   const { data: gstSummary } = useGstSummary();
   const { data: settings } = useSettings();
-  const currency = settings?.defaultCurrency || 'JOD';
+  const currency = settings?.defaultCurrency || 'USD';
 
   if (statsLoading) {
     return <LoadingSpinner />;
@@ -241,6 +243,55 @@ export function DashboardPage() {
         </Card>
       </div>
 
+      {/* Accounts Receivable Aging */}
+      {aging && aging.totalOutstanding > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-base">{t('agingReport')}</CardTitle>
+            <span className="text-xs text-muted-foreground">
+              {t('totalOutstanding')}: {formatCurrency(aging.totalOutstanding, currency)}
+            </span>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-5 gap-2">
+              {(
+                [
+                  { key: 'current', label: t('agingCurrent'), color: 'bg-green-500' },
+                  { key: '1-30', label: '1-30d', color: 'bg-yellow-500' },
+                  { key: '31-60', label: '31-60d', color: 'bg-orange-500' },
+                  { key: '61-90', label: '61-90d', color: 'bg-red-400' },
+                  { key: '90+', label: '90+d', color: 'bg-red-600' },
+                ] as const
+              ).map((bucket) => {
+                const data = aging[bucket.key];
+                const pct = aging.totalOutstanding > 0
+                  ? (data.total / aging.totalOutstanding) * 100
+                  : 0;
+                return (
+                  <div key={bucket.key} className="text-center">
+                    <p className="text-[11px] font-medium text-muted-foreground">
+                      {bucket.label}
+                    </p>
+                    <p className="mt-0.5 text-sm font-bold">
+                      {formatCurrency(data.total, currency)}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {data.count} {data.count === 1 ? t('invoice', { ns: 'common' }) : t('invoicesCount', { ns: 'common', count: data.count })}
+                    </p>
+                    <div className="mx-auto mt-1 h-1.5 w-full rounded-full bg-muted">
+                      <div
+                        className={`h-1.5 rounded-full ${bucket.color}`}
+                        style={{ width: `${Math.max(pct, 2)}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Tax Compliance Widgets */}
       <div className="grid grid-cols-1 gap-4 sm:gap-5 xl:grid-cols-3">
         {/* Upcoming Tax Deadlines */}
@@ -326,19 +377,19 @@ export function DashboardPage() {
                 <div>
                   <p className="text-xs text-muted-foreground">{t('taxableSales')}</p>
                   <p className="mt-0.5 text-sm font-semibold">
-                    {formatCurrency(gstSummary.taxableSales, 'JOD')}
+                    {formatCurrency(gstSummary.taxableSales, currency)}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">{t('outputTax')}</p>
                   <p className="mt-0.5 text-sm font-semibold text-red-600">
-                    {formatCurrency(gstSummary.outputTax, 'JOD')}
+                    {formatCurrency(gstSummary.outputTax, currency)}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">{t('inputTax')}</p>
                   <p className="mt-0.5 text-sm font-semibold text-green-600">
-                    {formatCurrency(gstSummary.inputTax, 'JOD')}
+                    {formatCurrency(gstSummary.inputTax, currency)}
                   </p>
                 </div>
                 <div>
@@ -348,7 +399,7 @@ export function DashboardPage() {
                       gstSummary.netTax >= 0 ? 'text-red-600' : 'text-green-600'
                     }`}
                   >
-                    {formatCurrency(gstSummary.netTax, 'JOD')}
+                    {formatCurrency(gstSummary.netTax, currency)}
                   </p>
                 </div>
               </div>

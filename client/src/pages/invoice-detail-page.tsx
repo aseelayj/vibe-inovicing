@@ -490,25 +490,35 @@ export function InvoiceDetailPage() {
               </div>
               )}
 
-              {invoice.status !== 'written_off' && INVOICE_STATUSES
-                .filter((s) => s !== 'written_off')
-                .map((s) => (
-                <DropdownMenuItem
-                  key={s}
-                  onClick={() => handleStatusChange(s)}
-                  disabled={s === invoice.status}
-                >
-                  <span
-                    className={cn(
-                      'me-2 inline-block h-2 w-2 rounded-full',
-                      STATUS_COLORS[s]?.split(' ')[0],
+              {(() => {
+                const VALID_TRANSITIONS: Record<string, string[]> = {
+                  draft: ['sent', 'cancelled'],
+                  sent: ['paid', 'partially_paid', 'overdue', 'cancelled'],
+                  viewed: ['paid', 'partially_paid', 'overdue', 'cancelled'],
+                  partially_paid: ['paid', 'overdue', 'cancelled'],
+                  overdue: ['paid', 'partially_paid', 'cancelled'],
+                  cancelled: ['draft'],
+                  paid: [],
+                  written_off: [],
+                };
+                const allowed = VALID_TRANSITIONS[invoice.status] || [];
+                return allowed.length > 0 && allowed.map((s) => (
+                  <DropdownMenuItem
+                    key={s}
+                    onClick={() => handleStatusChange(s)}
+                  >
+                    <span
+                      className={cn(
+                        'me-2 inline-block h-2 w-2 rounded-full',
+                        STATUS_COLORS[s]?.split(' ')[0],
+                      )}
+                    />
+                    {s.replace(/_/g, ' ').replace(/\b\w/g, (c) =>
+                      c.toUpperCase(),
                     )}
-                  />
-                  {s.replace(/_/g, ' ').replace(/\b\w/g, (c) =>
-                    c.toUpperCase(),
-                  )}
-                </DropdownMenuItem>
-              ))}
+                  </DropdownMenuItem>
+                ));
+              })()}
               {settings?.jofotaraEnabled &&
                 invoice.isTaxable &&
                 invoice.jofotaraStatus === 'submitted' && (
@@ -761,15 +771,43 @@ export function InvoiceDetailPage() {
                           </p>
                         )}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        className="text-muted-foreground hover:text-destructive"
-                        onClick={() => setDeletePaymentId(payment.id)}
-                        aria-label={t('deletePayment')}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          className="text-muted-foreground hover:text-primary"
+                          onClick={async () => {
+                            try {
+                              const token = localStorage.getItem('token');
+                              const res = await fetch(`/api/payments/${payment.id}/receipt`, {
+                                headers: token ? { Authorization: `Bearer ${token}` } : {},
+                              });
+                              if (!res.ok) throw new Error('Failed');
+                              const blob = await res.blob();
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `receipt-${payment.id}.pdf`;
+                              a.click();
+                              URL.revokeObjectURL(url);
+                            } catch {
+                              toast.error('Failed to download receipt');
+                            }
+                          }}
+                          aria-label={tc('receipt')}
+                        >
+                          <Download className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() => setDeletePaymentId(payment.id)}
+                          aria-label={t('deletePayment')}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </li>
                   ))}
                 </ul>

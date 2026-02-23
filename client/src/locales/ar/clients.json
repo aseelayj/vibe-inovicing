@@ -47,5 +47,6 @@
   "saveClient": "حفظ العميل",
   "emailPlaceholder": "client@example.com",
   "phonePlaceholder": "+962 7XX XXX XXX",
-  "notesPlaceholder": "ملاحظات عن هذا العميل..."
+  "notesPlaceholder": "ملاحظات عن هذا العميل...",
+  "noTransactions": "لا توجد معاملات في هذه الفترة"
 }

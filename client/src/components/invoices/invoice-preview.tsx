@@ -31,8 +31,8 @@ export function InvoicePreview() {
     0,
   );
 
-  const taxAmount = subtotal * (taxRate / 100);
-  const total = subtotal + taxAmount - discountAmount;
+  const taxAmount = (subtotal - discountAmount) * (taxRate / 100);
+  const total = subtotal - discountAmount + taxAmount;
 
   return (
     <Card>

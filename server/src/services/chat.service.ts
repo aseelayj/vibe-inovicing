@@ -157,6 +157,16 @@ TAX REPORTS (use these tools to answer tax questions):
 
 When user asks about tax, GST, VAT, JoFotara, filing, deadlines, or compliance, use these tools proactively.
 
+PRODUCT CATALOG:
+- list_products: Search/browse the product/service catalog
+- create_product, update_product, delete_product: Manage catalog items
+- When creating invoices/quotes, you can suggest products from the catalog to use as line items.
+
+ACCOUNTS & REPORTS:
+- get_aging_report: Accounts receivable aging (current, 1-30, 31-60, 61-90, 90+ days overdue)
+- get_client_statement: Statement of account for a client (invoices, payments, running balance)
+- Use these when user asks about outstanding balances, overdue accounts, aging, or client statements.
+
 JORDAN CITY CODES (for client cityCode field):
 JO-AM (Amman), JO-IR (Irbid), JO-AZ (Zarqa), JO-BA (Balqa), JO-MA (Mafraq), JO-KA (Karak), JO-AT (Tafilah), JO-MN (Ma'an), JO-AJ (Ajloun), JO-JA (Jarash), JO-MD (Madaba), JO-AQ (Aqaba)
 

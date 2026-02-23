@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import type { ChatConversation } from '@vibe/shared';
 import { toast } from 'sonner';
+import i18n from '@/lib/i18n';
 
 export function useConversations() {
   return useQuery({
@@ -32,7 +33,7 @@ export function useCreateConversation() {
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to create conversation');
+      toast.error(error.message || i18n.t('conversationCreateFailed'));
     },
   });
 }
@@ -45,7 +46,7 @@ export function useDeleteConversation() {
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to delete conversation');
+      toast.error(error.message || i18n.t('conversationDeleteFailed'));
     },
   });
 }

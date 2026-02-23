@@ -17,5 +17,8 @@
   "outputTax": "ضريبة المخرجات",
   "inputTax": "ضريبة المدخلات",
   "netDue": "صافي المستحق",
-  "daysShort": "{{days}}ي"
+  "daysShort": "{{days}}ي",
+  "agingReport": "تقادم الذمم المدينة",
+  "totalOutstanding": "إجمالي المستحقات",
+  "agingCurrent": "حالي"
 }

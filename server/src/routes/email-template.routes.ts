@@ -5,8 +5,10 @@ import { emailTemplates, settings } from '../db/schema.js';
 import {
   updateEmailTemplateSchema,
   sendTestEmailSchema,
+  emailTemplatePreviewSchema,
   type EmailTemplateType,
 } from '@vibe/shared';
+import { validate } from '../middleware/validate.js';
 import { replaceTemplateVariables, sanitizeHeaderColor } from '../utils/template-renderer.js';
 import { renderInvoiceEmailHtml, renderReminderEmailHtml } from '../templates/invoice-email.js';
 import { renderQuoteEmailHtml } from '../templates/quote-email.js';
@@ -69,7 +71,7 @@ router.get('/', async (_req, res, next) => {
 // GET /:type - Get single template
 router.get('/:type', async (req, res, next) => {
   try {
-    const { type } = req.params;
+    const type = req.params.type as string;
     if (!isValidType(type)) {
       res.status(400).json({ error: 'Invalid template type' });
       return;
@@ -85,26 +87,20 @@ router.get('/:type', async (req, res, next) => {
 });
 
 // PUT /:type - Update template
-router.put('/:type', async (req, res, next) => {
+router.put('/:type', validate(updateEmailTemplateSchema), async (req, res, next) => {
   try {
-    const { type } = req.params;
+    const type = req.params.type as string;
     if (!isValidType(type)) {
       res.status(400).json({ error: 'Invalid template type' });
-      return;
-    }
-
-    const parsed = updateEmailTemplateSchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.errors[0].message });
       return;
     }
 
     await ensureDefaults();
     const [updated] = await db.update(emailTemplates)
       .set({
-        subject: parsed.data.subject,
-        body: parsed.data.body,
-        headerColor: parsed.data.headerColor ?? undefined,
+        subject: req.body.subject,
+        body: req.body.body,
+        headerColor: req.body.headerColor ?? undefined,
         isCustomized: true,
         updatedAt: new Date(),
       })
@@ -120,7 +116,7 @@ router.put('/:type', async (req, res, next) => {
 // POST /:type/reset - Reset to defaults
 router.post('/:type/reset', async (req, res, next) => {
   try {
-    const { type } = req.params;
+    const type = req.params.type as string;
     if (!isValidType(type)) {
       res.status(400).json({ error: 'Invalid template type' });
       return;
@@ -159,9 +155,9 @@ const SAMPLE_DATA: Record<string, string> = {
 };
 
 // POST /:type/preview - Preview rendered HTML (accepts form data or falls back to DB)
-router.post('/:type/preview', async (req, res, next) => {
+router.post('/:type/preview', validate(emailTemplatePreviewSchema), async (req, res, next) => {
   try {
-    const { type } = req.params;
+    const type = req.params.type as string;
     if (!isValidType(type)) {
       res.status(400).json({ error: 'Invalid template type' });
       return;
@@ -236,17 +232,11 @@ router.post('/:type/preview', async (req, res, next) => {
 });
 
 // POST /:type/send-test - Send a test email with sample data
-router.post('/:type/send-test', async (req, res, next) => {
+router.post('/:type/send-test', validate(sendTestEmailSchema), async (req, res, next) => {
   try {
-    const { type } = req.params;
+    const type = req.params.type as string;
     if (!isValidType(type)) {
       res.status(400).json({ error: 'Invalid template type' });
-      return;
-    }
-
-    const parsed = sendTestEmailSchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: parsed.error.errors[0].message });
       return;
     }
 
@@ -304,7 +294,7 @@ router.post('/:type/send-test', async (req, res, next) => {
 
     await sendEmail({
       from: `${businessName} <${env.FROM_EMAIL}>`,
-      to: parsed.data.to,
+      to: req.body.to,
       subject: `[TEST] ${renderedSubject}`,
       html,
     });

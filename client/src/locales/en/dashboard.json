@@ -17,5 +17,8 @@
   "outputTax": "Output Tax",
   "inputTax": "Input Tax",
   "netDue": "Net Due",
-  "daysShort": "{{days}}d"
+  "daysShort": "{{days}}d",
+  "agingReport": "Accounts Receivable Aging",
+  "totalOutstanding": "Total Outstanding",
+  "agingCurrent": "Current"
 }

@@ -44,6 +44,7 @@ import {
   useDeleteClient,
 } from '@/hooks/use-clients';
 import { formatDate } from '@/lib/format';
+import { ApiError } from '@/lib/api-client';
 
 export function ClientsPage() {
   const { t } = useTranslation('clients');
@@ -52,6 +53,7 @@ export function ClientsPage() {
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [deleteWarning, setDeleteWarning] = useState<string | null>(null);
   const { data, isLoading } = useClients(search);
   const createClient = useCreateClient();
   const deleteClient = useDeleteClient();
@@ -71,8 +73,21 @@ export function ClientsPage() {
   const handleDelete = async () => {
     if (deleteId === null) return;
     try {
-      await deleteClient.mutateAsync(deleteId);
+      await deleteClient.mutateAsync({ id: deleteId });
       setDeleteId(null);
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.status === 409 && err.data) {
+        setDeleteWarning(err.data.message as string || err.message);
+      }
+    }
+  };
+
+  const handleForceDelete = async () => {
+    if (deleteId === null) return;
+    try {
+      await deleteClient.mutateAsync({ id: deleteId, force: true });
+      setDeleteId(null);
+      setDeleteWarning(null);
     } catch {
       // handled
     }
@@ -220,25 +235,30 @@ export function ClientsPage() {
       {/* Delete confirmation dialog */}
       <Dialog
         open={deleteId !== null}
-        onOpenChange={(open) => !open && setDeleteId(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteId(null);
+            setDeleteWarning(null);
+          }
+        }}
       >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('deleteClient')}</DialogTitle>
             <DialogDescription>
-              {t('deleteClientConfirm')}
+              {deleteWarning || t('deleteClientConfirm')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteId(null)}>
+            <Button variant="outline" onClick={() => { setDeleteId(null); setDeleteWarning(null); }}>
               {tc('cancel')}
             </Button>
             <Button
               variant="destructive"
-              onClick={handleDelete}
+              onClick={deleteWarning ? handleForceDelete : handleDelete}
               disabled={deleteClient.isPending}
             >
-              {deleteClient.isPending ? tc('deleting') : tc('delete')}
+              {deleteClient.isPending ? tc('deleting') : deleteWarning ? tc('deleteAnyway') : tc('delete')}
             </Button>
           </DialogFooter>
         </DialogContent>

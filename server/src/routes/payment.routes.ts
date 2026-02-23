@@ -4,6 +4,8 @@ import { db } from '../db/index.js';
 import {
   payments,
   invoices,
+  clients,
+  settings,
   activityLog,
   transactions,
   bankAccounts,
@@ -11,6 +13,7 @@ import {
 import { validate } from '../middleware/validate.js';
 import { createPaymentSchema } from '@vibe/shared';
 import { parseId } from '../utils/parse-id.js';
+import { generateReceiptPdf } from '../services/pdf.service.js';
 import { type AuthRequest } from '../middleware/auth.middleware.js';
 
 const router = Router();
@@ -245,6 +248,84 @@ router.delete('/:id', async (req, res, next) => {
     });
 
     res.json({ data: { message: 'Payment deleted' } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /client/:clientId/credit - Get client credit balance (overpayments)
+router.get('/client/:clientId/credit', async (req, res, next) => {
+  try {
+    const clientId = parseId(req, res, 'clientId');
+    if (clientId === null) return;
+
+    // Find all invoices where amountPaid > total (overpayments)
+    const result = await db.execute(
+      sql`SELECT
+        COALESCE(SUM(
+          CASE WHEN CAST(i.amount_paid AS NUMERIC) > CAST(i.total AS NUMERIC)
+          THEN CAST(i.amount_paid AS NUMERIC) - CAST(i.total AS NUMERIC)
+          ELSE 0 END
+        ), 0) as credit_balance,
+        COUNT(CASE WHEN CAST(i.amount_paid AS NUMERIC) > CAST(i.total AS NUMERIC)
+          THEN 1 END) as overpaid_count
+      FROM invoices i
+      WHERE i.client_id = ${clientId}
+        AND i.status NOT IN ('draft', 'cancelled', 'written_off')`,
+    );
+
+    const row = (result.rows as any[])[0];
+    res.json({
+      data: {
+        creditBalance: parseFloat(row?.credit_balance ?? '0'),
+        overpaidInvoiceCount: parseInt(row?.overpaid_count ?? '0', 10),
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /:id/receipt - Download payment receipt as PDF
+router.get('/:id/receipt', async (req, res, next) => {
+  try {
+    const id = parseId(req, res);
+    if (id === null) return;
+
+    const [payment] = await db.select().from(payments)
+      .where(eq(payments.id, id));
+
+    if (!payment) {
+      res.status(404).json({ error: 'Payment not found' });
+      return;
+    }
+
+    const invoice = await db.query.invoices.findFirst({
+      where: eq(invoices.id, payment.invoiceId),
+      with: { client: true },
+    });
+
+    if (!invoice || !invoice.client) {
+      res.status(404).json({ error: 'Invoice not found' });
+      return;
+    }
+
+    const [settingsRow] = await db.select().from(settings).limit(1);
+
+    const pdfBuffer = await generateReceiptPdf({
+      payment,
+      invoice,
+      client: invoice.client,
+      settings: settingsRow || {},
+    });
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="receipt-${payment.id}.pdf"`,
+      'Content-Length': pdfBuffer.length.toString(),
+    });
+
+    res.send(pdfBuffer);
   } catch (err) {
     next(err);
   }

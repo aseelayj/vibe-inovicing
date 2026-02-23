@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import type { EmailTemplate } from '@vibe/shared';
 import { toast } from 'sonner';
+import i18n from '@/lib/i18n';
 
 export function useEmailTemplates() {
   return useQuery({
@@ -28,10 +29,10 @@ export function useUpdateEmailTemplate() {
     }) => api.put<EmailTemplate>(`/email-templates/${type}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['email-templates'] });
-      toast.success('Email template saved');
+      toast.success(i18n.t('templateSaved'));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to save template');
+      toast.error(error.message || i18n.t('templateSaveFailed'));
     },
   });
 }
@@ -44,10 +45,10 @@ export function useResetEmailTemplate() {
       api.post<EmailTemplate>(`/email-templates/${type}/reset`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['email-templates'] });
-      toast.success('Template reset to defaults');
+      toast.success(i18n.t('templateReset'));
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to reset template');
+      toast.error(error.message || i18n.t('templateResetFailed'));
     },
   });
 }
@@ -63,7 +64,7 @@ export function usePreviewEmailTemplate() {
         data,
       ),
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to generate preview');
+      toast.error(error.message || i18n.t('previewFailed'));
     },
   });
 }
