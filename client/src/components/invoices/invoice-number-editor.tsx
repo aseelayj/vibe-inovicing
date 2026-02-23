@@ -123,7 +123,7 @@ export function InvoiceNumberEditor({ invoice }: InvoiceNumberEditorProps) {
             <p className="text-sm text-muted-foreground">
               {editStatus?.message}
             </p>
-            {invoice.jofotaraStatus === 'submitted' && (
+            {(invoice.jofotaraStatus === 'submitted' || invoice.jofotaraStatus === 'pending') && (
               <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950">
                 <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
                   {t('numberLockedSolution')}

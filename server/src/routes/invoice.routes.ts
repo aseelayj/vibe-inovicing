@@ -202,26 +202,30 @@ router.get('/gaps', async (req, res, next) => {
       .orderBy(invoices.invoiceNumber);
 
     const gaps = [];
+    type InvRow = { isTaxable: boolean; invoiceNumber: string; status: string };
     const types = [
       {
         prefix: settingsRow.invoicePrefix,
         type: 'taxable' as const,
-        filter: (inv: { isTaxable: boolean; invoiceNumber: string }) =>
-          inv.isTaxable && inv.invoiceNumber.startsWith(settingsRow.invoicePrefix + '-'),
+        filter: (inv: InvRow) =>
+          inv.isTaxable
+          && inv.invoiceNumber.startsWith(settingsRow.invoicePrefix + '-')
+          && inv.status !== 'written_off',
       },
       {
         prefix: settingsRow.exemptInvoicePrefix,
         type: 'exempt' as const,
-        filter: (inv: { isTaxable: boolean; invoiceNumber: string }) =>
+        filter: (inv: InvRow) =>
           !inv.isTaxable
           && inv.invoiceNumber.startsWith(settingsRow.exemptInvoicePrefix + '-')
-          && !inv.invoiceNumber.startsWith(settingsRow.writeOffPrefix + '-'),
+          && inv.status !== 'written_off',
       },
       {
         prefix: settingsRow.writeOffPrefix,
         type: 'write_off' as const,
-        filter: (inv: { invoiceNumber: string }) =>
-          inv.invoiceNumber.startsWith(settingsRow.writeOffPrefix + '-'),
+        filter: (inv: InvRow) =>
+          inv.status === 'written_off'
+          && inv.invoiceNumber.startsWith(settingsRow.writeOffPrefix + '-'),
       },
     ];
 
@@ -381,56 +385,92 @@ router.post(
           .where(and(...conditions))
           .orderBy(invoices.createdAt);
 
-        const draftOnly = type === 'write_off'
-          ? drafts
-          : drafts.filter((d) => d.status === 'draft');
+        // Filter to eligible invoices: drafts only (or written_off for write-off type)
+        // Skip Jofotara-submitted/pending invoices to protect tax authority records
+        const eligible = (type === 'write_off' ? drafts : drafts.filter((d) => d.status === 'draft'))
+          .filter((d) => d.jofotaraStatus !== 'submitted' && d.jofotaraStatus !== 'pending');
 
-        if (draftOnly.length === 0) {
+        if (eligible.length === 0) {
           return { resequenced: 0 };
         }
 
         let nextNum = startFrom || 1;
         const changes = [];
+        let draftIdx = 0;
 
-        for (const draft of draftOnly) {
+        // Use index-based loop: advance nextNum on collision without skipping drafts
+        while (draftIdx < eligible.length) {
+          const draft = eligible[draftIdx];
           const newNumber = `${prefix}-${String(nextNum).padStart(4, '0')}`;
-          if (newNumber !== draft.invoiceNumber) {
-            const [existing] = await tx.select({ id: invoices.id })
-              .from(invoices)
-              .where(and(
-                eq(invoices.invoiceNumber, newNumber),
-                sql`${invoices.id} != ${draft.id}`,
-              ));
 
-            if (existing) { nextNum++; continue; }
-
-            await tx.update(invoices)
-              .set({ invoiceNumber: newNumber, updatedAt: new Date() })
-              .where(eq(invoices.id, draft.id));
-
-            await tx.insert(invoiceNumberChanges).values({
-              invoiceId: draft.id,
-              oldNumber: draft.invoiceNumber,
-              newNumber,
-              reason: 'Bulk resequence',
-              invoiceStatus: draft.status,
-              changedBy: (req as AuthRequest).userId,
-            });
-
-            changes.push({ invoiceId: draft.id, oldNumber: draft.invoiceNumber, newNumber });
+          if (newNumber === draft.invoiceNumber) {
+            // Already has the right number, advance both
+            draftIdx++;
+            nextNum++;
+            continue;
           }
+
+          // Check if this number is taken by a non-eligible invoice
+          const [existing] = await tx.select({ id: invoices.id })
+            .from(invoices)
+            .where(and(
+              eq(invoices.invoiceNumber, newNumber),
+              sql`${invoices.id} != ${draft.id}`,
+            ));
+
+          if (existing) {
+            // Number is taken, skip to next number but keep same draft
+            nextNum++;
+            continue;
+          }
+
+          await tx.update(invoices)
+            .set({ invoiceNumber: newNumber, updatedAt: new Date() })
+            .where(eq(invoices.id, draft.id));
+
+          await tx.insert(invoiceNumberChanges).values({
+            invoiceId: draft.id,
+            oldNumber: draft.invoiceNumber,
+            newNumber,
+            reason: 'Bulk resequence',
+            invoiceStatus: draft.status,
+            changedBy: (req as AuthRequest).userId,
+          });
+
+          changes.push({ invoiceId: draft.id, oldNumber: draft.invoiceNumber, newNumber });
+          draftIdx++;
           nextNum++;
         }
 
         if (changes.length > 0) {
           await tx.insert(activityLog).values({
             entityType: 'invoice',
-            entityId: 0,
+            entityId: changes[0].invoiceId,
             action: 'bulk_resequence',
             description: `Bulk resequenced ${changes.length} ${type} invoices`,
             metadata: { type, changes },
             userId: (req as AuthRequest).userId,
           });
+
+          // Update the settings counter to avoid future collisions
+          const counterField = type === 'taxable'
+            ? 'nextInvoiceNumber'
+            : type === 'exempt'
+              ? 'nextExemptInvoiceNumber'
+              : 'nextWriteOffNumber';
+
+          // nextNum is already one past the last assigned number
+          const currentCounter = type === 'taxable'
+            ? settingsRow.nextInvoiceNumber
+            : type === 'exempt'
+              ? settingsRow.nextExemptInvoiceNumber
+              : settingsRow.nextWriteOffNumber;
+
+          if (nextNum > currentCounter) {
+            await tx.update(settings)
+              .set({ [counterField]: nextNum })
+              .where(eq(settings.id, settingsRow.id));
+          }
         }
 
         return { resequenced: changes.length, changes };
@@ -1123,45 +1163,59 @@ router.patch(
           throw Object.assign(new Error('Invoice not found'), { status: 404 });
         }
 
-        // Tier 1: written_off - block completely
+        // Tier 1: written_off or cancelled - block completely
         if (existing.status === 'written_off') {
           throw Object.assign(
             new Error('Cannot edit the number of a written-off invoice.'),
             { status: 400 },
           );
         }
-
-        // Tier 2: Jofotara submitted - block with explanation
-        if (existing.jofotaraStatus === 'submitted') {
+        if (existing.status === 'cancelled') {
           throw Object.assign(
             new Error(
-              'This invoice has been submitted to JoFotara (Jordan tax authority). '
-              + 'The invoice number is permanently locked because it is registered in the national e-invoicing system. '
-              + 'Changing it would create a mismatch between your records and the tax authority\'s records, '
-              + 'which could result in compliance issues or fines. '
-              + 'To correct this invoice, issue a Credit Note from the invoice detail page instead.',
+              'Cannot edit the number of a cancelled invoice. '
+              + 'Cancelled invoices retain their number for audit trail integrity.',
             ),
-            { status: 403, code: 'JOFOTARA_LOCKED' },
+            { status: 400 },
           );
         }
 
-        // Check uniqueness
-        if (newNumber !== existing.invoiceNumber) {
-          const [duplicate] = await tx.select({ id: invoices.id })
-            .from(invoices)
-            .where(eq(invoices.invoiceNumber, newNumber));
+        // Tier 2: Jofotara submitted or pending - block with explanation
+        if (
+          existing.jofotaraStatus === 'submitted'
+          || existing.jofotaraStatus === 'pending'
+        ) {
+          const detail = existing.jofotaraStatus === 'pending'
+            ? 'This invoice is currently being submitted to JoFotara. '
+              + 'Changing the number while a submission is in-flight would create a mismatch. '
+              + 'Please wait for the submission to complete, then try again.'
+            : 'This invoice has been submitted to JoFotara (Jordan tax authority). '
+              + 'The invoice number is permanently locked because it is registered in the national e-invoicing system. '
+              + 'Changing it would create a mismatch between your records and the tax authority\'s records, '
+              + 'which could result in compliance issues or fines. '
+              + 'To correct this invoice, issue a Credit Note from the invoice detail page instead.';
+          throw Object.assign(new Error(detail), {
+            status: 403,
+            code: 'JOFOTARA_LOCKED',
+          });
+        }
 
-          if (duplicate) {
-            throw Object.assign(
-              new Error(`Invoice number "${newNumber}" is already in use by another invoice.`),
-              { status: 409 },
-            );
-          }
-        } else {
-          // Same number, nothing to change
+        // Check uniqueness
+        if (newNumber === existing.invoiceNumber) {
           throw Object.assign(
             new Error('New number is the same as the current number.'),
             { status: 400 },
+          );
+        }
+
+        const [duplicate] = await tx.select({ id: invoices.id })
+          .from(invoices)
+          .where(eq(invoices.invoiceNumber, newNumber));
+
+        if (duplicate) {
+          throw Object.assign(
+            new Error(`Invoice number "${newNumber}" is already in use by another invoice.`),
+            { status: 409 },
           );
         }
 
@@ -1176,10 +1230,22 @@ router.patch(
         const oldNumber = existing.invoiceNumber;
 
         // Update the invoice number
-        const [updated] = await tx.update(invoices)
-          .set({ invoiceNumber: newNumber, updatedAt: new Date() })
-          .where(eq(invoices.id, id))
-          .returning();
+        let updated;
+        try {
+          [updated] = await tx.update(invoices)
+            .set({ invoiceNumber: newNumber, updatedAt: new Date() })
+            .where(eq(invoices.id, id))
+            .returning();
+        } catch (dbErr: any) {
+          // Catch unique constraint violation (race condition: another request took this number)
+          if (dbErr.code === '23505') {
+            throw Object.assign(
+              new Error(`Invoice number "${newNumber}" is already in use by another invoice.`),
+              { status: 409 },
+            );
+          }
+          throw dbErr;
+        }
 
         // Record in audit trail
         await tx.insert(invoiceNumberChanges).values({
@@ -1200,6 +1266,29 @@ router.patch(
           metadata: { oldNumber, newNumber, reason },
           userId: (req as AuthRequest).userId,
         });
+
+        // Advance the sequence counter if the new number would cause a future collision
+        const [settingsRow] = await tx.select().from(settings).limit(1);
+        if (settingsRow) {
+          const prefixes = [
+            { prefix: settingsRow.invoicePrefix, counterField: 'nextInvoiceNumber' as const, current: settingsRow.nextInvoiceNumber },
+            { prefix: settingsRow.exemptInvoicePrefix, counterField: 'nextExemptInvoiceNumber' as const, current: settingsRow.nextExemptInvoiceNumber },
+            { prefix: settingsRow.writeOffPrefix, counterField: 'nextWriteOffNumber' as const, current: settingsRow.nextWriteOffNumber },
+          ];
+
+          for (const { prefix, counterField, current } of prefixes) {
+            if (newNumber.startsWith(prefix + '-')) {
+              const suffix = newNumber.slice(prefix.length + 1);
+              const numericSuffix = parseInt(suffix, 10);
+              if (!isNaN(numericSuffix) && numericSuffix >= current) {
+                await tx.update(settings)
+                  .set({ [counterField]: numericSuffix + 1 })
+                  .where(eq(settings.id, settingsRow.id));
+              }
+              break;
+            }
+          }
+        }
 
         return { updated, warning };
       });
@@ -1244,7 +1333,8 @@ router.get('/:id/number-history', async (req, res, next) => {
       .from(invoiceNumberChanges)
       .leftJoin(users, eq(invoiceNumberChanges.changedBy, users.id))
       .where(eq(invoiceNumberChanges.invoiceId, id))
-      .orderBy(desc(invoiceNumberChanges.createdAt));
+      .orderBy(desc(invoiceNumberChanges.createdAt))
+      .limit(50);
 
     const data = changes.map((c) => ({
       id: c.id,
@@ -1293,14 +1383,25 @@ router.get('/:id/edit-status', async (req, res, next) => {
       canEdit = false;
       level = 'locked';
       message = 'Written-off invoices cannot be edited.';
-    } else if (invoice.jofotaraStatus === 'submitted') {
+    } else if (invoice.status === 'cancelled') {
       canEdit = false;
       level = 'locked';
       message =
-        'This invoice has been submitted to JoFotara (Jordan tax authority). '
-        + 'The invoice number is permanently locked because it is registered in the national e-invoicing system. '
-        + 'Changing it would create a mismatch between your records and the tax authority records. '
-        + 'To correct this invoice, issue a Credit Note instead.';
+        'Cancelled invoices retain their number for audit trail integrity. '
+        + 'The number cannot be changed.';
+    } else if (
+      invoice.jofotaraStatus === 'submitted'
+      || invoice.jofotaraStatus === 'pending'
+    ) {
+      canEdit = false;
+      level = 'locked';
+      message = invoice.jofotaraStatus === 'pending'
+        ? 'This invoice is currently being submitted to JoFotara. '
+          + 'Please wait for the submission to complete before editing the number.'
+        : 'This invoice has been submitted to JoFotara (Jordan tax authority). '
+          + 'The invoice number is permanently locked because it is registered in the national e-invoicing system. '
+          + 'Changing it would create a mismatch between your records and the tax authority records. '
+          + 'To correct this invoice, issue a Credit Note instead.';
     } else if (invoice.status !== 'draft') {
       level = 'warning';
       message =
