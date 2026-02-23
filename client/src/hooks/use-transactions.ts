@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '@/lib/api-client';
+import { api, getAuthToken } from '@/lib/api-client';
 import type { Transaction, PaginatedResponse } from '@vibe/shared';
 import { toast } from 'sonner';
 import i18n from '@/lib/i18n';
@@ -101,7 +101,7 @@ export function useImportTransactions() {
       const formData = new FormData();
       formData.append('file', file);
 
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const res = await fetch('/api/transactions/import', {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},

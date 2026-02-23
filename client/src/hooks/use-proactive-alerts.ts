@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { getAuthToken } from '@/lib/api-client';
 
 export interface ProactiveAlertsData {
     hasAlerts: boolean;
@@ -9,7 +10,7 @@ export function useProactiveAlerts() {
     return useQuery({
         queryKey: ['proactive-alerts'],
         queryFn: async () => {
-            const token = localStorage.getItem('token');
+            const token = getAuthToken();
             const res = await fetch('/api/chat/proactive-alerts', {
                 headers: token ? { Authorization: `Bearer ${token}` } : {},
             });

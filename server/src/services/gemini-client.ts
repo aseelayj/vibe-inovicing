@@ -2,6 +2,7 @@ import { GoogleGenAI } from '@google/genai';
 import { db } from '../db/index.js';
 import { settings } from '../db/schema.js';
 import { env } from '../env.js';
+import { decryptSecret } from '../utils/crypto.js';
 
 let cachedKey: string | null = null;
 let cachedAt = 0;
@@ -13,7 +14,7 @@ async function getGeminiApiKey(): Promise<string> {
 
   const [row] = await db.select({ geminiApiKey: settings.geminiApiKey })
     .from(settings).limit(1);
-  const dbKey = row?.geminiApiKey;
+  const dbKey = decryptSecret(row?.geminiApiKey);
 
   cachedKey = dbKey || env.GEMINI_API_KEY;
   cachedAt = now;

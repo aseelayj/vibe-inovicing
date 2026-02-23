@@ -1,4 +1,4 @@
-import { useFormContext } from 'react-hook-form';
+import { useFormContext, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useSettings } from '@/hooks/use-settings';
 import { formatCurrency, formatDate } from '@/lib/format';
@@ -8,12 +8,19 @@ import { Separator } from '@/components/ui/separator';
 export function InvoicePreview() {
   const { t } = useTranslation('invoices');
   const { t: tc } = useTranslation('common');
-  const { watch } = useFormContext();
+  const { control } = useFormContext();
   const { data: settings } = useSettings();
 
-  const values = watch();
-  const lineItems = values.lineItems || [];
-  const currency = values.currency || 'USD';
+  // Watch only the specific fields the preview needs, not all form fields
+  const lineItems = useWatch({ control, name: 'lineItems' }) || [];
+  const currency = useWatch({ control, name: 'currency' }) || 'USD';
+  const taxRate = Number(useWatch({ control, name: 'taxRate' })) || 0;
+  const discountAmount = Number(useWatch({ control, name: 'discountAmount' })) || 0;
+  const issueDate = useWatch({ control, name: 'issueDate' });
+  const dueDate = useWatch({ control, name: 'dueDate' });
+  const clientName = useWatch({ control, name: 'clientName' });
+  const notes = useWatch({ control, name: 'notes' });
+  const terms = useWatch({ control, name: 'terms' });
 
   const subtotal = lineItems.reduce(
     (sum: number, item: { quantity?: number; unitPrice?: number }) => {
@@ -24,8 +31,6 @@ export function InvoicePreview() {
     0,
   );
 
-  const taxRate = Number(values.taxRate) || 0;
-  const discountAmount = Number(values.discountAmount) || 0;
   const taxAmount = (subtotal - discountAmount) * (taxRate / 100);
   const total = subtotal - discountAmount + taxAmount;
 
@@ -65,7 +70,7 @@ export function InvoicePreview() {
               {t('billTo')}
             </p>
             <p className="mt-1 text-sm font-medium">
-              {values.clientName || t('selectAClient')}
+              {clientName || t('selectAClient')}
             </p>
           </div>
           <div className="space-y-2 text-end">
@@ -74,7 +79,7 @@ export function InvoicePreview() {
                 {t('issueDate')}
               </p>
               <p className="text-sm">
-                {values.issueDate ? formatDate(values.issueDate) : '--'}
+                {issueDate ? formatDate(issueDate) : '--'}
               </p>
             </div>
             <div>
@@ -82,7 +87,7 @@ export function InvoicePreview() {
                 {t('dueDate')}
               </p>
               <p className="text-sm">
-                {values.dueDate ? formatDate(values.dueDate) : '--'}
+                {dueDate ? formatDate(dueDate) : '--'}
               </p>
             </div>
           </div>
@@ -179,24 +184,24 @@ export function InvoicePreview() {
           </div>
         </div>
 
-        {values.notes && (
+        {notes && (
           <div className="mt-8 border-t pt-4">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               {tc('notes')}
             </p>
             <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
-              {values.notes}
+              {notes}
             </p>
           </div>
         )}
 
-        {values.terms && (
+        {terms && (
           <div className="mt-4">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               {tc('terms')}
             </p>
             <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">
-              {values.terms}
+              {terms}
             </p>
           </div>
         )}

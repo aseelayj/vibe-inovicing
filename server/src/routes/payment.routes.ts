@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { eq, desc, sum, sql } from 'drizzle-orm';
+import { eq, desc, sum, sql, count, and } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
   payments,
@@ -64,15 +64,35 @@ async function recalculateInvoicePayments(
     .where(eq(invoices.id, invoiceId));
 }
 
-// GET / - List all payments with invoice relation
+// GET / - List payments with invoice relation and pagination
 router.get('/', async (req, res, next) => {
   try {
+    const { page = '1', pageSize = '50' } = req.query;
+
+    const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
+    const size = Math.max(1, Math.min(100, parseInt(pageSize as string, 10) || 50));
+    const offset = (pageNum - 1) * size;
+
+    const [totalResult] = await db
+      .select({ value: count() })
+      .from(payments);
+
+    const total = totalResult?.value ?? 0;
+
     const result = await db.query.payments.findMany({
       with: { invoice: { with: { client: true } } },
       orderBy: [desc(payments.paymentDate)],
+      limit: size,
+      offset,
     });
 
-    res.json({ data: result });
+    res.json({
+      data: result,
+      total,
+      page: pageNum,
+      pageSize: size,
+      totalPages: Math.ceil(total / size),
+    });
   } catch (err) {
     next(err);
   }
@@ -201,6 +221,17 @@ router.delete('/:id', async (req, res, next) => {
             updatedAt: new Date(),
           })
           .where(eq(bankAccounts.id, payment.bankAccountId));
+
+        // Delete the auto-created income transaction
+        await tx.delete(transactions)
+          .where(
+            and(
+              eq(transactions.bankAccountId, payment.bankAccountId),
+              eq(transactions.category, 'invoice_payment'),
+              eq(transactions.amount, payment.amount),
+              eq(transactions.date, payment.paymentDate),
+            ),
+          );
       }
 
       await tx.delete(payments).where(eq(payments.id, id));

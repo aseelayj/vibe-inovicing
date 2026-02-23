@@ -48,6 +48,7 @@ import {
 import { formatCurrency, formatDate } from '@/lib/format';
 import { STATUS_COLORS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
+import { getAuthToken } from '@/lib/api-client';
 import { toast } from 'sonner';
 
 export function QuoteDetailPage() {
@@ -99,7 +100,7 @@ export function QuoteDetailPage() {
 
   const handleDownloadPdf = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
       const res = await fetch(`/api/quotes/${quote.id}/pdf`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });

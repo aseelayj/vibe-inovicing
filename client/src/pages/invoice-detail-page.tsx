@@ -84,7 +84,7 @@ import { useBankAccounts } from '@/hooks/use-bank-accounts';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { STATUS_COLORS, JOFOTARA_STATUS_COLORS } from '@/lib/constants';
 import { PAYMENT_METHODS, INVOICE_STATUSES, BIMONTHLY_PERIODS } from '@vibe/shared';
-import { api } from '@/lib/api-client';
+import { api, getAuthToken } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
@@ -367,7 +367,7 @@ export function InvoiceDetailPage() {
               size="sm"
               onClick={async () => {
                 try {
-                  const token = localStorage.getItem('token');
+                  const token = getAuthToken();
                   const res = await fetch(`/api/invoices/${invoice.id}/pdf`, {
                     headers: token ? { Authorization: `Bearer ${token}` } : {},
                   });
@@ -447,7 +447,7 @@ export function InvoiceDetailPage() {
                 <DropdownMenuItem
                   onClick={async () => {
                     try {
-                      const token = localStorage.getItem('token');
+                      const token = getAuthToken();
                       const res = await fetch(`/api/invoices/${invoice.id}/pdf`, {
                         headers: token ? { Authorization: `Bearer ${token}` } : {},
                       });

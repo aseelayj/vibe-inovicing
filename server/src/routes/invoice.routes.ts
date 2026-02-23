@@ -206,26 +206,26 @@ router.post('/', validate(createInvoiceSchema), async (req, res, next) => {
   try {
     const {
       lineItems: lineItemsInput,
-      taxRate: rawTaxRate,
+      taxRate: userTaxRate,
       discountAmount = 0,
       isTaxable = false,
       isWriteOff = false,
       ...invoiceData
     } = req.body;
 
-    // Use form value if provided, otherwise fetch from settings, fallback to 16
-    let taxRate = 0;
-    if (isTaxable) {
-      if (rawTaxRate !== undefined && rawTaxRate > 0) {
-        taxRate = rawTaxRate;
-      } else {
-        const [s] = await db.select({ defaultTaxRate: settings.defaultTaxRate }).from(settings).limit(1);
-        taxRate = s?.defaultTaxRate ? parseFloat(String(s.defaultTaxRate)) : 16;
-      }
-    }
-    const totals = calculateTotals(lineItemsInput, taxRate, discountAmount);
-
     const result = await db.transaction(async (tx) => {
+      // Resolve tax rate: use user-supplied rate, or fall back to settings default
+      let taxRate = 0;
+      if (isTaxable) {
+        if (userTaxRate !== undefined && userTaxRate !== null) {
+          taxRate = Number(userTaxRate);
+        } else {
+          const [settingsRow] = await tx.select({ defaultTaxRate: settings.defaultTaxRate }).from(settings).limit(1);
+          taxRate = settingsRow ? parseFloat(settingsRow.defaultTaxRate) : 0;
+        }
+      }
+
+      const totals = calculateTotals(lineItemsInput, taxRate, discountAmount);
       const invoiceNumber = await generateInvoiceNumber(
         tx, isTaxable, isWriteOff,
       );
@@ -435,13 +435,20 @@ router.post('/:id/duplicate', async (req, res, next) => {
         tx, original.isTaxable,
       );
 
+      // Calculate a fresh due date based on settings
+      const [settingsRow] = await tx.select({ defaultPaymentTerms: settings.defaultPaymentTerms }).from(settings).limit(1);
+      const paymentTerms = settingsRow?.defaultPaymentTerms ?? 30;
+      const today = new Date();
+      const dueDate = new Date(today);
+      dueDate.setDate(dueDate.getDate() + paymentTerms);
+
       const [duplicate] = await tx.insert(invoices).values({
         invoiceNumber,
         clientId: original.clientId,
         status: 'draft',
         isTaxable: original.isTaxable,
-        issueDate: new Date().toISOString().split('T')[0],
-        dueDate: original.dueDate,
+        issueDate: today.toISOString().split('T')[0],
+        dueDate: dueDate.toISOString().split('T')[0],
         currency: original.currency,
         subtotal: original.subtotal,
         taxRate: original.taxRate,

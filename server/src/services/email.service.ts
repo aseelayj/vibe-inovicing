@@ -7,6 +7,7 @@ import { settings } from '../db/schema.js';
 import { renderInvoiceEmailHtml, renderReminderEmailHtml } from '../templates/invoice-email.js';
 import { renderQuoteEmailHtml } from '../templates/quote-email.js';
 import { wrapLinksForTracking } from '../utils/template-renderer.js';
+import { decryptSecret } from '../utils/crypto.js';
 
 interface SendEmailPayload {
   from: string;
@@ -33,7 +34,7 @@ export async function sendEmail(
       port,
       secure,
       auth: row.smtpUsername
-        ? { user: row.smtpUsername, pass: row.smtpPassword ?? '' }
+        ? { user: row.smtpUsername, pass: decryptSecret(row.smtpPassword) ?? '' }
         : undefined,
       connectionTimeout: 10_000,
       greetingTimeout: 10_000,
@@ -61,7 +62,7 @@ export async function sendEmail(
   }
 
   // Default: Resend — use DB key first, fall back to env
-  const apiKey = row?.resendApiKey || env.RESEND_API_KEY;
+  const apiKey = decryptSecret(row?.resendApiKey) || env.RESEND_API_KEY;
   if (!apiKey) {
     throw new Error('No Resend API key configured. Set it in Settings > Email or RESEND_API_KEY env.');
   }
