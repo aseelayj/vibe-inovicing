@@ -142,6 +142,8 @@ export const updateSettingsSchema = z.object({
   jofotaraIncomeSourceSequence: optionalString(50),
   jofotaraInvoiceType: z.enum(JOFOTARA_INVOICE_TYPES).optional(),
   jofotaraEnabled: z.boolean().optional(),
+  creditNotePrefix: z.string().max(10).optional(),
+  nextCreditNoteNumber: z.number().int().positive().optional(),
   bankEtihadUsername: optionalString(100),
   bankEtihadEnabled: z.boolean().optional(),
   paypalClientId: optionalString(255),
@@ -420,11 +422,17 @@ export const updateInvoiceNumberSchema = z.object({
   reason: z.string().min(1, 'Reason is required').max(500),
 });
 
+// ---- Credit Note Creation ----
+export const createCreditNoteSchema = z.object({
+  reason: z.string().min(1, 'Reason is required').max(500),
+});
+
 // ---- Sequence Management ----
 export const updateSequenceSchema = z.object({
   nextInvoiceNumber: z.number().int().positive().optional(),
   nextExemptInvoiceNumber: z.number().int().positive().optional(),
   nextWriteOffNumber: z.number().int().positive().optional(),
+  nextCreditNoteNumber: z.number().int().positive().optional(),
   nextQuoteNumber: z.number().int().positive().optional(),
 });
 

@@ -129,5 +129,13 @@
   "numberChangeHistory": "سجل تغييرات الأرقام",
   "unknownUser": "مستخدم غير معروف",
   "resequenceSuccess": "تم إعادة ترقيم {{count}} فاتورة",
-  "resequenceFailed": "فشل إعادة ترقيم الفواتير"
+  "resequenceFailed": "فشل إعادة ترقيم الفواتير",
+  "createCreditNote": "إنشاء إشعار دائن",
+  "createCreditNoteDesc": "إنشاء إشعار دائن داخلي للفاتورة {{invoice}}. سيتم إنشاء فاتورة جديدة بمبالغ سالبة مرتبطة بالفاتورة الأصلية.",
+  "creditNoteReasonLabel": "السبب",
+  "creditNoteReasonPlaceholder": "أدخل سبب إنشاء هذا الإشعار الدائن...",
+  "creditNoteCreated": "تم إنشاء الإشعار الدائن",
+  "creditNoteCreateFailed": "فشل إنشاء الإشعار الدائن",
+  "creditNoteFor": "إشعار دائن لـ",
+  "linkedCreditNotes": "الإشعارات الدائنة"
 }

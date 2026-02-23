@@ -87,6 +87,9 @@ export interface Invoice {
   notes: string | null;
   terms: string | null;
   isTaxable: boolean;
+  isCreditNote: boolean;
+  originalInvoiceId: number | null;
+  creditNoteReason: string | null;
   isRecurring: boolean;
   recurringId: number | null;
   sentAt: string | null;
@@ -97,6 +100,8 @@ export interface Invoice {
   jofotaraInvoiceNumber: string | null;
   jofotaraSubmittedAt: string | null;
   lineItems?: LineItem[];
+  creditNotes?: Invoice[];
+  originalInvoice?: Invoice | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -191,6 +196,8 @@ export interface Settings {
   jofotaraIncomeSourceSequence: string | null;
   jofotaraInvoiceType: JofotaraInvoiceType;
   jofotaraEnabled: boolean;
+  creditNotePrefix: string;
+  nextCreditNoteNumber: number;
   bankEtihadUsername: string | null;
   bankEtihadEnabled: boolean;
   paypalClientId: string | null;
