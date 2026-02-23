@@ -67,7 +67,9 @@ import {
   useDeleteInvoice,
   useSendInvoice,
   useSendReminder,
+  useInvoiceNumberHistory,
 } from '@/hooks/use-invoices';
+import { InvoiceNumberEditor } from '@/components/invoices/invoice-number-editor';
 import {
   useInvoicePayments,
   useCreatePayment,
@@ -96,6 +98,7 @@ export function InvoiceDetailPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: invoice, isLoading } = useInvoice(id);
+  const { data: numberHistory } = useInvoiceNumberHistory(id);
   const { data: payments } = useInvoicePayments(invoice?.id);
   const deleteInvoice = useDeleteInvoice();
   const sendInvoice = useSendInvoice();
@@ -272,9 +275,7 @@ export function InvoiceDetailPage() {
             </Link>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl font-bold sm:text-2xl">
-                  {invoice.invoiceNumber}
-                </h2>
+                <InvoiceNumberEditor invoice={invoice} />
                 <Badge
                   variant="outline"
                   className={cn(
@@ -944,6 +945,47 @@ export function InvoiceDetailPage() {
             )}
 
             <EmailTrackingCard invoiceId={invoice.id} />
+
+            {/* Number Change Audit Trail */}
+            {numberHistory && numberHistory.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">
+                    {t('numberChangeHistory')}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {numberHistory.map((change) => (
+                      <div
+                        key={change.id}
+                        className="flex items-start gap-3 rounded-lg border p-3"
+                      >
+                        <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="flex items-center gap-2 text-sm">
+                            <span className="font-mono text-muted-foreground line-through">
+                              {change.oldNumber}
+                            </span>
+                            <span className="text-muted-foreground">&rarr;</span>
+                            <span className="font-mono font-medium">
+                              {change.newNumber}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {change.reason}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {change.user?.name || t('unknownUser')} &middot;{' '}
+                            {formatDate(change.createdAt)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
         </div>
       </div>
 

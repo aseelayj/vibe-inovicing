@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { settings } from '../db/schema.js';
+import { settings, invoices, quotes } from '../db/schema.js';
 import { validate } from '../middleware/validate.js';
-import { updateSettingsSchema } from '@vibe/shared';
+import { updateSettingsSchema, updateSequenceSchema } from '@vibe/shared';
 import { encryptSettingsSecrets, decryptSettingsSecrets } from '../utils/crypto.js';
 
 const router = Router();
@@ -106,6 +106,88 @@ router.put('/', validate(updateSettingsSchema), async (req, res, next) => {
     decrypted.smtpPassword = maskSecret(decrypted.smtpPassword);
 
     res.json({ data: decrypted });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Helper: find highest numeric suffix for a prefix in a given column
+// Uses numeric cast to avoid lexicographic comparison (INV-9999 vs INV-10000)
+async function findHighestNumber(
+  table: typeof invoices | typeof quotes,
+  column: any,
+  prefix: string,
+): Promise<number> {
+  const pattern = prefix + '-%';
+  const prefixLen = prefix.length + 1; // +1 for the dash
+  const [result] = await db
+    .select({
+      highest: sql<number>`MAX(CAST(SUBSTRING(${column} FROM ${prefixLen + 1}) AS INTEGER))`,
+    })
+    .from(table)
+    .where(sql`${column} LIKE ${pattern}`);
+  return result?.highest ?? 0;
+}
+
+// POST /validate-sequence - Validate sequence counter values before saving
+router.post('/validate-sequence', validate(updateSequenceSchema), async (req, res, next) => {
+  try {
+    const [settingsRow] = await db.select().from(settings).limit(1);
+    if (!settingsRow) {
+      res.json({ data: { warnings: [] } });
+      return;
+    }
+
+    const warnings: { field: string; message: string }[] = [];
+
+    const checks = [
+      {
+        field: 'nextInvoiceNumber',
+        value: req.body.nextInvoiceNumber,
+        prefix: settingsRow.invoicePrefix,
+        label: 'Taxable Invoice',
+        table: invoices as typeof invoices | typeof quotes,
+        column: invoices.invoiceNumber,
+      },
+      {
+        field: 'nextExemptInvoiceNumber',
+        value: req.body.nextExemptInvoiceNumber,
+        prefix: settingsRow.exemptInvoicePrefix,
+        label: 'Exempt Invoice',
+        table: invoices as typeof invoices | typeof quotes,
+        column: invoices.invoiceNumber,
+      },
+      {
+        field: 'nextWriteOffNumber',
+        value: req.body.nextWriteOffNumber,
+        prefix: settingsRow.writeOffPrefix,
+        label: 'Write-Off',
+        table: invoices as typeof invoices | typeof quotes,
+        column: invoices.invoiceNumber,
+      },
+      {
+        field: 'nextQuoteNumber',
+        value: req.body.nextQuoteNumber,
+        prefix: settingsRow.quotePrefix,
+        label: 'Quote',
+        table: quotes as typeof invoices | typeof quotes,
+        column: quotes.quoteNumber,
+      },
+    ];
+
+    for (const check of checks) {
+      if (check.value === undefined) continue;
+
+      const highest = await findHighestNumber(check.table, check.column, check.prefix);
+      if (highest > 0 && check.value <= highest) {
+        warnings.push({
+          field: check.field,
+          message: `${check.label} counter (${check.value}) is at or below the highest existing number (${highest}). This may cause duplicate number errors when creating new invoices.`,
+        });
+      }
+    }
+
+    res.json({ data: { warnings } });
   } catch (err) {
     next(err);
   }

@@ -128,8 +128,13 @@ export const updateSettingsSchema = z.object({
   defaultTaxRate: z.number().min(0).max(100).optional(),
   defaultPaymentTerms: z.number().int().positive().optional(),
   invoicePrefix: z.string().max(10).optional(),
+  nextInvoiceNumber: z.number().int().positive().optional(),
   exemptInvoicePrefix: z.string().max(10).optional(),
+  nextExemptInvoiceNumber: z.number().int().positive().optional(),
+  writeOffPrefix: z.string().max(10).optional(),
+  nextWriteOffNumber: z.number().int().positive().optional(),
   quotePrefix: z.string().max(10).optional(),
+  nextQuoteNumber: z.number().int().positive().optional(),
   jofotaraClientId: optionalString(100),
   jofotaraClientSecret: emptyToNull.pipe(z.string().nullable())
     .nullable().optional(),
@@ -407,6 +412,26 @@ export const updatePartnerSskSchema = z.object({
   isPaid: z.boolean().optional(),
   notes: z.string().nullable().optional(),
   totalAmount: z.number().positive().optional(),
+});
+
+// ---- Invoice Number Editing ----
+export const updateInvoiceNumberSchema = z.object({
+  newNumber: z.string().min(1, 'Invoice number is required').max(50),
+  reason: z.string().min(1, 'Reason is required').max(500),
+});
+
+// ---- Sequence Management ----
+export const updateSequenceSchema = z.object({
+  nextInvoiceNumber: z.number().int().positive().optional(),
+  nextExemptInvoiceNumber: z.number().int().positive().optional(),
+  nextWriteOffNumber: z.number().int().positive().optional(),
+  nextQuoteNumber: z.number().int().positive().optional(),
+});
+
+// ---- Bulk Resequence ----
+export const bulkResequenceSchema = z.object({
+  type: z.enum(['taxable', 'exempt', 'write_off']),
+  startFrom: z.number().int().positive().optional(),
 });
 
 // ---- Send Email (Invoice / Quote / Reminder) ----
