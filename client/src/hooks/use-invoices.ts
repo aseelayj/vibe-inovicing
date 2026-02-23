@@ -146,6 +146,27 @@ export function useSendReminder() {
   });
 }
 
+// ---- Credit Note ----
+
+export function useCreateCreditNote() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ invoiceId, reason }: { invoiceId: number; reason: string }) =>
+      api.post<Invoice>(`/invoices/${invoiceId}/credit-note`, { reason }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({
+        queryKey: ['invoices', String(variables.invoiceId)],
+      });
+      toast.success(i18n.t('invoices:creditNoteCreated', 'Credit note created'));
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || i18n.t('invoices:creditNoteCreateFailed', 'Failed to create credit note'));
+    },
+  });
+}
+
 // ---- Invoice Number Management ----
 
 export function useUpdateInvoiceNumber() {

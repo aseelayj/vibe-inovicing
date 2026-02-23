@@ -6,6 +6,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { ChatProvider, useChat } from '@/contexts/chat-context';
 import { ChatPanel } from '@/components/chat/chat-panel';
 import { ChatModeHeader } from '@/components/layout/chat-mode-header';
+import { ErrorBoundary } from '@/components/error-boundary';
 import { cn } from '@/lib/utils';
 
 function AppLayoutInner() {
@@ -44,7 +45,9 @@ function AppLayoutInner() {
         >
           <TopBar onToggleSidebar={toggleSidebar} />
           <main className="flex-1 p-4 sm:p-6 lg:p-6 xl:p-8">
-            <Outlet />
+            <ErrorBoundary>
+              <Outlet />
+            </ErrorBoundary>
           </main>
         </div>
         <ChatPanel variant="sidebar" />

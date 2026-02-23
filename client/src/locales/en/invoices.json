@@ -129,5 +129,13 @@
   "numberChangeHistory": "Number Change History",
   "unknownUser": "Unknown user",
   "resequenceSuccess": "{{count}} invoices resequenced",
-  "resequenceFailed": "Failed to resequence invoices"
+  "resequenceFailed": "Failed to resequence invoices",
+  "createCreditNote": "Create Credit Note",
+  "createCreditNoteDesc": "Create an internal credit note for invoice {{invoice}}. This will create a new invoice with negative amounts referencing the original.",
+  "creditNoteReasonLabel": "Reason",
+  "creditNoteReasonPlaceholder": "Enter the reason for this credit note...",
+  "creditNoteCreated": "Credit note created",
+  "creditNoteCreateFailed": "Failed to create credit note",
+  "creditNoteFor": "Credit note for",
+  "linkedCreditNotes": "Credit Notes"
 }

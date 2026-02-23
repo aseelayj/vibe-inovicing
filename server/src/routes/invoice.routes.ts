@@ -20,6 +20,7 @@ import {
   sendEmailSchema,
   updateInvoiceNumberSchema,
   bulkResequenceSchema,
+  createCreditNoteSchema,
 } from '@vibe/shared';
 import { generateInvoicePdf } from '../services/pdf.service.js';
 import { sendInvoiceEmail, sendPaymentReminder } from '../services/email.service.js';
@@ -503,6 +504,11 @@ router.get('/:id', async (req, res, next) => {
         client: true,
         lineItems: true,
         payments: true,
+        creditNotes: {
+          with: { client: true },
+          orderBy: (cn, { desc: d }) => [d(cn.createdAt)],
+        },
+        originalInvoice: true,
       },
     });
 
@@ -1414,5 +1420,110 @@ router.get('/:id/edit-status', async (req, res, next) => {
     next(err);
   }
 });
+
+// POST /:id/credit-note - Create a credit note for an invoice
+router.post(
+  '/:id/credit-note',
+  validate(createCreditNoteSchema),
+  async (req, res, next) => {
+    try {
+      const id = parseId(req, res);
+      if (id === null) return;
+
+      const { reason } = req.body;
+
+      const original = await db.query.invoices.findFirst({
+        where: eq(invoices.id, id),
+        with: { client: true, lineItems: true },
+      });
+
+      if (!original) {
+        res.status(404).json({ error: 'Invoice not found' });
+        return;
+      }
+
+      if (original.status === 'draft' || original.status === 'cancelled') {
+        res.status(400).json({
+          error: 'Cannot create a credit note for a draft or cancelled invoice',
+        });
+        return;
+      }
+
+      const result = await db.transaction(async (tx) => {
+        // Generate credit note number from settings (atomic increment)
+        const [settingsRow] = await tx
+          .update(settings)
+          .set({
+            nextCreditNoteNumber: sql`${settings.nextCreditNoteNumber} + 1`,
+          })
+          .returning();
+
+        if (!settingsRow) {
+          throw new Error(
+            'Settings not found. Please configure settings first.',
+          );
+        }
+
+        const num = settingsRow.nextCreditNoteNumber - 1;
+        const creditNoteNumber = `${settingsRow.creditNotePrefix}-${String(num).padStart(4, '0')}`;
+
+        // Copy financial data from original invoice
+        const [creditNote] = await tx.insert(invoices).values({
+          invoiceNumber: creditNoteNumber,
+          clientId: original.clientId,
+          status: 'draft',
+          issueDate: new Date().toISOString().split('T')[0],
+          dueDate: new Date().toISOString().split('T')[0],
+          currency: original.currency,
+          isTaxable: original.isTaxable,
+          taxRate: original.taxRate,
+          discountAmount: original.discountAmount,
+          subtotal: original.subtotal,
+          taxAmount: original.taxAmount,
+          total: original.total,
+          isCreditNote: true,
+          originalInvoiceId: original.id,
+          creditNoteReason: reason,
+          notes: `Credit note for invoice ${original.invoiceNumber}: ${reason}`,
+          terms: original.terms,
+        }).returning();
+
+        // Copy line items from original invoice
+        if (original.lineItems && original.lineItems.length > 0) {
+          const lineItemRows = original.lineItems.map(
+            (item, idx) => ({
+              invoiceId: creditNote.id,
+              description: item.description,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              amount: item.amount,
+              sortOrder: idx,
+            }),
+          );
+          await tx.insert(invoiceLineItems).values(lineItemRows);
+        }
+
+        await tx.insert(activityLog).values({
+          entityType: 'invoice',
+          entityId: creditNote.id,
+          action: 'credit_note_created',
+          description: `Credit note ${creditNoteNumber} created for invoice ${original.invoiceNumber}`,
+          userId: (req as AuthRequest).userId,
+        });
+
+        return creditNote;
+      });
+
+      const created = await db.query.invoices.findFirst({
+        where: eq(invoices.id, result.id),
+        with: { client: true, lineItems: true, originalInvoice: true },
+      });
+
+      res.status(201).json({ data: created });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 export default router;

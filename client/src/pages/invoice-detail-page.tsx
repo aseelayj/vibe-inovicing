@@ -9,21 +9,15 @@ import {
   Trash2,
   CreditCard,
   MoreHorizontal,
-  Loader2,
   Globe,
-  CheckCircle2,
-  AlertCircle,
-  ChevronDown,
-  ChevronUp,
   Bell,
+  FileText,
+  Undo2,
 } from 'lucide-react';
 import { EmailTrackingCard } from '@/components/email/email-tracking-card';
 import { useForm } from 'react-hook-form';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Card,
   CardContent,
@@ -33,27 +27,12 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Table,
   TableHeader,
@@ -68,6 +47,7 @@ import {
   useSendInvoice,
   useSendReminder,
   useInvoiceNumberHistory,
+  useCreateCreditNote,
 } from '@/hooks/use-invoices';
 import { InvoiceNumberEditor } from '@/components/invoices/invoice-number-editor';
 import {
@@ -85,11 +65,24 @@ import { useSettings } from '@/hooks/use-settings';
 import { useBankAccounts } from '@/hooks/use-bank-accounts';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { STATUS_COLORS, JOFOTARA_STATUS_COLORS } from '@/lib/constants';
-import { PAYMENT_METHODS, INVOICE_STATUSES, BIMONTHLY_PERIODS } from '@vibe/shared';
-import { api, getAuthToken } from '@/lib/api-client';
+import { BIMONTHLY_PERIODS } from '@vibe/shared';
+import { api } from '@/lib/api-client';
+import { downloadInvoicePdf } from '@/lib/download-pdf';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
+import {
+  PaymentHistoryCard,
+  RecordPaymentDialog,
+  DeletePaymentDialog,
+  JofotaraCard,
+  JofotaraSubmitDialog,
+  CreditNoteDialog,
+  DeleteInvoiceDialog,
+  SendInvoiceDialog,
+  SendReminderDialog,
+  CreateCreditNoteDialog,
+} from '@/components/invoices/invoice-detail';
 
 export function InvoiceDetailPage() {
   const { t } = useTranslation('invoices');
@@ -104,23 +97,20 @@ export function InvoiceDetailPage() {
   const sendInvoice = useSendInvoice();
   const sendReminder = useSendReminder();
   const createPayment = useCreatePayment();
-  const deletePayment = useDeletePayment();
+  const deletePaymentMutation = useDeletePayment();
   const { data: settings } = useSettings();
   const { data: bankAccountsList } = useBankAccounts(true);
   const jofotaraSubmit = useJofotaraSubmit();
   const jofotaraCreditSubmit = useJofotaraCreditSubmit();
   const jofotaraValidate = useJofotaraValidate();
-  const { data: jofotaraSubmissions } = useJofotaraSubmissions(
-    invoice?.id,
-  );
+  const { data: jofotaraSubmissions } = useJofotaraSubmissions(invoice?.id);
+  const createCreditNote = useCreateCreditNote();
 
   const [showDelete, setShowDelete] = useState(false);
   const [showSend, setShowSend] = useState(false);
   const [showReminder, setShowReminder] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
-  const [deletePaymentId, setDeletePaymentId] = useState<number | null>(
-    null,
-  );
+  const [deletePaymentId, setDeletePaymentId] = useState<number | null>(null);
   const [showJofotara, setShowJofotara] = useState(false);
   const [jofotaraStep, setJofotaraStep] = useState<
     'validating' | 'errors' | 'confirm'
@@ -132,6 +122,8 @@ export function InvoiceDetailPage() {
   const [showJofotaraHistory, setShowJofotaraHistory] = useState(false);
   const [showCreditNote, setShowCreditNote] = useState(false);
   const [creditNoteReason, setCreditNoteReason] = useState('');
+  const [showCreateCreditNote, setShowCreateCreditNote] = useState(false);
+  const [createCreditNoteReason, setCreateCreditNoteReason] = useState('');
 
   const paymentForm = useForm({
     defaultValues: {
@@ -146,6 +138,8 @@ export function InvoiceDetailPage() {
 
   if (isLoading) return <LoadingSpinner />;
   if (!invoice) return null;
+
+  const remaining = invoice.total - invoice.amountPaid;
 
   const handleDelete = async () => {
     try {
@@ -176,10 +170,7 @@ export function InvoiceDetailPage() {
 
   const handleRecordPayment = async (data: Record<string, unknown>) => {
     try {
-      await createPayment.mutateAsync({
-        invoiceId: invoice.id,
-        ...data,
-      });
+      await createPayment.mutateAsync({ invoiceId: invoice.id, ...data });
       setShowPayment(false);
       paymentForm.reset();
     } catch {
@@ -190,7 +181,7 @@ export function InvoiceDetailPage() {
   const handleDeletePayment = async () => {
     if (deletePaymentId === null) return;
     try {
-      await deletePayment.mutateAsync(deletePaymentId);
+      await deletePaymentMutation.mutateAsync(deletePaymentId);
       setDeletePaymentId(null);
     } catch {
       // handled
@@ -199,9 +190,7 @@ export function InvoiceDetailPage() {
 
   const handleStatusChange = async (newStatus: string) => {
     try {
-      await api.patch(`/invoices/${invoice.id}/status`, {
-        status: newStatus,
-      });
+      await api.patch(`/invoices/${invoice.id}/status`, { status: newStatus });
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({
         queryKey: ['invoices', String(invoice.id)],
@@ -260,7 +249,25 @@ export function InvoiceDetailPage() {
     }
   };
 
-  const remaining = invoice.total - invoice.amountPaid;
+  const handleCreateCreditNote = async () => {
+    if (!createCreditNoteReason.trim()) {
+      toast.error('Reason is required');
+      return;
+    }
+    try {
+      const result = await createCreditNote.mutateAsync({
+        invoiceId: invoice.id,
+        reason: createCreditNoteReason,
+      });
+      setShowCreateCreditNote(false);
+      setCreateCreditNoteReason('');
+      if (result?.id) {
+        navigate(`/invoices/${result.id}`);
+      }
+    } catch {
+      // handled by mutation
+    }
+  };
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -311,6 +318,15 @@ export function InvoiceDetailPage() {
                         : invoice.jofotaraStatus.replace(/_/g, ' ')}
                     </Badge>
                   )}
+                {invoice.isCreditNote && (
+                  <Badge
+                    variant="outline"
+                    className="border-transparent bg-purple-100 text-purple-700"
+                  >
+                    <Undo2 className="me-1 h-3 w-3" />
+                    {t('creditNote')}
+                  </Badge>
+                )}
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
                 {t('created', { date: formatDate(invoice.createdAt) })}
@@ -334,6 +350,20 @@ export function InvoiceDetailPage() {
                   );
                 })()}
               </p>
+              {invoice.isCreditNote && invoice.originalInvoice && (
+                <p className="mt-1 text-sm">
+                  <span className="text-muted-foreground">{t('creditNoteFor')}{' '}</span>
+                  <Link
+                    to={`/invoices/${invoice.originalInvoiceId}`}
+                    className="font-medium text-primary hover:underline"
+                  >
+                    {invoice.originalInvoice.invoiceNumber}
+                  </Link>
+                  {invoice.creditNoteReason && (
+                    <span className="text-muted-foreground"> — {invoice.creditNoteReason}</span>
+                  )}
+                </p>
+              )}
             </div>
           </div>
 
@@ -366,24 +396,7 @@ export function InvoiceDetailPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={async () => {
-                try {
-                  const token = getAuthToken();
-                  const res = await fetch(`/api/invoices/${invoice.id}/pdf`, {
-                    headers: token ? { Authorization: `Bearer ${token}` } : {},
-                  });
-                  if (!res.ok) throw new Error('Failed to download PDF');
-                  const blob = await res.blob();
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `${invoice.invoiceNumber}.pdf`;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                } catch {
-                  toast.error('Failed to download PDF');
-                }
-              }}
+              onClick={() => downloadInvoicePdf(invoice.id, invoice.invoiceNumber)}
             >
               <Download className="h-4 w-4" />
               {tc('pdf')}
@@ -411,6 +424,18 @@ export function InvoiceDetailPage() {
                 >
                   <Globe className="h-4 w-4" />
                   {t('exportToJofotara')}
+                </Button>
+              )}
+            {!invoice.isCreditNote &&
+              invoice.status !== 'draft' &&
+              invoice.status !== 'cancelled' && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowCreateCreditNote(true)}
+                >
+                  <Undo2 className="h-4 w-4" />
+                  {t('createCreditNote')}
                 </Button>
               )}
           </div>
@@ -446,24 +471,7 @@ export function InvoiceDetailPage() {
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem
-                  onClick={async () => {
-                    try {
-                      const token = getAuthToken();
-                      const res = await fetch(`/api/invoices/${invoice.id}/pdf`, {
-                        headers: token ? { Authorization: `Bearer ${token}` } : {},
-                      });
-                      if (!res.ok) throw new Error('Failed to download PDF');
-                      const blob = await res.blob();
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = `${invoice.invoiceNumber}.pdf`;
-                      a.click();
-                      URL.revokeObjectURL(url);
-                    } catch {
-                      toast.error('Failed to download PDF');
-                    }
-                  }}
+                  onClick={() => downloadInvoicePdf(invoice.id, invoice.invoiceNumber)}
                 >
                   <Download className="h-4 w-4" />
                   {t('downloadPdf')}
@@ -485,6 +493,14 @@ export function InvoiceDetailPage() {
                     <DropdownMenuItem onClick={handleJofotaraOpen}>
                       <Globe className="h-4 w-4" />
                       {t('exportToJofotara')}
+                    </DropdownMenuItem>
+                  )}
+                {!invoice.isCreditNote &&
+                  invoice.status !== 'draft' &&
+                  invoice.status !== 'cancelled' && (
+                    <DropdownMenuItem onClick={() => setShowCreateCreditNote(true)}>
+                      <Undo2 className="h-4 w-4" />
+                      {t('createCreditNote')}
                     </DropdownMenuItem>
                   )}
                 <DropdownMenuSeparator />
@@ -554,6 +570,7 @@ export function InvoiceDetailPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-3">
         <div className="space-y-4 sm:space-y-6 xl:col-span-2">
+          {/* Client & Dates Card */}
           <Card>
             <CardContent>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
@@ -580,17 +597,13 @@ export function InvoiceDetailPage() {
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       {t('issueDate')}
                     </p>
-                    <p className="text-sm">
-                      {formatDate(invoice.issueDate)}
-                    </p>
+                    <p className="text-sm">{formatDate(invoice.issueDate)}</p>
                   </div>
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       {t('dueDate')}
                     </p>
-                    <p className="text-sm">
-                      {formatDate(invoice.dueDate)}
-                    </p>
+                    <p className="text-sm">{formatDate(invoice.dueDate)}</p>
                   </div>
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -603,6 +616,7 @@ export function InvoiceDetailPage() {
             </CardContent>
           </Card>
 
+          {/* Line Items Card */}
           <Card>
             <CardHeader>
               <CardTitle>{tc('lineItems')}</CardTitle>
@@ -613,9 +627,7 @@ export function InvoiceDetailPage() {
                   <TableRow>
                     <TableHead>{tc('description')}</TableHead>
                     <TableHead className="text-end">{tc('qty')}</TableHead>
-                    <TableHead className="text-end">
-                      {tc('unitPrice')}
-                    </TableHead>
+                    <TableHead className="text-end">{tc('unitPrice')}</TableHead>
                     <TableHead className="text-end">{tc('amount')}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -623,9 +635,7 @@ export function InvoiceDetailPage() {
                   {invoice.lineItems?.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell>{item.description}</TableCell>
-                      <TableCell className="text-end">
-                        {item.quantity}
-                      </TableCell>
+                      <TableCell className="text-end">{item.quantity}</TableCell>
                       <TableCell className="text-end">
                         {formatCurrency(item.unitPrice, invoice.currency)}
                       </TableCell>
@@ -642,65 +652,39 @@ export function InvoiceDetailPage() {
                   <Separator />
                   <div className="flex justify-between pt-2 text-sm">
                     <span className="text-muted-foreground">{tc('subtotal')}</span>
-                    <span>
-                      {formatCurrency(
-                        invoice.subtotal,
-                        invoice.currency,
-                      )}
-                    </span>
+                    <span>{formatCurrency(invoice.subtotal, invoice.currency)}</span>
                   </div>
                   {invoice.taxRate > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">
                         {tc('taxWithRate', { rate: invoice.taxRate })}
                       </span>
-                      <span>
-                        {formatCurrency(
-                          invoice.taxAmount,
-                          invoice.currency,
-                        )}
-                      </span>
+                      <span>{formatCurrency(invoice.taxAmount, invoice.currency)}</span>
                     </div>
                   )}
                   {invoice.discountAmount > 0 && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        {tc('discount')}
-                      </span>
+                      <span className="text-muted-foreground">{tc('discount')}</span>
                       <span className="text-destructive">
-                        -
-                        {formatCurrency(
-                          invoice.discountAmount,
-                          invoice.currency,
-                        )}
+                        -{formatCurrency(invoice.discountAmount, invoice.currency)}
                       </span>
                     </div>
                   )}
                   <Separator />
                   <div className="flex justify-between pt-2 font-bold">
                     <span>{tc('total')}</span>
-                    <span>
-                      {formatCurrency(invoice.total, invoice.currency)}
-                    </span>
+                    <span>{formatCurrency(invoice.total, invoice.currency)}</span>
                   </div>
                   {invoice.amountPaid > 0 && (
                     <>
                       <div className="flex justify-between text-sm text-green-600">
                         <span>{t('paid')}</span>
-                        <span>
-                          -
-                          {formatCurrency(
-                            invoice.amountPaid,
-                            invoice.currency,
-                          )}
-                        </span>
+                        <span>-{formatCurrency(invoice.amountPaid, invoice.currency)}</span>
                       </div>
                       <Separator />
                       <div className="flex justify-between pt-2 font-bold text-primary">
                         <span>{t('balanceDue')}</span>
-                        <span>
-                          {formatCurrency(remaining, invoice.currency)}
-                        </span>
+                        <span>{formatCurrency(remaining, invoice.currency)}</span>
                       </div>
                     </>
                   )}
@@ -709,6 +693,7 @@ export function InvoiceDetailPage() {
             </CardContent>
           </Card>
 
+          {/* Notes & Terms */}
           {(invoice.notes || invoice.terms) && (
             <Card>
               <CardContent>
@@ -737,704 +722,183 @@ export function InvoiceDetailPage() {
           )}
         </div>
 
+        {/* Right sidebar */}
         <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('paymentHistory')}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {!payments?.length ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">
-                  {t('noPaymentsRecorded')}
-                </p>
-              ) : (
-                <ul className="space-y-3">
-                  {payments.map((payment) => (
-                    <li
-                      key={payment.id}
-                      className="flex items-center justify-between rounded-lg bg-muted/50 p-3"
-                    >
-                      <div>
-                        <p className="text-sm font-medium">
-                          {formatCurrency(
-                            payment.amount,
-                            invoice.currency,
-                          )}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(payment.paymentDate)}
-                          {payment.paymentMethod &&
-                            ` ${t('via', { method: payment.paymentMethod.replace(/_/g, ' ') })}`}
-                        </p>
-                        {payment.reference && (
-                          <p className="text-xs text-muted-foreground">
-                            {t('ref', { reference: payment.reference })}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon-xs"
-                          className="text-muted-foreground hover:text-primary"
-                          onClick={async () => {
-                            try {
-                              const token = localStorage.getItem('token');
-                              const res = await fetch(`/api/payments/${payment.id}/receipt`, {
-                                headers: token ? { Authorization: `Bearer ${token}` } : {},
-                              });
-                              if (!res.ok) throw new Error('Failed');
-                              const blob = await res.blob();
-                              const url = URL.createObjectURL(blob);
-                              const a = document.createElement('a');
-                              a.href = url;
-                              a.download = `receipt-${payment.id}.pdf`;
-                              a.click();
-                              URL.revokeObjectURL(url);
-                            } catch {
-                              toast.error('Failed to download receipt');
-                            }
-                          }}
-                          aria-label={tc('receipt')}
-                        >
-                          <Download className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon-xs"
-                          className="text-muted-foreground hover:text-destructive"
-                          onClick={() => setDeletePaymentId(payment.id)}
-                          aria-label={t('deletePayment')}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
+          <PaymentHistoryCard
+            invoice={invoice}
+            payments={payments}
+            onDeletePayment={setDeletePaymentId}
+          />
 
           {settings?.jofotaraEnabled &&
             invoice.jofotaraStatus !== 'not_submitted' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Globe className="h-4 w-4" />
-                    {t('jofotaraEInvoice')}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">
-                      {tc('status')}
-                    </span>
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        JOFOTARA_STATUS_COLORS[invoice.jofotaraStatus],
-                        'border-transparent',
-                      )}
-                    >
-                      {invoice.jofotaraStatus.replace(/_/g, ' ')}
-                    </Badge>
-                  </div>
-                  {invoice.jofotaraUuid && (
-                    <div>
-                      <p className="text-xs text-muted-foreground">
-                        {t('jofotaraUuid')}
-                      </p>
-                      <p className="break-all text-xs font-mono">
-                        {invoice.jofotaraUuid}
-                      </p>
-                    </div>
-                  )}
-                  {invoice.jofotaraInvoiceNumber && (
-                    <div>
-                      <p className="text-xs text-muted-foreground">
-                        {t('jofotaraInvoiceNumber')}
-                      </p>
-                      <p className="text-sm font-medium">
-                        {invoice.jofotaraInvoiceNumber}
-                      </p>
-                    </div>
-                  )}
-                  {invoice.jofotaraSubmittedAt && (
-                    <div>
-                      <p className="text-xs text-muted-foreground">
-                        {t('jofotaraSubmitted')}
-                      </p>
-                      <p className="text-sm">
-                        {formatDate(invoice.jofotaraSubmittedAt)}
-                      </p>
-                    </div>
-                  )}
-                  {invoice.jofotaraQrCode && (
-                    <div className="pt-2">
-                      <p className="mb-2 text-xs text-muted-foreground">
-                        {t('jofotaraQrCode')}
-                      </p>
-                      <div className="flex justify-center rounded-lg bg-white p-3">
-                        <img
-                          src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(invoice.jofotaraQrCode)}`}
-                          alt="JoFotara QR Code"
-                          className="h-[150px] w-[150px]"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {jofotaraSubmissions && jofotaraSubmissions.length > 0 && (
-                    <div className="pt-2">
-                      <button
-                        type="button"
-                        className="flex w-full items-center justify-between text-sm font-medium"
-                        onClick={() =>
-                          setShowJofotaraHistory(!showJofotaraHistory)
-                        }
-                      >
-                        {t('submissionHistory', {
-                          count: jofotaraSubmissions.length,
-                        })}
-                        {showJofotaraHistory ? (
-                          <ChevronUp className="h-4 w-4" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4" />
-                        )}
-                      </button>
-                      {showJofotaraHistory && (
-                        <ul className="mt-2 space-y-2">
-                          {jofotaraSubmissions.map((sub) => (
-                            <li
-                              key={sub.id}
-                              className="rounded-lg bg-muted/50 p-2"
-                            >
-                              <div className="flex items-center justify-between">
-                                <Badge
-                                  variant="outline"
-                                  className={cn(
-                                    JOFOTARA_STATUS_COLORS[sub.status],
-                                    'border-transparent text-xs',
-                                  )}
-                                >
-                                  {sub.status.replace(/_/g, ' ')}
-                                </Badge>
-                                <span className="text-xs text-muted-foreground">
-                                  {formatDate(sub.createdAt)}
-                                </span>
-                              </div>
-                              {sub.errorMessage && (
-                                <p className="mt-1 text-xs text-destructive">
-                                  {sub.errorMessage}
-                                </p>
-                              )}
-                              {sub.isCreditInvoice && (
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                  {t('creditNote')}
-                                </p>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              <JofotaraCard
+                invoice={invoice}
+                submissions={jofotaraSubmissions}
+                showHistory={showJofotaraHistory}
+                onToggleHistory={() => setShowJofotaraHistory(!showJofotaraHistory)}
+              />
             )}
 
-            <EmailTrackingCard invoiceId={invoice.id} />
+          <EmailTrackingCard invoiceId={invoice.id} />
 
-            {/* Number Change Audit Trail */}
-            {numberHistory && numberHistory.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">
-                    {t('numberChangeHistory')}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {numberHistory.map((change) => (
-                      <div
-                        key={change.id}
-                        className="flex items-start gap-3 rounded-lg border p-3"
+          {/* Linked Credit Notes */}
+          {invoice.creditNotes && invoice.creditNotes.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Undo2 className="h-4 w-4" />
+                  {t('linkedCreditNotes')}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {invoice.creditNotes.map((note) => (
+                    <li key={note.id}>
+                      <Link
+                        to={`/invoices/${note.id}`}
+                        className="flex items-center justify-between rounded-lg bg-muted/50 p-3 transition-colors hover:bg-muted"
                       >
-                        <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" />
-                        <div className="min-w-0 flex-1 space-y-1">
-                          <div className="flex items-center gap-2 text-sm">
-                            <span className="font-mono text-muted-foreground line-through">
-                              {change.oldNumber}
-                            </span>
-                            <span className="text-muted-foreground">&rarr;</span>
-                            <span className="font-mono font-medium">
-                              {change.newNumber}
-                            </span>
-                          </div>
+                        <div>
+                          <p className="text-sm font-medium">{note.invoiceNumber}</p>
                           <p className="text-xs text-muted-foreground">
-                            {change.reason}
+                            {formatDate(note.createdAt)}
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            {change.user?.name || t('unknownUser')} &middot;{' '}
-                            {formatDate(change.createdAt)}
-                          </p>
+                          {note.creditNoteReason && (
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {note.creditNoteReason}
+                            </p>
+                          )}
                         </div>
+                        <div className="text-end">
+                          <p className="text-sm font-medium text-destructive">
+                            -{formatCurrency(note.total, note.currency)}
+                          </p>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              STATUS_COLORS[note.status],
+                              'border-transparent text-xs',
+                            )}
+                          >
+                            {note.status.replace(/_/g, ' ')}
+                          </Badge>
+                        </div>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Number Change Audit Trail */}
+          {numberHistory && numberHistory.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  {t('numberChangeHistory')}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {numberHistory.map((change) => (
+                    <div
+                      key={change.id}
+                      className="flex items-start gap-3 rounded-lg border p-3"
+                    >
+                      <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="font-mono text-muted-foreground line-through">
+                            {change.oldNumber}
+                          </span>
+                          <span className="text-muted-foreground">&rarr;</span>
+                          <span className="font-mono font-medium">
+                            {change.newNumber}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {change.reason}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {change.user?.name || t('unknownUser')} &middot;{' '}
+                          {formatDate(change.createdAt)}
+                        </p>
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
 
-      {/* Delete invoice dialog */}
-      <Dialog
+      {/* Dialogs */}
+      <DeleteInvoiceDialog
         open={showDelete}
-        onOpenChange={(open) => !open && setShowDelete(false)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('deleteInvoice')}</DialogTitle>
-            <DialogDescription>
-              {t('deleteInvoiceConfirm')}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowDelete(false)}
-            >
-              {tc('cancel')}
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={deleteInvoice.isPending}
-            >
-              {deleteInvoice.isPending ? tc('deleting') : tc('delete')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Send invoice dialog */}
-      <Dialog
+        onOpenChange={setShowDelete}
+        onConfirm={handleDelete}
+        isPending={deleteInvoice.isPending}
+      />
+      <SendInvoiceDialog
         open={showSend}
-        onOpenChange={(open) => !open && setShowSend(false)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('sendInvoice')}</DialogTitle>
-            <DialogDescription>
-              {invoice.client?.email
-                ? t('sendInvoiceConfirm', { email: invoice.client.email })
-                : t('sendInvoiceConfirmGeneric')}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowSend(false)}
-            >
-              {tc('cancel')}
-            </Button>
-            <Button
-              onClick={handleSend}
-              disabled={sendInvoice.isPending}
-            >
-              {sendInvoice.isPending ? tc('sending') : t('sendInvoice')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Send reminder dialog */}
-      <Dialog
+        onOpenChange={setShowSend}
+        onConfirm={handleSend}
+        isPending={sendInvoice.isPending}
+        clientEmail={invoice.client?.email}
+      />
+      <SendReminderDialog
         open={showReminder}
-        onOpenChange={(open) => !open && setShowReminder(false)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Bell className="h-5 w-5 text-amber-600" />
-              {t('sendPaymentReminder')}
-            </DialogTitle>
-            <DialogDescription>
-              {t('sendReminderConfirm', {
-                email: invoice.client?.email || 'the client',
-                invoice: invoice.invoiceNumber,
-              })}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-amber-700">{t('amountDue')}</span>
-              <span className="font-semibold text-amber-800">
-                {formatCurrency(remaining, invoice.currency)}
-              </span>
-            </div>
-            <div className="mt-1 flex items-center justify-between text-sm">
-              <span className="text-amber-700">{t('dueDate')}</span>
-              <span className="font-medium text-amber-800">
-                {formatDate(invoice.dueDate)}
-              </span>
-            </div>
-            {(() => {
-              const now = new Date();
-              const dueDate = new Date(invoice.dueDate);
-              const daysOverdue = Math.floor(
-                (now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24),
-              );
-              if (daysOverdue > 0) {
-                return (
-                  <div className="mt-1 flex items-center justify-between text-sm">
-                    <span className="text-red-600">{t('overdueLabel')}</span>
-                    <span className="font-semibold text-red-700">
-                      {t('overdueDays', { count: daysOverdue })}
-                    </span>
-                  </div>
-                );
-              }
-              return null;
-            })()}
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowReminder(false)}
-            >
-              {tc('cancel')}
-            </Button>
-            <Button
-              className="bg-amber-600 text-white hover:bg-amber-700"
-              onClick={handleSendReminder}
-              disabled={sendReminder.isPending}
-            >
-              {sendReminder.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {tc('sending')}
-                </>
-              ) : (
-                <>
-                  <Bell className="h-4 w-4" />
-                  {t('sendReminder')}
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Record payment dialog */}
-      <Dialog
+        onOpenChange={setShowReminder}
+        onConfirm={handleSendReminder}
+        isPending={sendReminder.isPending}
+        invoice={invoice}
+        remaining={remaining}
+      />
+      <RecordPaymentDialog
         open={showPayment}
-        onOpenChange={(open) => !open && setShowPayment(false)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('recordPayment')}</DialogTitle>
-            <DialogDescription>
-              {t('recordPaymentDesc', {
-                invoice: invoice.invoiceNumber,
-              })}
-            </DialogDescription>
-          </DialogHeader>
-          <form
-            onSubmit={paymentForm.handleSubmit(handleRecordPayment)}
-            className="space-y-4"
-          >
-            <div className="space-y-2">
-              <Label htmlFor="payment-amount">{t('paymentAmount')}</Label>
-              <Input
-                id="payment-amount"
-                type="number"
-                min="0.01"
-                step="0.01"
-                {...paymentForm.register('amount', {
-                  valueAsNumber: true,
-                })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="payment-date">{t('paymentDate')}</Label>
-              <Input
-                id="payment-date"
-                type="date"
-                {...paymentForm.register('paymentDate')}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>{tc('paymentMethod')}</Label>
-              <Select
-                value={paymentForm.watch('paymentMethod')}
-                onValueChange={(val) =>
-                  paymentForm.setValue('paymentMethod', val)
-                }
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={tc('selectMethod')} />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAYMENT_METHODS.map((m) => (
-                    <SelectItem key={m} value={m}>
-                      {m
-                        .replace(/_/g, ' ')
-                        .replace(/\b\w/g, (c) => c.toUpperCase())}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {bankAccountsList && bankAccountsList.length > 0 && (
-              <div className="space-y-2">
-                <Label>{t('depositTo')}</Label>
-                <Select
-                  value={
-                    paymentForm.watch('bankAccountId')
-                      ? String(paymentForm.watch('bankAccountId'))
-                      : 'none'
-                  }
-                  onValueChange={(val) =>
-                    paymentForm.setValue(
-                      'bankAccountId',
-                      val === 'none' ? null : Number(val),
-                    )
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder={t('selectBankAccount')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">
-                      {t('noAccountDontTrack')}
-                    </SelectItem>
-                    {bankAccountsList.map((acc) => (
-                      <SelectItem key={acc.id} value={String(acc.id)}>
-                        {acc.name}
-                        {acc.bankName ? ` -- ${acc.bankName}` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  {t('depositAutoCreate')}
-                </p>
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="payment-reference">{tc('reference')}</Label>
-              <Input
-                id="payment-reference"
-                placeholder={t('referencePlaceholder')}
-                {...paymentForm.register('reference')}
-              />
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setShowPayment(false)}
-              >
-                {tc('cancel')}
-              </Button>
-              <Button
-                type="submit"
-                disabled={createPayment.isPending}
-              >
-                {createPayment.isPending
-                  ? tc('recording')
-                  : t('recordPayment')}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete payment dialog */}
-      <Dialog
+        onOpenChange={setShowPayment}
+        invoice={invoice}
+        paymentForm={paymentForm}
+        onSubmit={handleRecordPayment}
+        isPending={createPayment.isPending}
+        bankAccounts={bankAccountsList}
+      />
+      <DeletePaymentDialog
         open={deletePaymentId !== null}
-        onOpenChange={(open) => !open && setDeletePaymentId(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('deletePayment')}</DialogTitle>
-            <DialogDescription>
-              {t('deletePaymentConfirm')}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDeletePaymentId(null)}
-            >
-              {tc('cancel')}
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeletePayment}
-              disabled={deletePayment.isPending}
-            >
-              {deletePayment.isPending ? tc('deleting') : tc('delete')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* JoFotara submit dialog */}
-      <Dialog
+        onOpenChange={() => setDeletePaymentId(null)}
+        onConfirm={handleDeletePayment}
+        isPending={deletePaymentMutation.isPending}
+      />
+      <JofotaraSubmitDialog
         open={showJofotara}
-        onOpenChange={(open) => !open && setShowJofotara(false)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Globe className="h-5 w-5" />
-              {t('exportToJofotara')}
-            </DialogTitle>
-            <DialogDescription>
-              {t('jofotaraSubmitDesc')}
-            </DialogDescription>
-          </DialogHeader>
-
-          {jofotaraStep === 'validating' && (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              <span className="ms-2 text-sm text-muted-foreground">
-                {t('validatingInvoice')}
-              </span>
-            </div>
-          )}
-
-          {jofotaraStep === 'errors' && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-destructive">
-                <AlertCircle className="h-5 w-5" />
-                <p className="font-medium">
-                  {t('invoiceCannotBeSubmitted')}
-                </p>
-              </div>
-              <ul className="space-y-1">
-                {jofotaraErrors.map((err, i) => (
-                  <li
-                    key={i}
-                    className="flex items-start gap-2 text-sm text-muted-foreground"
-                  >
-                    <span className="mt-0.5 text-destructive">-</span>
-                    {err}
-                  </li>
-                ))}
-              </ul>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowJofotara(false)}
-                >
-                  {tc('close')}
-                </Button>
-              </DialogFooter>
-            </div>
-          )}
-
-          {jofotaraStep === 'confirm' && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-green-600">
-                <CheckCircle2 className="h-5 w-5" />
-                <p className="font-medium">
-                  {t('invoiceValidForSubmission')}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label>{tc('paymentMethod')}</Label>
-                <Select
-                  value={jofotaraPaymentMethod}
-                  onValueChange={(val) =>
-                    setJofotaraPaymentMethod(
-                      val as 'cash' | 'receivable',
-                    )
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cash">{t('jofotaraCash')}</SelectItem>
-                    <SelectItem value="receivable">
-                      {t('jofotaraReceivable')}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowJofotara(false)}
-                >
-                  {tc('cancel')}
-                </Button>
-                <Button
-                  onClick={handleJofotaraSubmit}
-                  disabled={jofotaraSubmit.isPending}
-                >
-                  {jofotaraSubmit.isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      {tc('submitting')}
-                    </>
-                  ) : (
-                    t('jofotaraSubmit')
-                  )}
-                </Button>
-              </DialogFooter>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Credit note dialog */}
-      <Dialog
+        onOpenChange={setShowJofotara}
+        step={jofotaraStep}
+        errors={jofotaraErrors}
+        paymentMethod={jofotaraPaymentMethod}
+        onPaymentMethodChange={setJofotaraPaymentMethod}
+        onSubmit={handleJofotaraSubmit}
+        isPending={jofotaraSubmit.isPending}
+      />
+      <CreditNoteDialog
         open={showCreditNote}
-        onOpenChange={(open) => !open && setShowCreditNote(false)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('issueCreditNote')}</DialogTitle>
-            <DialogDescription>
-              {t('issueCreditNoteDesc', {
-                invoice: invoice.invoiceNumber,
-              })}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="credit-reason">{t('reasonForReturn')}</Label>
-              <Textarea
-                id="credit-reason"
-                rows={3}
-                placeholder={t('reasonPlaceholder')}
-                value={creditNoteReason}
-                onChange={(e) => setCreditNoteReason(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowCreditNote(false)}
-            >
-              {tc('cancel')}
-            </Button>
-            <Button
-              onClick={handleCreditNoteSubmit}
-              disabled={!creditNoteReason.trim()}
-            >
-              {t('submitCreditNote')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        onOpenChange={setShowCreditNote}
+        invoiceNumber={invoice.invoiceNumber}
+        reason={creditNoteReason}
+        onReasonChange={setCreditNoteReason}
+        onSubmit={handleCreditNoteSubmit}
+      />
+      <CreateCreditNoteDialog
+        open={showCreateCreditNote}
+        onOpenChange={setShowCreateCreditNote}
+        invoiceNumber={invoice.invoiceNumber}
+        reason={createCreditNoteReason}
+        onReasonChange={setCreateCreditNoteReason}
+        onSubmit={handleCreateCreditNote}
+        isPending={createCreditNote.isPending}
+      />
     </div>
   );
 }
