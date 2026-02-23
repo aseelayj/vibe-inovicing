@@ -451,6 +451,24 @@ export const users = pgTable('users', {
   index('idx_users_email').on(table.email),
 ]);
 
+// ---- Invoice Number Changes (Audit Trail) ----
+export const invoiceNumberChanges = pgTable('invoice_number_changes', {
+  id: serial('id').primaryKey(),
+  invoiceId: integer('invoice_id').notNull()
+    .references(() => invoices.id, { onDelete: 'cascade' }),
+  oldNumber: varchar('old_number', { length: 50 }).notNull(),
+  newNumber: varchar('new_number', { length: 50 }).notNull(),
+  reason: text('reason').notNull(),
+  invoiceStatus: varchar('invoice_status', { length: 20 }).notNull(),
+  changedBy: integer('changed_by').references(() => users.id, {
+    onDelete: 'set null',
+  }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [
+  index('idx_inv_number_changes_invoice').on(table.invoiceId),
+  index('idx_inv_number_changes_created').on(table.createdAt),
+]);
+
 // ---- Activity Log ----
 export const activityLog = pgTable('activity_log', {
   id: serial('id').primaryKey(),
@@ -728,7 +746,22 @@ export const invoicesRelations = relations(invoices, ({ one, many }) => ({
   lineItems: many(invoiceLineItems),
   payments: many(payments),
   jofotaraSubmissions: many(jofotaraSubmissions),
+  numberChanges: many(invoiceNumberChanges),
 }));
+
+export const invoiceNumberChangesRelations = relations(
+  invoiceNumberChanges,
+  ({ one }) => ({
+    invoice: one(invoices, {
+      fields: [invoiceNumberChanges.invoiceId],
+      references: [invoices.id],
+    }),
+    user: one(users, {
+      fields: [invoiceNumberChanges.changedBy],
+      references: [users.id],
+    }),
+  }),
+);
 
 export const jofotaraSubmissionsRelations = relations(
   jofotaraSubmissions,

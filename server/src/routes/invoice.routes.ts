@@ -9,6 +9,8 @@ import {
   activityLog,
   emailLog,
   emailTemplates,
+  invoiceNumberChanges,
+  users,
 } from '../db/schema.js';
 import { validate } from '../middleware/validate.js';
 import {
@@ -16,6 +18,8 @@ import {
   updateInvoiceSchema,
   updateInvoiceStatusSchema,
   sendEmailSchema,
+  updateInvoiceNumberSchema,
+  bulkResequenceSchema,
 } from '@vibe/shared';
 import { generateInvoicePdf } from '../services/pdf.service.js';
 import { sendInvoiceEmail, sendPaymentReminder } from '../services/email.service.js';
@@ -174,6 +178,278 @@ router.get('/', async (req, res, next) => {
     next(err);
   }
 });
+
+// ====================================================================
+// STATIC-PATH ROUTES (must be before /:id to avoid Express conflicts)
+// ====================================================================
+
+// GET /gaps - Gap detection report
+router.get('/gaps', async (req, res, next) => {
+  try {
+    const [settingsRow] = await db.select().from(settings).limit(1);
+    if (!settingsRow) {
+      res.json({ data: [] });
+      return;
+    }
+
+    const allInvoices = await db
+      .select({
+        invoiceNumber: invoices.invoiceNumber,
+        status: invoices.status,
+        isTaxable: invoices.isTaxable,
+      })
+      .from(invoices)
+      .orderBy(invoices.invoiceNumber);
+
+    const gaps = [];
+    const types = [
+      {
+        prefix: settingsRow.invoicePrefix,
+        type: 'taxable' as const,
+        filter: (inv: { isTaxable: boolean; invoiceNumber: string }) =>
+          inv.isTaxable && inv.invoiceNumber.startsWith(settingsRow.invoicePrefix + '-'),
+      },
+      {
+        prefix: settingsRow.exemptInvoicePrefix,
+        type: 'exempt' as const,
+        filter: (inv: { isTaxable: boolean; invoiceNumber: string }) =>
+          !inv.isTaxable
+          && inv.invoiceNumber.startsWith(settingsRow.exemptInvoicePrefix + '-')
+          && !inv.invoiceNumber.startsWith(settingsRow.writeOffPrefix + '-'),
+      },
+      {
+        prefix: settingsRow.writeOffPrefix,
+        type: 'write_off' as const,
+        filter: (inv: { invoiceNumber: string }) =>
+          inv.invoiceNumber.startsWith(settingsRow.writeOffPrefix + '-'),
+      },
+    ];
+
+    for (const { prefix, type, filter } of types) {
+      const matching = allInvoices.filter(filter);
+      if (matching.length === 0) {
+        gaps.push({
+          prefix, type, missingNumbers: [],
+          totalIssued: 0, highestNumber: 0, cancelledNumbers: [],
+        });
+        continue;
+      }
+
+      const numbers: number[] = [];
+      const cancelledNumbers: string[] = [];
+
+      for (const inv of matching) {
+        const parts = inv.invoiceNumber.split('-');
+        const num = parseInt(parts[parts.length - 1], 10);
+        if (!isNaN(num)) {
+          numbers.push(num);
+          if (inv.status === 'cancelled') {
+            cancelledNumbers.push(inv.invoiceNumber);
+          }
+        }
+      }
+
+      if (numbers.length === 0) continue;
+
+      const highest = Math.max(...numbers);
+      const numberSet = new Set(numbers);
+      const missingNumbers: string[] = [];
+      for (let i = 1; i <= highest; i++) {
+        if (!numberSet.has(i)) {
+          missingNumbers.push(`${prefix}-${String(i).padStart(4, '0')}`);
+        }
+      }
+
+      gaps.push({
+        prefix, type, missingNumbers,
+        totalIssued: numbers.length, highestNumber: highest, cancelledNumbers,
+      });
+    }
+
+    res.json({ data: gaps });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /number-export - Export all invoice numbers with statuses
+router.get('/number-export', async (req, res, next) => {
+  try {
+    const allInvoices = await db
+      .select({
+        invoiceNumber: invoices.invoiceNumber,
+        status: invoices.status,
+        isTaxable: invoices.isTaxable,
+        clientName: clients.name,
+        issueDate: invoices.issueDate,
+        total: invoices.total,
+        currency: invoices.currency,
+        jofotaraStatus: invoices.jofotaraStatus,
+      })
+      .from(invoices)
+      .leftJoin(clients, eq(invoices.clientId, clients.id))
+      .orderBy(invoices.invoiceNumber);
+
+    res.json({ data: allInvoices });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /number-audit - Full audit trail across all invoices
+router.get('/number-audit', async (req, res, next) => {
+  try {
+    const changes = await db
+      .select({
+        id: invoiceNumberChanges.id,
+        invoiceId: invoiceNumberChanges.invoiceId,
+        oldNumber: invoiceNumberChanges.oldNumber,
+        newNumber: invoiceNumberChanges.newNumber,
+        reason: invoiceNumberChanges.reason,
+        invoiceStatus: invoiceNumberChanges.invoiceStatus,
+        changedBy: invoiceNumberChanges.changedBy,
+        createdAt: invoiceNumberChanges.createdAt,
+        userName: users.name,
+      })
+      .from(invoiceNumberChanges)
+      .leftJoin(users, eq(invoiceNumberChanges.changedBy, users.id))
+      .orderBy(desc(invoiceNumberChanges.createdAt))
+      .limit(100);
+
+    const data = changes.map((c) => ({
+      id: c.id,
+      invoiceId: c.invoiceId,
+      oldNumber: c.oldNumber,
+      newNumber: c.newNumber,
+      reason: c.reason,
+      invoiceStatus: c.invoiceStatus,
+      changedBy: c.changedBy,
+      user: c.changedBy ? { id: c.changedBy, name: c.userName || 'Unknown' } : null,
+      createdAt: c.createdAt,
+    }));
+
+    res.json({ data });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /bulk-resequence - Resequence draft invoices
+router.post(
+  '/bulk-resequence',
+  validate(bulkResequenceSchema),
+  async (req, res, next) => {
+    try {
+      const { type, startFrom } = req.body;
+
+      const result = await db.transaction(async (tx) => {
+        const [settingsRow] = await tx.select().from(settings).limit(1);
+        if (!settingsRow) {
+          throw Object.assign(new Error('Settings not found'), { status: 400 });
+        }
+
+        let prefix: string;
+        let isTaxableFilter: boolean | null = null;
+        let statusFilter = 'draft';
+
+        switch (type) {
+          case 'taxable':
+            prefix = settingsRow.invoicePrefix;
+            isTaxableFilter = true;
+            break;
+          case 'exempt':
+            prefix = settingsRow.exemptInvoicePrefix;
+            isTaxableFilter = false;
+            break;
+          case 'write_off':
+            prefix = settingsRow.writeOffPrefix;
+            statusFilter = 'written_off';
+            break;
+          default:
+            throw Object.assign(new Error('Invalid type'), { status: 400 });
+        }
+
+        const conditions = [eq(invoices.status, statusFilter)];
+        if (type === 'write_off') {
+          conditions.push(sql`${invoices.invoiceNumber} LIKE ${prefix + '-%'}`);
+        } else if (isTaxableFilter !== null) {
+          conditions.push(eq(invoices.isTaxable, isTaxableFilter));
+          conditions.push(sql`${invoices.invoiceNumber} LIKE ${prefix + '-%'}`);
+        }
+
+        const drafts = await tx.select().from(invoices)
+          .where(and(...conditions))
+          .orderBy(invoices.createdAt);
+
+        const draftOnly = type === 'write_off'
+          ? drafts
+          : drafts.filter((d) => d.status === 'draft');
+
+        if (draftOnly.length === 0) {
+          return { resequenced: 0 };
+        }
+
+        let nextNum = startFrom || 1;
+        const changes = [];
+
+        for (const draft of draftOnly) {
+          const newNumber = `${prefix}-${String(nextNum).padStart(4, '0')}`;
+          if (newNumber !== draft.invoiceNumber) {
+            const [existing] = await tx.select({ id: invoices.id })
+              .from(invoices)
+              .where(and(
+                eq(invoices.invoiceNumber, newNumber),
+                sql`${invoices.id} != ${draft.id}`,
+              ));
+
+            if (existing) { nextNum++; continue; }
+
+            await tx.update(invoices)
+              .set({ invoiceNumber: newNumber, updatedAt: new Date() })
+              .where(eq(invoices.id, draft.id));
+
+            await tx.insert(invoiceNumberChanges).values({
+              invoiceId: draft.id,
+              oldNumber: draft.invoiceNumber,
+              newNumber,
+              reason: 'Bulk resequence',
+              invoiceStatus: draft.status,
+              changedBy: (req as AuthRequest).userId,
+            });
+
+            changes.push({ invoiceId: draft.id, oldNumber: draft.invoiceNumber, newNumber });
+          }
+          nextNum++;
+        }
+
+        if (changes.length > 0) {
+          await tx.insert(activityLog).values({
+            entityType: 'invoice',
+            entityId: 0,
+            action: 'bulk_resequence',
+            description: `Bulk resequenced ${changes.length} ${type} invoices`,
+            metadata: { type, changes },
+            userId: (req as AuthRequest).userId,
+          });
+        }
+
+        return { resequenced: changes.length, changes };
+      });
+
+      res.json({ data: result });
+    } catch (err: any) {
+      if (err.status) {
+        res.status(err.status).json({ error: err.message });
+        return;
+      }
+      next(err);
+    }
+  },
+);
+
+// ====================================================================
+// PARAMETERIZED ROUTES (/:id)
+// ====================================================================
 
 // GET /:id - Get single invoice with line items and client
 router.get('/:id', async (req, res, next) => {
@@ -820,6 +1096,219 @@ router.post('/:id/remind', validate(sendEmailSchema), async (req, res, next) => 
     });
 
     res.json({ data: { message: 'Reminder sent successfully', emailId: emailResult.id } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ====================================================================
+// INVOICE NUMBER MANAGEMENT
+// ====================================================================
+
+// PATCH /:id/number - Edit invoice number with tiered validation
+router.patch(
+  '/:id/number',
+  validate(updateInvoiceNumberSchema),
+  async (req, res, next) => {
+    try {
+      const id = parseId(req, res);
+      if (id === null) return;
+      const { newNumber, reason } = req.body;
+
+      const result = await db.transaction(async (tx) => {
+        const [existing] = await tx.select().from(invoices)
+          .where(eq(invoices.id, id));
+
+        if (!existing) {
+          throw Object.assign(new Error('Invoice not found'), { status: 404 });
+        }
+
+        // Tier 1: written_off - block completely
+        if (existing.status === 'written_off') {
+          throw Object.assign(
+            new Error('Cannot edit the number of a written-off invoice.'),
+            { status: 400 },
+          );
+        }
+
+        // Tier 2: Jofotara submitted - block with explanation
+        if (existing.jofotaraStatus === 'submitted') {
+          throw Object.assign(
+            new Error(
+              'This invoice has been submitted to JoFotara (Jordan tax authority). '
+              + 'The invoice number is permanently locked because it is registered in the national e-invoicing system. '
+              + 'Changing it would create a mismatch between your records and the tax authority\'s records, '
+              + 'which could result in compliance issues or fines. '
+              + 'To correct this invoice, issue a Credit Note from the invoice detail page instead.',
+            ),
+            { status: 403, code: 'JOFOTARA_LOCKED' },
+          );
+        }
+
+        // Check uniqueness
+        if (newNumber !== existing.invoiceNumber) {
+          const [duplicate] = await tx.select({ id: invoices.id })
+            .from(invoices)
+            .where(eq(invoices.invoiceNumber, newNumber));
+
+          if (duplicate) {
+            throw Object.assign(
+              new Error(`Invoice number "${newNumber}" is already in use by another invoice.`),
+              { status: 409 },
+            );
+          }
+        } else {
+          // Same number, nothing to change
+          throw Object.assign(
+            new Error('New number is the same as the current number.'),
+            { status: 400 },
+          );
+        }
+
+        // Determine warning level for response
+        let warning: string | null = null;
+        if (existing.status !== 'draft') {
+          warning =
+            'This invoice has already been sent/processed. Changing the number will update it everywhere '
+            + 'in the system (payments, activity log, PDFs). Make sure your client and accountant are aware of this change.';
+        }
+
+        const oldNumber = existing.invoiceNumber;
+
+        // Update the invoice number
+        const [updated] = await tx.update(invoices)
+          .set({ invoiceNumber: newNumber, updatedAt: new Date() })
+          .where(eq(invoices.id, id))
+          .returning();
+
+        // Record in audit trail
+        await tx.insert(invoiceNumberChanges).values({
+          invoiceId: id,
+          oldNumber,
+          newNumber,
+          reason,
+          invoiceStatus: existing.status,
+          changedBy: (req as AuthRequest).userId,
+        });
+
+        // Activity log
+        await tx.insert(activityLog).values({
+          entityType: 'invoice',
+          entityId: id,
+          action: 'number_changed',
+          description: `Invoice number changed from ${oldNumber} to ${newNumber}. Reason: ${reason}`,
+          metadata: { oldNumber, newNumber, reason },
+          userId: (req as AuthRequest).userId,
+        });
+
+        return { updated, warning };
+      });
+
+      const invoice = await db.query.invoices.findFirst({
+        where: eq(invoices.id, result.updated.id),
+        with: { client: true, lineItems: true },
+      });
+
+      res.json({ data: invoice, warning: result.warning });
+    } catch (err: any) {
+      if (err.status) {
+        res.status(err.status).json({
+          error: err.message,
+          code: err.code || undefined,
+        });
+        return;
+      }
+      next(err);
+    }
+  },
+);
+
+// GET /:id/number-history - Get number change audit trail for an invoice
+router.get('/:id/number-history', async (req, res, next) => {
+  try {
+    const id = parseId(req, res);
+    if (id === null) return;
+
+    const changes = await db
+      .select({
+        id: invoiceNumberChanges.id,
+        invoiceId: invoiceNumberChanges.invoiceId,
+        oldNumber: invoiceNumberChanges.oldNumber,
+        newNumber: invoiceNumberChanges.newNumber,
+        reason: invoiceNumberChanges.reason,
+        invoiceStatus: invoiceNumberChanges.invoiceStatus,
+        changedBy: invoiceNumberChanges.changedBy,
+        createdAt: invoiceNumberChanges.createdAt,
+        userName: users.name,
+      })
+      .from(invoiceNumberChanges)
+      .leftJoin(users, eq(invoiceNumberChanges.changedBy, users.id))
+      .where(eq(invoiceNumberChanges.invoiceId, id))
+      .orderBy(desc(invoiceNumberChanges.createdAt));
+
+    const data = changes.map((c) => ({
+      id: c.id,
+      invoiceId: c.invoiceId,
+      oldNumber: c.oldNumber,
+      newNumber: c.newNumber,
+      reason: c.reason,
+      invoiceStatus: c.invoiceStatus,
+      changedBy: c.changedBy,
+      user: c.changedBy ? { id: c.changedBy, name: c.userName || 'Unknown' } : null,
+      createdAt: c.createdAt,
+    }));
+
+    res.json({ data });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /:id/edit-status - Check if invoice number can be edited and what warnings apply
+router.get('/:id/edit-status', async (req, res, next) => {
+  try {
+    const id = parseId(req, res);
+    if (id === null) return;
+
+    const [invoice] = await db.select({
+      id: invoices.id,
+      invoiceNumber: invoices.invoiceNumber,
+      status: invoices.status,
+      jofotaraStatus: invoices.jofotaraStatus,
+      jofotaraSubmittedAt: invoices.jofotaraSubmittedAt,
+    })
+      .from(invoices)
+      .where(eq(invoices.id, id));
+
+    if (!invoice) {
+      res.status(404).json({ error: 'Invoice not found' });
+      return;
+    }
+
+    let canEdit = true;
+    let level: 'free' | 'warning' | 'locked' = 'free';
+    let message: string | null = null;
+
+    if (invoice.status === 'written_off') {
+      canEdit = false;
+      level = 'locked';
+      message = 'Written-off invoices cannot be edited.';
+    } else if (invoice.jofotaraStatus === 'submitted') {
+      canEdit = false;
+      level = 'locked';
+      message =
+        'This invoice has been submitted to JoFotara (Jordan tax authority). '
+        + 'The invoice number is permanently locked because it is registered in the national e-invoicing system. '
+        + 'Changing it would create a mismatch between your records and the tax authority records. '
+        + 'To correct this invoice, issue a Credit Note instead.';
+    } else if (invoice.status !== 'draft') {
+      level = 'warning';
+      message =
+        'This invoice has already been sent or processed. Changing the number will update it everywhere '
+        + 'in the system. Make sure your client and accountant are aware of this change.';
+    }
+
+    res.json({ data: { canEdit, level, message } });
   } catch (err) {
     next(err);
   }

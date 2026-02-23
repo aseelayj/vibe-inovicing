@@ -181,6 +181,8 @@ export interface Settings {
   nextInvoiceNumber: number;
   exemptInvoicePrefix: string;
   nextExemptInvoiceNumber: number;
+  writeOffPrefix: string;
+  nextWriteOffNumber: number;
   quotePrefix: string;
   nextQuoteNumber: number;
   jofotaraClientId: string | null;
@@ -362,6 +364,29 @@ export interface PayrollEntry {
   bankAccountId: number | null;
   createdAt: string;
   updatedAt: string;
+}
+
+// ---- Invoice Number Change (Audit Trail) ----
+export interface InvoiceNumberChange {
+  id: number;
+  invoiceId: number;
+  oldNumber: string;
+  newNumber: string;
+  reason: string;
+  invoiceStatus: string;
+  changedBy: number | null;
+  user?: { id: number; name: string } | null;
+  createdAt: string;
+}
+
+// ---- Invoice Gap ----
+export interface InvoiceGap {
+  prefix: string;
+  type: 'taxable' | 'exempt' | 'write_off';
+  missingNumbers: string[];
+  totalIssued: number;
+  highestNumber: number;
+  cancelledNumbers: string[];
 }
 
 // ---- Dashboard ----

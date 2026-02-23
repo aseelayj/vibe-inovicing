@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { settings } from '../db/schema.js';
+import { settings, invoices } from '../db/schema.js';
 import { validate } from '../middleware/validate.js';
-import { updateSettingsSchema } from '@vibe/shared';
+import { updateSettingsSchema, updateSequenceSchema } from '@vibe/shared';
 import { encryptSettingsSecrets, decryptSettingsSecrets } from '../utils/crypto.js';
 
 const router = Router();
@@ -106,6 +106,72 @@ router.put('/', validate(updateSettingsSchema), async (req, res, next) => {
     decrypted.smtpPassword = maskSecret(decrypted.smtpPassword);
 
     res.json({ data: decrypted });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /validate-sequence - Validate sequence counter values before saving
+router.post('/validate-sequence', validate(updateSequenceSchema), async (req, res, next) => {
+  try {
+    const [settingsRow] = await db.select().from(settings).limit(1);
+    if (!settingsRow) {
+      res.json({ data: { warnings: [] } });
+      return;
+    }
+
+    const warnings: { field: string; message: string }[] = [];
+
+    // For each counter, check if setting it lower would cause duplicates
+    const checks = [
+      {
+        field: 'nextInvoiceNumber',
+        value: req.body.nextInvoiceNumber,
+        prefix: settingsRow.invoicePrefix,
+        label: 'Taxable Invoice',
+      },
+      {
+        field: 'nextExemptInvoiceNumber',
+        value: req.body.nextExemptInvoiceNumber,
+        prefix: settingsRow.exemptInvoicePrefix,
+        label: 'Exempt Invoice',
+      },
+      {
+        field: 'nextWriteOffNumber',
+        value: req.body.nextWriteOffNumber,
+        prefix: settingsRow.writeOffPrefix,
+        label: 'Write-Off',
+      },
+      {
+        field: 'nextQuoteNumber',
+        value: req.body.nextQuoteNumber,
+        prefix: settingsRow.quotePrefix,
+        label: 'Quote',
+      },
+    ];
+
+    for (const check of checks) {
+      if (check.value === undefined) continue;
+
+      // Find highest existing number for this prefix
+      const [result] = await db
+        .select({ maxNum: sql<string>`MAX(${invoices.invoiceNumber})` })
+        .from(invoices)
+        .where(sql`${invoices.invoiceNumber} LIKE ${check.prefix + '-%'}`);
+
+      if (result?.maxNum) {
+        const parts = result.maxNum.split('-');
+        const highest = parseInt(parts[parts.length - 1], 10);
+        if (!isNaN(highest) && check.value <= highest) {
+          warnings.push({
+            field: check.field,
+            message: `${check.label} counter (${check.value}) is at or below the highest existing number (${highest}). This may cause duplicate number errors when creating new invoices.`,
+          });
+        }
+      }
+    }
+
+    res.json({ data: { warnings } });
   } catch (err) {
     next(err);
   }
