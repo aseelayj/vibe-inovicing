@@ -23,6 +23,7 @@ docker stop "$CONTAINER_NAME" 2>/dev/null || true
 docker rm "$CONTAINER_NAME" 2>/dev/null || true
 
 echo "==> Starting new container..."
+# The entrypoint.sh runs drizzle-kit push automatically before starting the app
 docker run -d \
   --name "$CONTAINER_NAME" \
   --restart unless-stopped \
@@ -31,11 +32,8 @@ docker run -d \
   --env-file /root/.vibe-invoicing.env \
   "${IMAGE_NAME}:latest"
 
-echo "==> Running database migrations..."
-docker exec -w /app/server "$CONTAINER_NAME" npx drizzle-kit push
-
-echo "==> Waiting for app to start..."
-sleep 5
+echo "==> Waiting for schema push and app to start..."
+sleep 10
 
 # Health check
 if curl -sf -o /dev/null http://127.0.0.1:3001/; then

@@ -71,9 +71,13 @@ COPY --from=build /app/server/dist/ server/dist/
 # Copy client build
 COPY --from=build /app/client/dist/ client/dist/
 
+# Copy entrypoint script (runs drizzle-kit push then starts app)
+COPY server/entrypoint.sh /app/server/entrypoint.sh
+RUN chmod +x /app/server/entrypoint.sh
+
 ENV NODE_ENV=production
 ENV PORT=3001
 
 EXPOSE 3001
 
-CMD ["node", "server/dist/index.js"]
+CMD ["/app/server/entrypoint.sh"]
