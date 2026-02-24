@@ -512,33 +512,77 @@ Step 4 uses an atomic SQL increment, which is safe. However, if another payment 
 
 ## 12. Client-Side Flow Gaps
 
-### 12.1 No unsaved changes warning on invoice/quote forms
+### 12.1 No date range validation on invoices or quotes
 
-The invoice creation and editing forms (`client/src/pages/invoice-create-page.tsx`, `invoice-edit-page.tsx`) do not use `useBlocker`, `beforeunload`, or any navigation guard. Users can lose extensive form data by accidentally navigating away.
+**Files:** `shared/src/validation.ts:58-70, 79-89`
 
-### 12.2 No form auto-save or draft persistence
+The Zod schemas for both invoices and quotes validate `issueDate` and `dueDate` (or `expiryDate`) as independent `z.string().min(1)` fields. There is no cross-field validation ensuring:
+- Invoice `dueDate` is after `issueDate`
+- Quote `expiryDate` is after `issueDate`
+
+**Impact:** Users can create an invoice due before its issue date, or a quote that expires before it was created. Aging reports and overdue calculations produce incorrect results.
+
+### 12.2 Invoices can be created without a client
+
+**File:** `shared/src/validation.ts:59` — `clientId: z.number().int().positive().nullable().optional()`
+
+The validation schema allows `clientId` to be null or omitted. The invoice form's `ClientPicker` defaults to null. An invoice with no client cannot be sent, generates a broken PDF (no recipient address), and cannot be submitted to JoFotara.
+
+**Impact:** Orphaned invoices that serve no purpose and break downstream flows.
+
+### 12.3 Discount can exceed subtotal, producing negative totals
+
+**File:** `client/src/components/invoices/invoice-form.tsx:244-260`
+
+The discount input has `min="0"` but no maximum bound. The server-side validation (`shared/src/validation.ts:64`) also only checks `z.number().min(0)`. A user can enter a discount of $10,000 on a $500 invoice, producing a negative total and negative tax amount.
+
+**Impact:** Negative invoice totals have no business meaning without a credit note workflow. Financial reports will undercount revenue.
+
+### 12.4 Future-dated payments accepted without warning
+
+**File:** `client/src/pages/invoice-detail-page.tsx:128-137`
+
+The payment date input defaults to today but accepts any date, including dates years in the future. The server-side validation (`shared/src/validation.ts:97`) does not validate the date range either.
+
+**Impact:** Future-dated payments appear in cash-basis revenue reports before they actually occur, overstating current revenue.
+
+### 12.5 No unsaved changes warning on invoice/quote forms
+
+**Files:** `client/src/pages/invoice-create-page.tsx`, `invoice-edit-page.tsx`, `quote-edit-page.tsx`
+
+None of the form pages use `useBlocker`, `beforeunload`, or any navigation guard. Users can lose extensive form data by accidentally navigating away or closing the tab.
+
+### 12.6 No form auto-save or draft persistence
 
 Invoice and quote forms do not save drafts to localStorage or the server. A browser crash or accidental tab close loses all entered data.
 
-### 12.3 All routes eagerly loaded
+### 12.7 Role-based access not enforced in the UI
+
+**File:** `client/src/app.tsx:40-56`
+
+The `ProtectedRoute` component only checks `isAuthenticated` — it does not check user role. All navigation items, action buttons (delete, settings, team management), and pages are visible to all authenticated users regardless of role. An `accountant` sees the same UI as an `owner`. When server-side role checks reject an action, the user gets an unexpected API error.
+
+**Impact:** Confusing UX where buttons are visible but non-functional for certain roles.
+
+### 12.8 Invoice status update can desync UI and server
+
+**File:** `client/src/pages/invoice-detail-page.tsx:191-202`
+
+When updating invoice status, the code calls the API then invalidates React Query caches. If the API call fails, the `queryClient.invalidateQueries` is never reached but the user already clicked the button. The UI may show a stale status if the component doesn't properly handle the error state.
+
+### 12.9 Payment error handling leaves dialog in unclear state
+
+**File:** `client/src/pages/invoice-detail-page.tsx:171-178`
+
+When payment creation fails, the catch block is `// handled` (via a toast from the hook). However, the dialog stays open with the form data intact. If the user misses the error toast and clicks submit again, a duplicate payment could be recorded.
+
+### 12.10 All routes eagerly loaded
 
 **File:** `client/src/app.tsx:67-100`
 
 All 30+ page components are imported directly — no `React.lazy()` or route-based code splitting. The initial bundle includes every page.
 
 **Impact:** Slow initial load, especially on mobile or slow connections.
-
-### 12.4 Role-based access partially enforced
-
-The `ProtectedRoute` component checks authentication but the UI shows all navigation items to all roles. An `accountant` role user sees and can navigate to team management, settings, and other owner-only sections. Server-side role checks exist for some endpoints but not all.
-
-### 12.5 Invoice list search fires on every keystroke
-
-Search inputs on the invoice and client list pages likely trigger API requests on each keystroke without debouncing. This creates unnecessary server load and potential race conditions where an older response arrives after a newer one.
-
-### 12.6 Error states may leave forms in inconsistent state
-
-When a mutation (e.g., create payment, update invoice) fails, React Query's optimistic update may have already modified the local cache. While React Query handles rollback for properly configured optimistic updates, not all mutations in this codebase use optimistic updates consistently.
 
 ---
 
@@ -560,6 +604,8 @@ When a mutation (e.g., create payment, update invoice) fails, React Query's opti
 | **HIGH** | P&L mixes accrual and cash accounting | 9.4 |
 | **HIGH** | Salary reversal creates offsetting transaction | 8.1 |
 | **HIGH** | No double-entry accounting enforcement | 9.1 |
+| **HIGH** | Discount can exceed subtotal, producing negative totals | 12.3 |
+| **HIGH** | No date range validation (due date before issue date) | 12.1 |
 | **MEDIUM** | "Paid" status settable without actual payment | 1.3 |
 | **MEDIUM** | Recurring invoice not idempotent | 4.2 |
 | **MEDIUM** | Auto-send failure silently swallowed | 4.4 |
@@ -568,8 +614,12 @@ When a mutation (e.g., create payment, update invoice) fails, React Query's opti
 | **MEDIUM** | Payroll transactions not linked to source | 8.2 |
 | **MEDIUM** | Negative tax amounts possible | 5.2 |
 | **MEDIUM** | Income tax vs P&L expense definitions differ | 10.2 |
-| **LOW** | No unsaved changes warning on forms | 12.1 |
-| **LOW** | All routes eagerly loaded | 12.3 |
+| **MEDIUM** | Invoices can be created without a client | 12.2 |
+| **MEDIUM** | Future-dated payments accepted without warning | 12.4 |
+| **MEDIUM** | Role-based access not enforced in UI | 12.7 |
+| **MEDIUM** | Payment error handling may cause duplicate submissions | 12.9 |
+| **LOW** | No unsaved changes warning on forms | 12.5 |
+| **LOW** | All routes eagerly loaded | 12.10 |
 | **LOW** | Commitment expense estimation is approximate | 9.5 |
 | **LOW** | Mid-month payroll proration is rough | 8.3 |
 
