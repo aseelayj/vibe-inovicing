@@ -56,7 +56,7 @@ COPY shared/package.json shared/
 COPY server/package.json server/
 COPY client/package.json client/
 
-RUN npm ci --omit=dev && npm install --no-save drizzle-kit
+RUN npm ci --omit=dev && npm install --no-save drizzle-kit tsx
 
 # Copy shared compiled output (resolves @vibe/shared to dist/index.js at runtime)
 COPY --from=build /app/shared/dist/ shared/dist/
