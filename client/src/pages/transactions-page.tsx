@@ -47,11 +47,13 @@ import {
   useBatchCreateTransactions,
 } from '@/hooks/use-transactions';
 import { useBankAccounts } from '@/hooks/use-bank-accounts';
+import { useAccounts } from '@/hooks/use-accounts';
 import { formatCurrency, formatDate } from '@/lib/format';
 import {
   TRANSACTION_TYPES,
   TRANSACTION_CATEGORIES,
 } from '@vibe/shared';
+import type { Account } from '@vibe/shared';
 
 interface ParsedTransaction {
   date: string;
@@ -64,11 +66,13 @@ interface ParsedTransaction {
 
 function TransactionForm({
   bankAccounts,
+  coaAccounts,
   onSubmit,
   onCancel,
   isLoading,
 }: {
   bankAccounts: { id: number; name: string }[];
+  coaAccounts: Account[];
   onSubmit: (data: Record<string, unknown>) => void;
   onCancel: () => void;
   isLoading: boolean;
@@ -84,9 +88,12 @@ function TransactionForm({
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
+  const [accountId, setAccountId] = useState('');
   const [taxAmount, setTaxAmount] = useState('');
   const [supplierName, setSupplierName] = useState('');
   const [invoiceReference, setInvoiceReference] = useState('');
+
+  const activeCoaAccounts = coaAccounts.filter((a) => a.isActive);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,6 +105,7 @@ function TransactionForm({
       date,
       description,
       notes: notes || null,
+      accountId: accountId ? parseInt(accountId, 10) : null,
       taxAmount: taxAmount ? parseFloat(taxAmount) : null,
       supplierName: supplierName || null,
       invoiceReference: invoiceReference || null,
@@ -193,6 +201,23 @@ function TransactionForm({
           placeholder={t('descriptionPlaceholder')}
           required
         />
+      </div>
+      <div>
+        <label className="mb-1.5 block text-sm font-medium">
+          {t('coaAccount')}
+        </label>
+        <select
+          value={accountId}
+          onChange={(e) => setAccountId(e.target.value)}
+          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+        >
+          <option value="">{t('noAccount')}</option>
+          {activeCoaAccounts.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.code} - {a.name}
+            </option>
+          ))}
+        </select>
       </div>
       <div>
         <label className="mb-1.5 block text-sm font-medium">
@@ -525,6 +550,7 @@ export function TransactionsPage() {
     bankAccountId: accountFilter ? parseInt(accountFilter, 10) : undefined,
   });
   const { data: bankAccountsData } = useBankAccounts(true);
+  const { data: accountsData } = useAccounts();
   const createTransaction = useCreateTransaction();
   const deleteTransaction = useDeleteTransaction();
 
@@ -533,6 +559,7 @@ export function TransactionsPage() {
     id: a.id,
     name: a.name,
   }));
+  const coaAccounts = (Array.isArray(accountsData) ? accountsData : accountsData ?? []) as Account[];
 
   const handleCreate = async (formData: Record<string, unknown>) => {
     try {
@@ -660,6 +687,7 @@ export function TransactionsPage() {
                 <TableHead>{t('date')}</TableHead>
                 <TableHead>{t('description')}</TableHead>
                 <TableHead>{t('account')}</TableHead>
+                <TableHead>{t('coaAccount')}</TableHead>
                 <TableHead>{t('category')}</TableHead>
                 <TableHead className="text-end">
                   {tc('amount')}
@@ -678,6 +706,11 @@ export function TransactionsPage() {
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {txn.bankAccount?.name ?? '--'}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {txn.account
+                      ? `${txn.account.code} - ${txn.account.name}`
+                      : '--'}
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline" className="text-xs">
@@ -739,6 +772,7 @@ export function TransactionsPage() {
           </DialogHeader>
           <TransactionForm
             bankAccounts={bankAccounts}
+            coaAccounts={coaAccounts}
             onSubmit={handleCreate}
             isLoading={createTransaction.isPending}
             onCancel={() => setShowCreate(false)}

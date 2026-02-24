@@ -18,6 +18,7 @@ import type {
   AccountType,
   CommitmentCategory,
   CommitmentFrequency,
+  JournalEntryStatus,
 } from './constants.js';
 
 // ---- User ----
@@ -268,6 +269,8 @@ export interface Transaction {
   bankReference: string | null;
   bankSyncedAt: string | null;
   isFromBank: boolean;
+  accountId: number | null;
+  account?: Account | null;
   taxAmount: number | null;
   supplierName: string | null;
   invoiceReference: string | null;
@@ -844,6 +847,38 @@ export interface Account {
   isActive: boolean;
   isSystem: boolean;
   balance: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ---- Journal Entry ----
+export interface JournalEntryLine {
+  id: number;
+  journalEntryId: number;
+  accountId: number;
+  account?: Account;
+  description: string | null;
+  debit: number;
+  credit: number;
+  sortOrder: number;
+}
+
+export interface JournalEntryLineInput {
+  accountId: number;
+  description?: string | null;
+  debit: number;
+  credit: number;
+}
+
+export interface JournalEntry {
+  id: number;
+  entryNumber: string;
+  date: string;
+  description: string;
+  reference: string | null;
+  status: JournalEntryStatus;
+  notes: string | null;
+  lines?: JournalEntryLine[];
   createdAt: string;
   updatedAt: string;
 }

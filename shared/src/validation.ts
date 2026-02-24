@@ -19,6 +19,7 @@ import {
   COMMITMENT_CATEGORIES,
   COMMITMENT_FREQUENCIES,
   PRODUCT_TYPES,
+  JOURNAL_ENTRY_STATUSES,
 } from './constants.js';
 
 // Helper: transform empty strings to null for optional fields
@@ -245,6 +246,7 @@ export const createTransactionSchema = z.object({
   date: z.string().min(1),
   description: z.string().min(1, 'Description is required').max(500),
   notes: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
+  accountId: z.number().int().positive().nullable().optional(),
   taxAmount: z.number().min(0).nullable().optional(),
   supplierName: optionalString(255),
   invoiceReference: optionalString(255),
@@ -511,3 +513,28 @@ export const createProductSchema = z.object({
 });
 
 export const updateProductSchema = createProductSchema.partial();
+
+// ---- Journal Entry ----
+export const journalEntryLineSchema = z.object({
+  accountId: z.number().int().positive('Account is required'),
+  description: emptyToNull.pipe(z.string().max(500).nullable()).nullable().optional(),
+  debit: z.number().min(0).default(0),
+  credit: z.number().min(0).default(0),
+});
+
+export const createJournalEntrySchema = z.object({
+  date: z.string().min(1, 'Date is required'),
+  description: z.string().min(1, 'Description is required').max(500),
+  reference: optionalString(255),
+  notes: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
+  lines: z.array(journalEntryLineSchema).min(2, 'At least two lines required'),
+});
+
+export const updateJournalEntrySchema = z.object({
+  date: z.string().min(1).optional(),
+  description: z.string().min(1).max(500).optional(),
+  reference: optionalString(255),
+  notes: emptyToNull.pipe(z.string().nullable()).nullable().optional(),
+  status: z.enum(JOURNAL_ENTRY_STATUSES).optional(),
+  lines: z.array(journalEntryLineSchema).min(2).optional(),
+});

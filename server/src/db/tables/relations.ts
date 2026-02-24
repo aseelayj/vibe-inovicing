@@ -10,7 +10,7 @@ import { conversations, chatMessages } from './chat.js';
 import { users, activityLog } from './users.js';
 import { employees, payrollRuns, payrollEntries } from './payroll.js';
 import { partnerExpenseCategories, partnerExpenses } from './partners.js';
-import { accounts } from './accounting.js';
+import { accounts, journalEntries, journalEntryLines } from './accounting.js';
 
 // ---- Client Relations ----
 export const clientsRelations = relations(clients, ({ many }) => ({
@@ -139,6 +139,10 @@ export const transactionsRelations = relations(
       fields: [transactions.bankAccountId],
       references: [bankAccounts.id],
     }),
+    account: one(accounts, {
+      fields: [transactions.accountId],
+      references: [accounts.id],
+    }),
   }),
 );
 
@@ -243,4 +247,27 @@ export const accountsRelations = relations(accounts, ({ one, many }) => ({
     relationName: 'parentChild',
   }),
   children: many(accounts, { relationName: 'parentChild' }),
+  journalEntryLines: many(journalEntryLines),
+  transactions: many(transactions),
 }));
+
+export const journalEntriesRelations = relations(
+  journalEntries,
+  ({ many }) => ({
+    lines: many(journalEntryLines),
+  }),
+);
+
+export const journalEntryLinesRelations = relations(
+  journalEntryLines,
+  ({ one }) => ({
+    journalEntry: one(journalEntries, {
+      fields: [journalEntryLines.journalEntryId],
+      references: [journalEntries.id],
+    }),
+    account: one(accounts, {
+      fields: [journalEntryLines.accountId],
+      references: [accounts.id],
+    }),
+  }),
+);

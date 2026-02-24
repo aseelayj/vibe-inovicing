@@ -17,6 +17,7 @@
   "description": "Description",
   "category": "Category",
   "account": "Account",
+  "coaAccount": "COA Account",
   "type": "Type",
   "income": "Income",
   "expenses": "Expenses",

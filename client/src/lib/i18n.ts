@@ -22,6 +22,7 @@ import partnerExpensesEn from '@/locales/en/partner-expenses.json';
 import chartOfAccountsEn from '@/locales/en/chart-of-accounts.json';
 import commitmentsEn from '@/locales/en/commitments.json';
 import productsEn from '@/locales/en/products.json';
+import journalEntriesEn from '@/locales/en/journal-entries.json';
 
 import commonAr from '@/locales/ar/common.json';
 import navAr from '@/locales/ar/nav.json';
@@ -43,6 +44,7 @@ import partnerExpensesAr from '@/locales/ar/partner-expenses.json';
 import chartOfAccountsAr from '@/locales/ar/chart-of-accounts.json';
 import commitmentsAr from '@/locales/ar/commitments.json';
 import productsAr from '@/locales/ar/products.json';
+import journalEntriesAr from '@/locales/ar/journal-entries.json';
 
 i18n
   .use(LanguageDetector)
@@ -70,6 +72,7 @@ i18n
         'chart-of-accounts': chartOfAccountsEn,
         commitments: commitmentsEn,
         products: productsEn,
+        'journal-entries': journalEntriesEn,
       },
       ar: {
         common: commonAr,
@@ -92,6 +95,7 @@ i18n
         'chart-of-accounts': chartOfAccountsAr,
         commitments: commitmentsAr,
         products: productsAr,
+        'journal-entries': journalEntriesAr,
       },
     },
     fallbackLng: 'en',

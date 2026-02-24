@@ -33,6 +33,7 @@ import { EmployeesPage } from '@/pages/employees-page';
 import { EmployeeDetailPage } from '@/pages/employee-detail-page';
 import { PartnerExpensesPage } from '@/pages/partner-expenses-page';
 import { ChartOfAccountsPage } from '@/pages/chart-of-accounts-page';
+import { JournalEntriesPage } from '@/pages/journal-entries-page';
 import { CommitmentsPage } from '@/pages/commitments-page';
 import { ProductsPage } from '@/pages/products-page';
 import { NotFoundPage } from '@/pages/not-found-page';
@@ -89,6 +90,7 @@ export function App() {
         <Route path="payroll/employees/:id" element={<EmployeeDetailPage />} />
         <Route path="partner-expenses" element={<PartnerExpensesPage />} />
         <Route path="chart-of-accounts" element={<ChartOfAccountsPage />} />
+        <Route path="journal-entries" element={<JournalEntriesPage />} />
         <Route path="commitments" element={<CommitmentsPage />} />
         <Route path="products" element={<ProductsPage />} />
         <Route path="tax-reports" element={<TaxReportsPage />} />
