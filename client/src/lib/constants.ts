@@ -66,6 +66,7 @@ export const NAV_ITEMS = [
   { labelKey: 'bankAccounts', path: '/bank-accounts', icon: 'Landmark' },
   { labelKey: 'transactions', path: '/transactions', icon: 'ArrowLeftRight' },
   { labelKey: 'chartOfAccounts', path: '/chart-of-accounts', icon: 'BookOpen' },
+  { labelKey: 'journalEntries', path: '/journal-entries', icon: 'BookText' },
   { labelKey: 'payroll', path: '/payroll', icon: 'Wallet' },
   { labelKey: 'commitments', path: '/commitments', icon: 'CalendarClock' },
   { labelKey: 'partnerExpenses', path: '/partner-expenses', icon: 'Handshake' },

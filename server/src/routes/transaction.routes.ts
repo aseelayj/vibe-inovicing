@@ -62,7 +62,7 @@ router.get('/', async (req, res, next) => {
 
     const result = await db.query.transactions.findMany({
       where,
-      with: { bankAccount: true },
+      with: { bankAccount: true, account: true },
       orderBy: [desc(transactions.date), desc(transactions.createdAt)],
       limit: size,
       offset,
@@ -87,7 +87,7 @@ router.get('/:id', async (req, res, next) => {
     if (id === null) return;
     const result = await db.query.transactions.findFirst({
       where: eq(transactions.id, id),
-      with: { bankAccount: true },
+      with: { bankAccount: true, account: true },
     });
 
     if (!result) {
@@ -109,7 +109,7 @@ router.post(
     try {
       const {
         bankAccountId, type, category, amount, date, description, notes,
-        taxAmount, supplierName, invoiceReference,
+        accountId, taxAmount, supplierName, invoiceReference,
       } = req.body;
 
       // Verify account exists
@@ -130,6 +130,7 @@ router.post(
           date,
           description,
           notes,
+          accountId: accountId ?? null,
           taxAmount: taxAmount != null ? String(taxAmount) : null,
           supplierName: supplierName ?? null,
           invoiceReference: invoiceReference ?? null,

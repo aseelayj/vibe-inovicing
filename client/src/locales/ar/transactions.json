@@ -17,6 +17,7 @@
   "description": "الوصف",
   "category": "الفئة",
   "account": "الحساب",
+  "coaAccount": "حساب دليل الحسابات",
   "type": "النوع",
   "income": "دخل",
   "expenses": "مصروفات",

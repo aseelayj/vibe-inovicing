@@ -25,7 +25,7 @@ export {
   partnerEmployees,
   partnerSskEntries,
 } from './tables/partners.js';
-export { accounts, commitments } from './tables/accounting.js';
+export { accounts, commitments, journalEntries, journalEntryLines } from './tables/accounting.js';
 export { products } from './tables/products.js';
 
 // Relations
@@ -54,4 +54,6 @@ export {
   partnerExpenseCategoriesRelations,
   partnerExpensesRelations,
   accountsRelations,
+  journalEntriesRelations,
+  journalEntryLinesRelations,
 } from './tables/relations.js';

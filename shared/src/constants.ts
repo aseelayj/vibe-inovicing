@@ -53,6 +53,10 @@ export const DEFAULT_CHART_OF_ACCOUNTS = [
   { code: '5990', name: 'Other Expenses', nameAr: 'مصروفات أخرى', type: 'expense' as const, parentCode: '5000' },
 ];
 
+// ---- Journal Entry ----
+export const JOURNAL_ENTRY_STATUSES = ['draft', 'posted'] as const;
+export type JournalEntryStatus = typeof JOURNAL_ENTRY_STATUSES[number];
+
 // ---- Commitments (Recurring Expenses) ----
 export const COMMITMENT_CATEGORIES = [
   'rent', 'electricity', 'water', 'internet', 'phone',
