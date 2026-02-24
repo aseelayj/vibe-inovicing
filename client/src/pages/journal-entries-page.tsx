@@ -86,7 +86,7 @@ function JournalEntryForm({
   };
 
   const updateLine = (idx: number, field: keyof LineInput, value: string) => {
-    setLines(lines.map((l, i) => (i === idx ? { ...l, [field]: value } : l)));
+    setLines(prev => prev.map((l, i) => (i === idx ? { ...l, [field]: value } : l)));
   };
 
   const totalDebit = lines.reduce((sum, l) => sum + (parseFloat(l.debit) || 0), 0);
